@@ -1,0 +1,2 @@
+- More layout engines (e.g. Grid, Spiral)
+- Independent per-monitor layout sizing (master width/count, scrolling column width)

@@ -1,0 +1,12 @@
+# Nix build results
+result
+result-*
+
+# direnv
+.direnv/
+
+# website build artifacts (the site has its own .gitignore too)
+website/dist/
+website/.astro/
+website/node_modules/
+website/.wrangler/
