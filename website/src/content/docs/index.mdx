@@ -1,0 +1,67 @@
+---
+title: KWin Tiling
+description: Native dynamic tiling patched into KWin — overview and design.
+---
+
+import Shipped from '../../fragments/shipped.md';
+
+Native KWin tiling — master-stack, stacked, scrolling and centred layouts, gaps,
+float/ignore window rules, and a settings KCM — built **into** KWin.
+
+## Overview
+
+The tiling feature was extracted from
+[theblack-don/kwin-we](https://github.com/theblack-don/kwin-we) (the KineticWE
+fork) but deliberately **not forked as a full compositor**.
+
+Instead it ships as a small `overrideAttrs` + `hooks.patch` (edits to stock KWin
+only) plus vendored new source under `pkgs/kwin-tiling/src/`. This is "patching
+and extending" rather than forking.
+
+### Why reuse KWin instead of forking a new compositor?
+
+- Fewer issues: all upstream KWin fixes, Wayland protocol work, multi-monitor
+  handling, security updates, and Plasma integration come for free.
+- Lower maintenance: a nixpkgs `kdePackages.kwin` bump only requires re-testing
+  the (small) patch surface — no rebasing an entire renamed compositor.
+- Native performance and the full KWin tile manager / quicktile / input
+  machinery underneath the layout engines.
+
+### What we dropped from the fork
+
+Only the dynamic-tiling feature was cherry-picked:
+
+- Binary rename + full KineticWE compositor rebrand
+- Distro install scripts and custom build hacks
+- Hand-rolled window borders and integrated rounded corners
+
+For rounded corners (and focus outlines on frameless/CSD windows) use the
+separate, maintained
+[`kde-rounded-corners`](https://github.com/matinlotfali/KDE-Rounded-Corners) KWin
+effect instead. This keeps the compositor itself clean and upstream.
+
+<Shipped />
+
+## Patching vs forking (why this stays small)
+
+- **Less forking, more patching**: only a targeted `hooks.patch` touches existing
+  KWin files (CMake wiring, input, workspace, window, useractions, tiles). All
+  new logic lives as normal source copied in at build time.
+- **Reusing stock KWin**: the compositor binary, protocol support, output
+  management, and most of the windowing stack remain the upstream
+  `kdePackages.kwin`. We only add `TilingController` + `LayoutEngine`s on top.
+- **Fewer downstream bugs**: anything fixed in Plasma/KWin (multi-output virtual
+  desktops, interactive move/resize output tracking, Wayland surface output
+  assignment, …) automatically benefits us.
+- **Packaging stays upstream-friendly**: no binary rename, no custom toolchain,
+  no distro-specific hacks — a normal `nixos-rebuild` / flake switch builds the
+  overlay.
+
+## See also
+
+- [Features](features)
+- [Usage & Shortcuts](usage)
+- [Roadmap](roadmap)
+
+For source, packaging, and implementation notes see `pkgs/kwin-tiling/` and its
+`README.md`.

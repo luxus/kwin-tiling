@@ -1,0 +1,23 @@
+---
+title: Roadmap
+description: What's shipped and what's still open for native KWin tiling.
+---
+
+import Shipped from '../../fragments/shipped.md';
+import Open from '../../fragments/open.md';
+
+Most of the original roadmap has shipped. The lists below come from the reusable
+fragments (`src/fragments/shipped.md` and `open.md`).
+
+## Shipped
+
+<Shipped />
+
+## Open
+
+<Open />
+
+These are nice-to-haves, not blockers:
+
+- **Retile / reset**: a command to rebuild the layout when windows and tiles get out of sync.
+- **Independent per-monitor sizing**: master width/count and the scrolling column width are currently global — per-monitor overrides already cover layout + gaps.

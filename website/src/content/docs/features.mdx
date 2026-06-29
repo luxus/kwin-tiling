@@ -1,0 +1,65 @@
+---
+title: Features
+description: Shipped features in the native KWin tiling implementation.
+---
+
+import Shipped from '../../fragments/shipped.md';
+
+# Shipped Features
+
+These features are implemented and available when the `kwin-tiling` module is composed onto a host.
+
+The shipped list below is included at build time from the reusable fragment `src/fragments/shipped.md`.
+
+<Shipped />
+
+## Core layouts and engine
+
+The implementation introduces an abstract LayoutEngine with concrete MasterStack and Stacked engines attached to KWin's per-desktop TileManager roots.
+
+### Additions and extensions beyond the original fork
+
+While the tiling foundation came from kwin-we, we added or completed:
+
+- Configurable **master count** (multiple primary windows) with keyboard, KCM, and persistence.
+- Full **per-window height weights** inside a column, including mouse-driven resize via horizontal splitters (previously keyboard-only or missing in the integration).
+- Master ratio/size with live drag + persistence.
+- Significant robustness work: ghost-tile prevention on minimal/same-spot drags, improved cross-monitor behavior, and consistent `pruneEmpty` after layout changes.
+- The clean "patch + vendored source" packaging model (no full fork).
+- Live KCM application: gaps, master count and master ratio now take effect immediately (no logout). Per-monitor overrides are applied directly to running engines.
+- Per-monitor KCM UX: clear indication when a monitor uses global defaults vs. has overrides, plus a reset button to clear custom per-output values.
+
+See the [Overview](/) for the design rationale and what we dropped from the fork.
+
+## Gaps and geometry
+
+Gap support was generalized from uniform padding to explicit between-tile gaps and per-edge margins, propagated through the tile tree and applied at geometry calculation time.
+
+## Window management rules
+
+TilingRules (class/title ignores and float rules for utilities, dialogs, transients) are loaded from kwinrc and consulted on window add to decide tiled vs. floating placement.
+
+## User interaction implementation
+
+The TilingController integrates with KWin's interactive move and resize paths to support:
+- leaf swaps on drag + cursor-position-aware drop / insert
+- master/stack divider drag for ratio
+- horizontal splitter drags inside columns for per-window height (derives weights from final geometry, same model as keyboard)
+
+Because we patch + reuse stock KWin (instead of forking the whole compositor), we inherit upstream improvements to move/resize tracking (e.g. pointer-driven `moveResizeOutput` during interactive ops) and only add the controller-side logic on top.
+
+## Config and UI
+
+Settings (enabled layouts, default, master ratio/count, gaps, per-output overrides + reset button in the KCM) are exposed in a dedicated KCM and persisted in the [Tiling] kwinrc group. Live changes (keys or drag) write back.
+
+## Autotile and stability
+
+Desktop and output changes trigger the controller to place new or moved windows according to the active engine for that (output, desktop). Focus follows the moved window.
+
+## Key behaviors implemented
+
+- Controller singleton on Workspace reacts to window add/remove, desktop/output changes, and reconfigure.
+- Engines own leaf creation and relative geometry; KWin's Tile machinery applies final placement and gaps.
+- State (ratio, count, layout kind) is per the current engine but written to kwinrc for persistence across restarts.
+
+See [Roadmap](/roadmap/) for the full open items and tracking (open list also comes from the reusable fragments).

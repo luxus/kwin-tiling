@@ -1,0 +1,12 @@
+- MasterStack, Stacked, Scrolling, Centered layouts; per-output layout + cycle
+- Gaps (between + margins, per-output overrides)
+- Float/ignore window rules (match by app class or window title) + utility/dialog/transient auto-float
+- Focus left/right/up/down, toggle-float, promote-to-master, move next/prev, move-to-output
+- Drag-to-swap; tabbed tiling KCM in System Settings
+- Patch split into vendored src + small hooks.patch
+- Desktop/monitor-move autotile + focus-follow
+- Master ratio + master count: keyboard (Meta+Ctrl+L/H, Meta+Ctrl+./,), persisted, live in the KCM
+- Interactive resize: drag the master/stack divider to set the ratio; other edges snap back
+- Per-leaf height weights + full mouse vertical resize inside columns
+- Smart gaps (0 when single window)
+- Per-monitor overrides added on demand in the KCM (layout + gaps), with reset-to-defaults

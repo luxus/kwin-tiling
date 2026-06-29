@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<kcfg xmlns="http://www.kde.org/standards/kcfg/1.0"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xsi:schemaLocation="http://www.kde.org/standards/kcfg/1.0
+      http://www.kde.org/standards/kcfg/1.0/kcfg.xsd" >
+  <kcfgfile name="kwinrc"/>
+  <group name="Tiling">
+    <entry name="enabled" key="Enabled" type="Bool">
+      <label>Whether native tiling is enabled</label>
+      <default>true</default>
+    </entry>
+    <entry name="defaultLayout" key="DefaultLayout" type="String">
+      <label>Default layout used for new (output, desktop) pairs that do not have a per-monitor override. One of "MasterStack", "Stacked", or "Scrolling".</label>
+      <default>MasterStack</default>
+    </entry>
+    <entry name="enabledLayouts" key="EnabledLayouts" type="StringList">
+      <label>Layouts the user wants available for cycleLayout() and setLayout(). The list order also determines the cycle order.</label>
+      <default code="true">QStringList{QStringLiteral("MasterStack"), QStringLiteral("Stacked"), QStringLiteral("Scrolling"), QStringLiteral("Centered")}</default>
+    </entry>
+    <entry name="masterRatio" key="MasterRatio" type="Double">
+      <label>Fraction of the screen width used by the master area in MasterStack</label>
+      <default>0.5</default>
+      <min>0.1</min>
+      <max>0.9</max>
+    </entry>
+    <entry name="defaultColumnWidth" key="DefaultColumnWidth" type="Double">
+      <label>Default width of a new column in the Scrolling layout, as a fraction of the view (0.5 = two columns fit, 0.333 = three).</label>
+      <default>0.5</default>
+      <min>0.1</min>
+      <max>1.0</max>
+    </entry>
+    <entry name="masterCount" key="MasterCount" type="Int">
+      <label>Number of windows in the master area in MasterStack</label>
+      <default>1</default>
+      <min>1</min>
+      <max>10</max>
+    </entry>
+    <entry name="floatAbove" key="FloatAbove" type="Bool">
+      <label>Keep floating windows stacked above tiled windows</label>
+      <default>true</default>
+    </entry>
+    <entry name="gapLeft" key="GapLeft" type="Int">
+      <label>Gap between the left screen edge and tiles</label>
+      <default>0</default>
+      <min>0</min>
+      <max>1000</max>
+    </entry>
+    <entry name="gapRight" key="GapRight" type="Int">
+      <label>Gap between the right screen edge and tiles</label>
+      <default>0</default>
+      <min>0</min>
+      <max>1000</max>
+    </entry>
+    <entry name="gapTop" key="GapTop" type="Int">
+      <label>Gap between the top screen edge and tiles</label>
+      <default>0</default>
+      <min>0</min>
+      <max>1000</max>
+    </entry>
+    <entry name="gapBottom" key="GapBottom" type="Int">
+      <label>Gap between the bottom screen edge and tiles</label>
+      <default>0</default>
+      <min>0</min>
+      <max>1000</max>
+    </entry>
+    <entry name="gapBetween" key="GapBetween" type="Int">
+      <label>Gap between adjacent tiles</label>
+      <default>0</default>
+      <min>0</min>
+      <max>1000</max>
+    </entry>
+  </group>
+  <group name="TilingRules">
+    <!-- The float/ignore match lists (FloatingClass, FloatingTitle, IgnoreClass,
+         IgnoreTitle) are managed by TilingRulesModel in the KCM, not as kcfg
+         entries, so a single rule table can edit all four. -->
+    <entry name="floatUtility" key="FloatUtility" type="Bool">
+      <label>Whether utility windows should float</label>
+      <default>true</default>
+    </entry>
+    <entry name="floatDialog" key="FloatDialog" type="Bool">
+      <label>Whether dialog windows should float</label>
+      <default>true</default>
+    </entry>
+    <entry name="floatTransient" key="FloatTransient" type="Bool">
+      <label>Whether transient windows should float</label>
+      <default>true</default>
+    </entry>
+    <entry name="alwaysTileClasses" key="AlwaysTileClass" type="StringList">
+      <label>Window classes that should always tile (#121)</label>
+    </entry>
+    <entry name="stackedClasses" key="StackedClass" type="StringList">
+      <label>Window classes that should use stacked layout (#121)</label>
+    </entry>
+  </group>
+</kcfg>
