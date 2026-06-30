@@ -1,4 +1,4 @@
-name = "kwin-tiling-docs"
+name = "kwin-tiling"
 pages_build_output_dir = "dist"
 
 # After first deploy you can manage most settings in the Cloudflare dashboard.
