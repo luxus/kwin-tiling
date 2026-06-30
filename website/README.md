@@ -21,7 +21,8 @@ npm run build      # static build into dist/
 
 ## Deploy
 
-Cloudflare Pages builds from Git on push to `main`. In the project settings:
+Cloudflare Pages builds from Git on push to `main`. In the project settings
+(**Settings → Builds**):
 
 | Setting | Value |
 | --- | --- |
@@ -29,5 +30,15 @@ Cloudflare Pages builds from Git on push to `main`. In the project settings:
 | Build command | `npm run build` |
 | Build output directory | `dist` |
 | Framework preset | Astro |
+| Deploy command | *(leave empty)* |
 
-No `wrangler.toml` or deploy command — Pages uploads `dist/` after the build.
+Pages uploads `dist/` automatically after a successful build. Do **not** use
+`npx wrangler pages deploy` here — that is for manual/CLI uploads and needs API
+token permissions this project does not use.
+
+### If you see a wrangler deploy error
+
+Errors like `Must specify a directory of assets to deploy` or
+`Authentication error [code: 10000]` mean a **deploy command** is still set to
+`npx wrangler pages deploy`. Clear that field; keep the **build command** as
+`npm run build`.
