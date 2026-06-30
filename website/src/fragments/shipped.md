@@ -1,12 +1,10 @@
-- MasterStack, Stacked, Scrolling, Centered layouts; per-output layout + cycle
-- Gaps (between + margins, per-output overrides)
-- Float/ignore window rules (match by app class or window title) + utility/dialog/transient auto-float
-- Focus left/right/up/down, toggle-float, promote-to-master, move next/prev, move-to-output
-- Drag-to-swap; tabbed tiling KCM in System Settings
-- Patch split into vendored src + small hooks.patch
-- Desktop/monitor-move autotile + focus-follow
-- Master ratio + master count: keyboard (Meta+Ctrl+L/H, Meta+Ctrl+./,), persisted, live in the KCM
-- Interactive resize: drag the master/stack divider to set the ratio; other edges snap back
-- Per-leaf height weights + full mouse vertical resize inside columns
-- Smart gaps (0 when single window)
-- Per-monitor overrides added on demand in the KCM (layout + gaps), with reset-to-defaults
+- **Layouts** — MasterStack, Stacked, Scrolling, and Centered; pick a default per monitor, cycle at runtime
+- **Gaps** — adjustable space between tiles and around screen edges; per-monitor overrides with reset
+- **Window rules** — float or ignore windows by app class or title; utilities, dialogs, and transients auto-float
+- **Keyboard** — focus in four directions, toggle float, promote to master, move within layout, move across monitors, adjust master width/count
+- **Mouse** — drag windows to swap or insert; drag dividers to resize master ratio and per-window heights inside a column
+- **Settings KCM** — enable layouts, gaps, master ratio/count, and per-monitor overrides in *System Settings → Window Management → Tiling*; changes apply live
+- **Autotile** — new windows tile automatically; moving between desktops or monitors reflows and follows focus
+- **Persistence** — master ratio, master count, and layout choices survive restarts via `kwinrc`
+- **Smart gaps** — gaps collapse to zero when only one window is on screen
+- **Packaging** — vendored source + small hooks patch over stock KWin; ships as a Nix flake module/overlay

@@ -3,65 +3,76 @@ title: KWin Tiling
 description: Native dynamic tiling patched into KWin — overview and design.
 ---
 
-import Shipped from '../../fragments/shipped.md';
+Dynamic tiling for KDE Plasma — master-stack, stacked, scrolling, and centred
+layouts, adjustable gaps, float/ignore rules, and a settings panel — built
+**into** stock KWin, not as a separate compositor.
 
-Native KWin tiling — master-stack, stacked, scrolling and centred layouts, gaps,
-float/ignore window rules, and a settings KCM — built **into** KWin.
+## What is this?
 
-## Overview
+KWin Tiling adds automatic window tiling to the compositor you already run. New
+windows snap into a layout; you move, resize, and float them with keyboard
+shortcuts and the mouse. Everything is configured through *System Settings* and
+persists across restarts.
 
-The tiling feature was extracted from
+The tiling logic started in
 [theblackdon/kineticwe](https://gitlab.com/theblackdon/kineticwe) (the KineticWE
-fork) but deliberately **not forked as a full compositor**.
+fork). This project takes **only** that feature and ships it as a small patch
+on top of upstream KWin.
 
-Instead it ships as a small `overrideAttrs` + `hooks.patch` (edits to stock KWin
-only) plus vendored new source under `pkgs/kwin-tiling/src/`. This is "patching
-and extending" rather than forking.
+## Patch, don't fork
 
-### Why reuse KWin instead of forking a new compositor?
+Instead of maintaining a renamed compositor fork, we patch stock `kdePackages.kwin`:
 
-- Fewer issues: all upstream KWin fixes, Wayland protocol work, multi-monitor
-  handling, security updates, and Plasma integration come for free.
-- Lower maintenance: a nixpkgs `kdePackages.kwin` bump only requires re-testing
-  the (small) patch surface — no rebasing an entire renamed compositor.
-- Native performance and the full KWin tile manager / quicktile / input
-  machinery underneath the layout engines.
+- **New code** lives as normal source files under `pkgs/kwin-tiling/src/` and is
+  copied into the KWin tree at build time.
+- **Existing KWin files** are changed through a small `hooks.patch` (~750 lines)
+  — CMake wiring, input hooks, workspace/window integration.
 
-### What we dropped from the fork
+That keeps the compositor binary, protocol support, multi-monitor handling, and
+Plasma integration identical to upstream. When KDE fixes a bug in KWin, you get
+it automatically. On a nixpkgs bump you only re-test the patch surface, not an
+entire fork.
 
-Only the dynamic-tiling feature was cherry-picked:
+## What we dropped from KineticWE
 
-- Binary rename + full KineticWE compositor rebrand
+We cherry-picked the tiling feature and left the rest behind:
+
+- Binary rename and full KineticWE compositor rebrand
 - Distro install scripts and custom build hacks
-- Hand-rolled window borders and integrated rounded corners
+- Hand-rolled window borders and built-in rounded corners
 
-For rounded corners (and focus outlines on frameless/CSD windows) use the
-separate, maintained
-[`kde-rounded-corners`](https://github.com/matinlotfali/KDE-Rounded-Corners) KWin
-effect instead. This keeps the compositor itself clean and upstream.
+For rounded corners and focus outlines on frameless windows, use the separate
+[`kde-rounded-corners`](https://github.com/matinlotfali/KDE-Rounded-Corners)
+effect instead.
 
-<Shipped />
+## What we shipped
 
-## Patching vs forking (why this stays small)
+Beyond what KineticWE had, we completed several pieces (master count, mouse
+resize inside columns, live KCM changes, cross-monitor robustness) and packaged
+it cleanly for NixOS.
 
-- **Less forking, more patching**: only a targeted `hooks.patch` touches existing
-  KWin files (CMake wiring, input, workspace, window, useractions, tiles). All
-  new logic lives as normal source copied in at build time.
-- **Reusing stock KWin**: the compositor binary, protocol support, output
-  management, and most of the windowing stack remain the upstream
-  `kdePackages.kwin`. We only add `TilingController` + `LayoutEngine`s on top.
-- **Fewer downstream bugs**: anything fixed in Plasma/KWin (multi-output virtual
-  desktops, interactive move/resize output tracking, Wayland surface output
-  assignment, …) automatically benefits us.
-- **Packaging stays upstream-friendly**: no binary rename, no custom toolchain,
-  no distro-specific hacks — a normal `nixos-rebuild` / flake switch builds the
-  overlay.
+At a glance:
 
-## See also
+- **Four layout modes** — master-stack, stacked, scrolling, and centred
+- **Gaps** — space between tiles and around the screen edge, per-monitor overrides
+- **Window rules** — float or ignore apps by class/title; dialogs auto-float
+- **Full control** — keyboard shortcuts, drag-to-swap, divider resize, settings KCM
+- **Nix packaging** — flake module and overlay; no compositor fork to maintain
 
-- [Features](features)
-- [Usage & Shortcuts](usage)
-- [Roadmap](roadmap)
+See [Features](features) for the full breakdown of each layout, rule, and
+improvement.
 
-For source, packaging, and implementation notes see `pkgs/kwin-tiling/` and its
-`README.md`.
+## Get started
+
+Add the flake module to a NixOS host that should run tiling:
+
+```nix
+imports = [ inputs.kwin-tiling.nixosModules.kwin-tiling ];
+```
+
+Enable tiling in `~/.config/kwinrc` (`[Tiling] Enabled=true`) or in *System
+Settings → Window Management → Tiling*. Shortcuts and daily use are covered on
+the [Usage & Shortcuts](usage) page.
+
+For packaging details and source layout, see `pkgs/kwin-tiling/README.md` in the
+repository.

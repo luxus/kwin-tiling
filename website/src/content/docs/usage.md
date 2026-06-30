@@ -1,90 +1,117 @@
 ---
 title: Usage & Shortcuts
-description: Keyboard shortcuts, KCM, gaps, configuration, and daily use of native KWin tiling.
+description: Keyboard shortcuts, settings panel, and daily use of native KWin tiling.
 ---
 
-All shortcuts are registered in KWin and rebindable via *System Settings → Shortcuts → KWin*.
+All shortcuts are registered as KWin actions. Rebind them in *System Settings
+→ Shortcuts → KWin*.
 
 ## Default shortcuts
 
-| Action                              | Default binding                  |
-|-------------------------------------|----------------------------------|
-| Focus left/right/up/down            | `Meta+Left/Right/Up/Down`        |
-| Toggle floating                     | `Meta+W`                         |
-| Promote to master                   | `Meta+Shift+Space`               |
-| Move window prev/next in layout     | `Meta+Shift+Left/Right`          |
-| Move window to left/right output    | `Meta+Shift+Ctrl+Left/Right`     |
-| Increase / decrease master width    | `Meta+Ctrl+L` / `Meta+Ctrl+H`    |
-| Increase / decrease master count    | `Meta+Ctrl+.` / `Meta+Ctrl+,`    |
-| Cycle layout                        | (unbound)                        |
-| Switch to MasterStack / Stacked     | (unbound)                        |
+| Action | Default binding |
+| --- | --- |
+| Focus left / right / up / down | `Meta+Left` / `Meta+Right` / `Meta+Up` / `Meta+Down` |
+| Toggle floating | `Meta+W` |
+| Promote to master | `Meta+Shift+Space` |
+| Move window prev / next in layout | `Meta+Shift+Left` / `Meta+Shift+Right` |
+| Move window to left / right monitor | `Meta+Shift+Ctrl+Left` / `Meta+Shift+Ctrl+Right` |
+| Increase / decrease master width | `Meta+Ctrl+L` / `Meta+Ctrl+H` |
+| Increase / decrease master count | `Meta+Ctrl+.` / `Meta+Ctrl+,` |
+| Retile (rebuild current screen) | `Meta+Shift+R` |
+| Cycle layout | *(unbound)* |
+| Switch to MasterStack / Stacked / Scrolling | *(unbound)* |
+| Reset sizes | *(unbound)* |
+| Toggle zoom (monocle) | *(unbound)* |
+| Flip master side / Toggle gaps | *(unbound)* |
 
-Mouse:
+KGlobalAccel only applies a default when the shortcut is free **and** the
+action is new in your profile. If an action was previously unbound, assign it
+once in Settings (or remove its stale entry from `kglobalshortcutsrc`).
 
-- Drag the **master/stack divider** to set the master ratio interactively.
-- Drag a tiled window onto another to swap positions.
-- Drag **horizontal borders inside a column** to resize individual window heights (MasterStack only; updates per-leaf weights).
-- Other edges / unsupported resizes reflow/snap back.
+## Mouse
 
-## KCM / Settings
+- Drag the **master/stack divider** to set the master column width
+- Drag a tiled window **onto another** to swap positions
+- Drag **onto empty space** to insert the window at that position
+- Drag **horizontal borders inside a column** to resize individual window heights
+- Drag **vertical borders in Scrolling** to resize the active column width
+- Unsupported resize directions snap back
 
-A dedicated tiling KCM lives at:
+Right-click a window for **Float (Tiling)** (this window) or **Always Float This
+App (Tiling)** (permanent class rule).
+
+## Settings panel
 
 *System Settings → Window Management → Tiling*
 
-Controls (from `tilingsettings.kcfg`):
+| Setting | What it does |
+| --- | --- |
+| Enable tiling | Global on/off switch |
+| Available layouts | Which layouts appear in the cycle (MasterStack, Stacked, Scrolling, Centered) |
+| Default layout | Layout used on new monitor/desktop pairs |
+| Master width | Master column as a fraction of screen width (0.1–0.9) |
+| Master count | How many windows sit in the master area |
+| Default column width | Scrolling layout: width of new columns |
+| Gap margins | Left, right, top, bottom screen margins |
+| Gap between | Space between adjacent tiles |
+| Per-output overrides | Different layout or gap values per monitor |
 
-- Enable tiling (global master switch)
-- Available layouts (MasterStack, Stacked checkboxes)
-- Default layout
-- Master width (%)
-- Master count
-- Gap margins (Left/Right/Top/Bottom)
-- Gap between tiles
-- Per-output subgroups for overrides (the KCM shows a "Reset all per-monitor overrides" button to clear custom values)
+Per-monitor overrides can be reset with the **Reset all per-monitor overrides**
+button in the KCM.
 
-Settings live in `~/.config/kwinrc` under the `[Tiling]` group.
+Settings are stored in `~/.config/kwinrc` under `[Tiling]`:
 
-Example keys:
+```ini
+[Tiling]
+Enabled=true
+DefaultLayout=MasterStack
+EnabledLayouts=MasterStack,Stacked,Scrolling
+MasterRatio=0.5
+MasterCount=1
+GapBetween=4
+GapLeft=8
+```
 
-- `Enabled=true`
-- `DefaultLayout=MasterStack`
-- `EnabledLayouts=MasterStack,Stacked`
-- `MasterRatio=0.5`
-- `MasterCount=1`
-- `GapBetween=4`
-- `GapLeft=8` etc.
-- Output-specific under `[Tiling][Output HDMI-1]` etc.
+Per-monitor values live under `[Tiling][Output <name>]` subgroups.
 
-## Automatic behavior
+## Layouts in practice
 
-- Tiling is enabled by default once the module is active.
-- New windows are automatically tiled according to the active layout engine for the (output, desktop).
-- Moving windows between desktops or outputs triggers autotile + focus follow.
-- Layout state (master count/ratio) persists via kwinrc writes.
+- **MasterStack** — one or more primary windows on one side, the rest stacked on
+  the other. Best for a main app plus side apps.
+- **Stacked** — single column, full width, windows stacked vertically.
+- **Scrolling** — horizontal strip of columns; viewport scrolls to the active one.
+- **Centered** — master window in the centre, others in left/right stacks.
 
-## Layouts
+Cycle between enabled layouts with the cycle action, or set a default in the KCM.
 
-- **MasterStack**: one (or N) primary column(s) + a vertical stack on the side.
-- **Stacked**: a single full-width column; windows stacked vertically.
-- **Scrolling**: PaperWM/niri-style horizontal strip of columns with a scrolling viewport.
-- **Centered**: master centred, the rest split into left/right stack columns.
+## Automatic behaviour
 
-Cycle between enabled layouts with the cycle action (or pick a default in the KCM).
+- Tiling is on by default once the module is active
+- New windows tile into the layout for their monitor and desktop
+- Moving between desktops or monitors retiles and moves focus with the window
+- Master ratio, master count, and layout choices persist across restarts
 
-## Packaging / activation
+## Packaging
 
-Consume the flake and compose the module onto a host:
+Consume the flake and compose the module onto hosts that should run tiling:
 
-- `nixosModules.kwin-tiling` — applies the overlay (replaces `kdePackages.kwin` with the patched build) for that host.
-- `overlays.default` / `packages.<sys>.kwin-tiling` — the overlay and package if you'd rather wire them yourself.
-- Compose only onto hosts that want tiling — patching kwin rebuilds the compositor and its reverse-deps.
+```nix
+imports = [ inputs.kwin-tiling.nixosModules.kwin-tiling ];
+```
 
-## Limitations (current)
+Or use the overlay / package directly:
 
-- Master ratio is currently a single value (not per-desktop or per-output).
-- Divider drag with non-zero gaps is approximate.
+```nix
+nixpkgs.overlays = [ inputs.kwin-tiling.overlays.default ];
+```
 
-See the [Overview](/) for the full "patching vs forking" notes. Per-leaf height weights inside columns are implemented (mouse + keyboard).
+Patching KWin rebuilds the compositor and its reverse-dependencies — only
+enable on hosts that actually want native tiling. A binary cache for this repo is
+strongly recommended.
 
-For authoritative maintenance notes see the KWin source and packaging in `pkgs/kwin-tiling` (see [Overview](/)).
+## Current limitations
+
+- Master ratio is one global value, not per-monitor or per-desktop
+- Divider drag gives an approximate ratio when gaps are non-zero
+
+See [Roadmap](roadmap) for planned improvements.

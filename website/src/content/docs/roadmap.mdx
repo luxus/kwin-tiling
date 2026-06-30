@@ -1,23 +1,24 @@
 ---
 title: Roadmap
-description: What's shipped and what's still open for native KWin tiling.
+description: What's still open for native KWin tiling.
 ---
 
-import Shipped from '../../fragments/shipped.md';
 import Open from '../../fragments/open.md';
 
-Most of the original roadmap has shipped. The lists below come from the reusable
-fragments (`src/fragments/shipped.md` and `open.md`).
+Most of the original plan has shipped. See [Features](features) for the full
+list of what's available today.
 
-## Shipped
-
-<Shipped />
-
-## Open
+## Still open
 
 <Open />
 
-These are nice-to-haves, not blockers:
+## Known limitations
 
-- **Retile / reset**: a command to rebuild the layout when windows and tiles get out of sync.
-- **Independent per-monitor sizing**: master width/count and the scrolling column width are currently global — per-monitor overrides already cover layout + gaps.
+These are current constraints, not future work items:
+
+- **Master ratio is global** — one value shared across engines, not yet
+  per-monitor or per-desktop
+- **Divider drag with gaps** — the ratio you get from dragging the master/stack
+  divider is approximate when gaps are non-zero
+- **Per-app rules are partial** — always-tile and per-app layout assignment
+  exist in `TilingRules` but aren't fully exposed in the KCM yet
