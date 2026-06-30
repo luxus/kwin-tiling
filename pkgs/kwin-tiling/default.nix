@@ -1,13 +1,13 @@
 # Upstream KWin + native dynamic tiling.
 #
-# Split for maintainability (see GH #123): the brand-new tiling code lives as
+# Split for maintainability: the brand-new tiling code lives as
 # real source under ./src (mirroring kwin's own src/ layout) and is copied into
 # the build tree in postPatch; hooks.patch carries ONLY the edits to existing
 # kwin files plus the CMake wiring. That keeps the rebase surface (the patch)
 # small and the bulk of the feature reviewable as normal source.
 #
-# Origin: the tiling feature was extracted from github.com/theblack-don/kwin-we
-# (the "KineticWE" fork), minus its binary rename, distro/toolchain hacks,
+# Origin: the tiling feature was extracted from gitlab.com/theblackdon/kineticwe
+# (the KineticWE fork), minus its binary rename, distro/toolchain hacks,
 # hand-rolled window borders, and built-in rounded corners (we use the separate
 # pkgs.kde-rounded-corners effect instead — see README.md).
 #

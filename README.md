@@ -67,7 +67,7 @@ files are additive and rarely conflict; the hooks into
 ## Origin
 
 The tiling feature was extracted from
-[theblack-don/kwin-we](https://github.com/theblack-don/kwin-we) (the "KineticWE"
+[theblackdon/kineticwe](https://gitlab.com/theblackdon/kineticwe) (the KineticWE
 fork), curated down to just the dynamic-tiling feature — minus the binary
 rename, distro/toolchain hacks, and hand-rolled borders/rounded corners. For
 rounded corners use the separate
