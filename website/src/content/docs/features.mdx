@@ -1,65 +1,164 @@
 ---
 title: Features
-description: Shipped features in the native KWin tiling implementation.
+description: Everything shipped in the native KWin tiling implementation.
 ---
 
 import Shipped from '../../fragments/shipped.md';
 
-# Shipped Features
+Everything below is available when the `kwin-tiling` module is enabled on a
+host. The checklist is the quick reference; the sections explain how each part
+works in practice.
 
-These features are implemented and available when the `kwin-tiling` module is composed onto a host.
-
-The shipped list below is included at build time from the reusable fragment `src/fragments/shipped.md`.
+## At a glance
 
 <Shipped />
 
-## Core layouts and engine
+## Layouts
 
-The implementation introduces an abstract LayoutEngine with concrete MasterStack and Stacked engines attached to KWin's per-desktop TileManager roots.
+Four layout engines place windows on each monitor and virtual desktop. You pick
+a default in the KCM, cycle at runtime, or override per monitor.
 
-### Additions and extensions beyond the original fork
+### MasterStack
 
-While the tiling foundation came from KineticWE, we added or completed:
+The classic tiling layout: one or more **master** windows on the left (or right,
+depending on configuration) and a **stack** of remaining windows on the other
+side. Good for a primary app plus several smaller ones alongside it.
 
-- Configurable **master count** (multiple primary windows) with keyboard, KCM, and persistence.
-- Full **per-window height weights** inside a column, including mouse-driven resize via horizontal splitters (previously keyboard-only or missing in the integration).
-- Master ratio/size with live drag + persistence.
-- Significant robustness work: ghost-tile prevention on minimal/same-spot drags, improved cross-monitor behavior, and consistent `pruneEmpty` after layout changes.
-- The clean "patch + vendored source" packaging model (no full fork).
-- Live KCM application: gaps, master count and master ratio now take effect immediately (no logout). Per-monitor overrides are applied directly to running engines.
-- Per-monitor KCM UX: clear indication when a monitor uses global defaults vs. has overrides, plus a reset button to clear custom per-output values.
+- Set how many master windows you want (master count)
+- Adjust the master column width with keyboard shortcuts or by dragging the divider
+- Resize individual window heights inside either column by dragging horizontal splitters
 
-See the [Overview](/) for the design rationale and what we dropped from the fork.
+### Stacked
 
-## Gaps and geometry
+All windows share one full-width column, stacked vertically. Every window gets
+the same width; you control height per window. Simple and predictable when you
+mostly work in one column.
 
-Gap support was generalized from uniform padding to explicit between-tile gaps and per-edge margins, propagated through the tile tree and applied at geometry calculation time.
+### Scrolling
 
-## Window management rules
+A horizontal strip of columns — similar to PaperWM or niri's scrolling model. The
+viewport scrolls to show the active column. New windows open in new columns;
+you can resize column widths and move windows between columns.
 
-TilingRules (class/title ignores and float rules for utilities, dialogs, transients) are loaded from kwinrc and consulted on window add to decide tiled vs. floating placement.
+### Centered
 
-## User interaction implementation
+The active (master) window sits in the centre. Remaining windows split into left
+and right stack columns. Useful when you want the focused window front and
+centre.
 
-The TilingController integrates with KWin's interactive move and resize paths to support:
-- leaf swaps on drag + cursor-position-aware drop / insert
-- master/stack divider drag for ratio
-- horizontal splitter drags inside columns for per-window height (derives weights from final geometry, same model as keyboard)
+### Per-monitor layout
 
-Because we patch + reuse stock KWin (instead of forking the whole compositor), we inherit upstream improvements to move/resize tracking (e.g. pointer-driven `moveResizeOutput` during interactive ops) and only add the controller-side logic on top.
+Each output can use a different default layout and gap settings. The KCM shows
+whether a monitor uses global defaults or has its own overrides, with a button
+to reset per-monitor customisations.
 
-## Config and UI
+## Gaps and spacing
 
-Settings (enabled layouts, default, master ratio/count, gaps, per-output overrides + reset button in the KCM) are exposed in a dedicated KCM and persisted in the [Tiling] kwinrc group. Live changes (keys or drag) write back.
+Gaps control empty space around and between tiles:
 
-## Autotile and stability
+- **Between tiles** — uniform gap between adjacent windows
+- **Screen edges** — separate margins on left, right, top, and bottom
+- **Per-monitor** — override gap values for individual outputs
 
-Desktop and output changes trigger the controller to place new or moved windows according to the active engine for that (output, desktop). Focus follows the moved window.
+When only one window is visible in a layout, gaps automatically collapse to zero
+(smart gaps) so you get full use of the screen.
 
-## Key behaviors implemented
+## Window rules
 
-- Controller singleton on Workspace reacts to window add/remove, desktop/output changes, and reconfigure.
-- Engines own leaf creation and relative geometry; KWin's Tile machinery applies final placement and gaps.
-- State (ratio, count, layout kind) is per the current engine but written to kwinrc for persistence across restarts.
+Not every window should tile. Rules decide what happens when a window opens:
 
-See [Roadmap](/roadmap/) for the full open items and tracking (open list also comes from the reusable fragments).
+- **Float** — keep a window (or an entire app class) floating above the tiled
+  layer. Toggle per-window with `Meta+W` or set a permanent class rule from the
+  window context menu.
+- **Ignore** — exclude windows from tiling entirely (matched by app class or
+  window title).
+- **Auto-float** — utility windows, dialogs, and transient pop-ups float
+  automatically so they don't break your layout.
+
+Rules are stored in `kwinrc` and evaluated when windows are added.
+
+## Keyboard control
+
+All shortcuts are standard KWin actions — rebind them in *System Settings →
+Shortcuts → KWin*. Defaults:
+
+| Action | Default |
+| --- | --- |
+| Focus left / right / up / down | `Meta+Arrow keys` |
+| Toggle floating | `Meta+W` |
+| Promote to master | `Meta+Shift+Space` |
+| Move window prev / next in layout | `Meta+Shift+Left/Right` |
+| Move window to left / right monitor | `Meta+Shift+Ctrl+Left/Right` |
+| Increase / decrease master width | `Meta+Ctrl+L` / `Meta+Ctrl+H` |
+| Increase / decrease master count | `Meta+Ctrl+.` / `Meta+Ctrl+,` |
+
+Several actions (cycle layout, switch to a specific layout, reset sizes, toggle
+zoom, flip master side, toggle gaps) ship unbound — assign them once in
+Settings if you want them. See [Usage & Shortcuts](usage) for the full table and
+mouse interactions.
+
+## Mouse control
+
+- **Drag a window onto another** — swap their positions in the layout
+- **Drag onto empty space** — insert the window there (master side vs stack side
+  depends on where you drop)
+- **Drag the master/stack divider** — change the master column width; the value
+  is saved to `kwinrc`
+- **Drag horizontal borders inside a column** — resize individual window heights;
+  works in MasterStack, Stacked, and Scrolling
+
+Dragging a window only a few pixels and releasing in the same spot won't leave
+behind a ghost tile — the controller cancels the move and cleans up empty leaves.
+
+## Settings panel (KCM)
+
+*System Settings → Window Management → Tiling* exposes:
+
+- Global enable/disable
+- Which layouts are available and which is the default
+- Master width (ratio) and master count
+- Gap values (between tiles and per-edge margins)
+- Per-monitor overrides for layout and gaps
+
+Changes take effect immediately — no logout required. The KCM writes to the
+`[Tiling]` group in `~/.config/kwinrc`. Master ratio and count adjusted via
+keyboard or mouse are also persisted automatically.
+
+## Autotile and focus
+
+When tiling is enabled:
+
+- New windows are placed into the active layout for their monitor and desktop
+- Moving a window to another desktop or monitor removes it from the old layout,
+  retiles on the new one, and moves focus with it
+- Floating windows stay above tiled ones when `FloatAbove` is enabled
+
+## Improvements beyond KineticWE
+
+The core tiling idea came from KineticWE, but this integration adds and
+completes several things:
+
+- **Master count** — control how many windows sit in the master area (keyboard,
+  KCM, and persistence)
+- **Per-window height weights** — resize heights inside a column with both
+  keyboard and mouse (KineticWE had limited or keyboard-only support here)
+- **Live KCM** — gap, master ratio, and master count changes apply without
+  restarting the session
+- **Cross-monitor robustness** — moving windows between outputs no longer leaves
+  phantom tiles; empty leaves are pruned after structural changes
+- **Clean packaging** — vendored source plus a small patch over stock KWin,
+  shipped as a Nix flake module instead of a full compositor fork
+
+## How it fits together
+
+At runtime a `TilingController` listens for windows opening, closing, moving
+between desktops or monitors, and interactive drag/resize events. For each
+monitor and virtual desktop it picks a **layout engine** (MasterStack, Stacked,
+etc.) that calculates where each window should sit.
+
+The engines set relative positions on KWin's tile tree; KWin's own tile
+machinery handles the actual window geometry, gap application, and rendering.
+This is why patching upstream KWin works — we add layout logic on top of
+infrastructure that already exists.
+
+For what's still planned, see [Roadmap](roadmap).

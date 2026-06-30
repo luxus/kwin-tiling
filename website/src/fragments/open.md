@@ -1,2 +1,3 @@
-- More layout engines (e.g. Grid, Spiral)
-- Independent per-monitor layout sizing (master width/count, scrolling column width)
+- **More layouts** — grid, spiral, and other layout engines
+- **Per-monitor sizing** — independent master width, master count, and scrolling column width (layout and gaps already support per-monitor overrides)
+- **Retile / reset** — one-shot command to rebuild the layout when tiles and windows drift out of sync
