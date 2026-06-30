@@ -7,8 +7,8 @@ the ceiling of the KWin script API.
 **Source of truth:** `pkgs/kwin-tiling/` (the package). The flake exposes it as
 `packages.<sys>.kwin-tiling`, `overlays.default`, and `nixosModules.kwin-tiling`.
 Origin of the C++: the tiling feature of
-[github.com/theblack-don/kwin-we](https://github.com/theblack-don/kwin-we) (the
-"KineticWE" fork), curated down to just the feature.
+[gitlab.com/theblackdon/kineticwe](https://gitlab.com/theblackdon/kineticwe) (the
+KineticWE fork), curated down to just the feature.
 
 ## How it's packaged
 
@@ -133,21 +133,18 @@ the new compositor on their next rebuild/switch once they track this flake.
 
 ## Known limitations / backlog
 
-Tracked under the [`tiling`](https://github.com/luxus/luxusAi/labels/tiling)
-label; roadmap is #124.
-
 - Master ratio is one global value applied to the active engine (not yet
   per-output/per-desktop).
 - Divider-drag ratio is approximate when gaps are non-zero.
-- Per-app rules partial (always-tile + layout assign via TilingRules); #121.
+- Per-app rules partial (always-tile + layout assign via TilingRules).
 - Directional focus/move continue onto the adjacent monitor at a layout edge.
-- Smart gaps (#120) basic (0 when <=1 window); manual on/off toggle available.
-- Configurable new-window placement: #129 (postponed).
-- Open features: more layouts (#116).
+- Smart gaps basic (0 when <=1 window); manual on/off toggle available.
+- Configurable new-window placement (postponed).
+- Open features: more layouts.
 
-## Collaboration with kwin-we (theblack-don)
+## Collaboration with KineticWE (theblackdon)
 
-This vendoring started from https://github.com/theblack-don/kwin-we. We took the
+This vendoring started from https://gitlab.com/theblackdon/kineticwe. We took the
 best of both:
 - Adopted the core multi-monitor move fix (pointer-driven moveResizeOutput +
   Wayland output pinning during interactive move, see commit aa26550).
@@ -174,12 +171,10 @@ The core tiling logic came from the fork, but we added or completed several thin
   - Better cross-output and per-output-virtual-desktop move behavior (combined fork's prevention with our drop/swap logic).
   - Defensive `pruneEmpty` calls after structural changes.
 - Smart gaps (zero gaps when ≤1 window in a layout).
-- The packaging split itself (#123): vendored new source + tiny hooks.patch so we don't carry a full fork.
+- The packaging split itself: vendored new source + tiny hooks.patch so we don't carry a full fork.
 - Per-output layout choice + cycle, and the full TilingController integration with KWin's move/resize/desktop signals.
 - KCM settings (gaps, master count, master ratio) now apply live on reload without logout or session restart. Changes are pushed to existing engines and trigger reflow immediately.
 - Per-monitor (per-output) override UI in the KCM now clearly distinguishes global defaults from custom values per monitor, with a "Reset all per-monitor overrides" button to clear them.
-
-Many of these are tracked in our issues (e.g. #115, #117, #118, #120, #123) and listed in the shipped features.
 
 See the shipped list and roadmap for the complete current status.
 
@@ -187,7 +182,7 @@ See the shipped list and roadmap for the complete current status.
 
 We took **only the tiling feature**, not the full KineticWE compositor experience:
 
-- Binary rename (kwin-we / kineticwe) — we keep the stock `kwin_wayland` binary.
+- Binary rename (kineticwe) — we keep the stock `kwin_wayland` binary.
 - All distro install scripts and packaging hacks (install-*.sh etc.).
 - Toolchain / build system changes.
 - Hand-rolled window borders and rounded corners (the fork baked custom corner/outline logic directly into the compositor).
