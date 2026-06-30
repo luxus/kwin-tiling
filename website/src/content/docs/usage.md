@@ -44,6 +44,14 @@ App (Tiling)** (permanent class rule).
 
 *System Settings → Window Management → Tiling*
 
+**Layout & Gaps** — defaults for every monitor, plus per-output overrides:
+
+![Layout and gap settings with per-monitor overrides](/images/kcm-layout-gaps.webp)
+
+**Rules** — float or ignore windows by app class or title:
+
+![Float and ignore rules for apps and windows](/images/kcm-rules.webp)
+
 | Setting | What it does |
 | --- | --- |
 | Enable tiling | Global on/off switch |
