@@ -14,6 +14,8 @@ See the docs site under `website/` (Overview / Features / Usage / Roadmap) for
 the full feature list and shortcuts, and `pkgs/kwin-tiling/README.md` for
 implementation/maintenance notes.
 
+![Tiled desktop with master-stack and stacked layouts across two monitors](website/public/images/desktop-tiling-demo.webp)
+
 ## Use it from your flake
 
 ```nix
