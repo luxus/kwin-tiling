@@ -21,5 +21,13 @@ npm run build      # static build into dist/
 
 ## Deploy
 
-Cloudflare Pages (`wrangler.toml` → project `kwin-tiling-docs`,
-`pages_build_output_dir = dist`). Build, then `wrangler pages deploy dist`.
+Cloudflare Pages builds from Git on push to `main`. In the project settings:
+
+| Setting | Value |
+| --- | --- |
+| Root directory | `website` |
+| Build command | `npm run build` |
+| Build output directory | `dist` |
+| Framework preset | Astro |
+
+No `wrangler.toml` or deploy command — Pages uploads `dist/` after the build.
