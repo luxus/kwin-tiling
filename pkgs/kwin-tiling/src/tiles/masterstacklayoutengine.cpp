@@ -75,16 +75,7 @@ const StackColumn *MasterStackLayoutEngine::columnFor(SideColumn side) const
 
 void MasterStackLayoutEngine::attach(RootTile *root)
 {
-    if (root) {
-        const QList<Tile *> existingChildren = root->childTiles();
-        for (Tile *child : existingChildren) {
-            if (CustomTile *custom = qobject_cast<CustomTile *>(child)) {
-                root->destroyChild(custom);
-            }
-        }
-        root->setLayoutDirection(Tile::LayoutDirection::Floating);
-        root->setRelativeGeometry(RectF(0, 0, 1, 1));
-    }
+    takeOwnershipOfRoot(root);
     if (isCentered()) {
         m_left.setRoot(root);
         m_center.setRoot(root);
@@ -592,8 +583,7 @@ Window *MasterStackLayoutEngine::primaryWindow() const
     if (isCentered()) {
         return m_center.windowAt(0);
     }
-    const QList<Window *> ws = m_column.windows();
-    return ws.isEmpty() ? nullptr : ws.first();
+    return LayoutEngine::primaryWindow();
 }
 
 Window *MasterStackLayoutEngine::windowInDirection(Window *from, FocusDirection direction) const

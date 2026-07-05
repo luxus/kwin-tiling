@@ -133,7 +133,11 @@ public:
     /**
      * Returns the primary/master window for this layout, or nullptr if empty.
      */
-    virtual Window *primaryWindow() const = 0;
+    virtual Window *primaryWindow() const
+    {
+        const QList<Window *> ws = windows();
+        return ws.isEmpty() ? nullptr : ws.first();
+    }
 
     /**
      * Primary-split control: the master/stack ratio and master-window count.
@@ -243,6 +247,12 @@ protected:
      * the engine proceeds with its normal layout.
      */
     bool reflowZoomed(const QList<CustomTile *> &allLeaves);
+
+    /**
+     * Take full ownership of @p root: drop any pre-existing default-layout
+     * children and make it a plain floating container the engine drives.
+     */
+    void takeOwnershipOfRoot(RootTile *root);
 
     QPointer<Window> m_zoomedWindow;
 };

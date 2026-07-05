@@ -48,7 +48,6 @@ public:
     bool endResizeWindow(Window *window, const RectF &area) override;
 
     QList<Window *> windows() const override;
-    Window *primaryWindow() const override;
     Window *windowInDirection(Window *from, FocusDirection direction) const override;
 
 private:
