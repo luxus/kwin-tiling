@@ -64,12 +64,14 @@ in *System Settings → Shortcuts → KWin*.
 | Focus left/right/up/down | `Meta+Arrows` |
 | Toggle floating | `Meta+W` |
 | Promote to master | `Meta+Shift+Space` |
+| Toggle master pin | `Meta+S` |
 | Move window prev/next in layout | `Meta+Shift+Left/Right` |
 | Move window to left/right output | `Meta+Shift+Ctrl+Left/Right` |
 | Increase / decrease master width | `Meta+Ctrl+L` / `Meta+Ctrl+H` |
 | Increase / decrease window height | `Meta+Ctrl+K` / `Meta+Ctrl+J` |
 | Increase / decrease master count | `Meta+Ctrl+.` / `Meta+Ctrl+,` |
 | Retile (rebuild current screen) | `Meta+Shift+R` |
+| Focus last window | `Meta+U` |
 | Cycle layout / Switch to MasterStack / Stacked / Scrolling | unbound |
 | Reset sizes (master ratio + heights / column widths) | unbound |
 | Toggle zoom (monocle: active window full-screen) | unbound |
@@ -106,6 +108,7 @@ Read by the controller on `reconfigure`; also surfaced in the KCM
 | `MasterCount` | int | `1` | windows in the master area |
 | `DefaultColumnWidth` | double | `0.5` | Scrolling: new column width fraction (0.1–1.0) |
 | `FloatAbove` | bool | `true` | keep floating windows stacked above tiled ones |
+| `BorderlessWhenTiled` | bool | `false` | hide window decorations on tiled windows |
 | `GapLeft/Right/Top/Bottom` | int | `0` | outer gaps |
 | `GapBetween` | int | `0` | gap between tiles |
 | `Output <name>` subgroup | — | — | per-monitor `DefaultLayout` + gap overrides |
