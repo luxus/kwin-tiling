@@ -73,9 +73,9 @@ public:
     void expelWindow() override;
 
     void adjustWindowHeight(Window *window, qreal delta) override;
-    bool endResizeWindow(Window *window, const RectF &area) override;
 
 private:
+    bool applyResize(Window *window, const RectF &area, bool widthChanged, bool heightChanged) override;
     struct Column
     {
         StackColumn stack;  // the vertical stack of windows in this column

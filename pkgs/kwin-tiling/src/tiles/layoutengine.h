@@ -168,15 +168,11 @@ public:
     /**
      * Interactive-resize support. The user finished resizing @p window; the
      * engine reinterprets its new geometry (within work area @p area) as a
-     * change to its own splits and reflows. Returns true if it adjusted a
-     * split (false lets the caller fall back to a plain reflow / snap-back).
+     * change to its own splits and reflows. @p startGeometry is the window's
+     * frame geometry at resize-start. Returns true if it adjusted a split
+     * (false lets the caller fall back to a plain reflow / snap-back).
      */
-    virtual bool endResizeWindow(Window *window, const RectF &area)
-    {
-        Q_UNUSED(window)
-        Q_UNUSED(area)
-        return false;
-    }
+    bool endResizeWindow(Window *window, const RectF &area, const RectF &startGeometry);
 
     /**
      * Directional focus support. Returns the window in the requested direction
@@ -253,6 +249,20 @@ protected:
      * children and make it a plain floating container the engine drives.
      */
     void takeOwnershipOfRoot(RootTile *root);
+
+    /**
+     * Engine-specific resize back-solve. Called by endResizeWindow() after
+     * shared guards and per-axis change detection (@p widthChanged /
+     * @p heightChanged, 2px threshold vs. @p startGeometry).
+     */
+    virtual bool applyResize(Window *window, const RectF &area, bool widthChanged, bool heightChanged)
+    {
+        Q_UNUSED(window)
+        Q_UNUSED(area)
+        Q_UNUSED(widthChanged)
+        Q_UNUSED(heightChanged)
+        return false;
+    }
 
     QPointer<Window> m_zoomedWindow;
 };

@@ -45,12 +45,13 @@ public:
     void pruneEmpty() override;
 
     void adjustWindowHeight(Window *window, qreal delta) override;
-    bool endResizeWindow(Window *window, const RectF &area) override;
 
     QList<Window *> windows() const override;
     Window *windowInDirection(Window *from, FocusDirection direction) const override;
 
 private:
+    bool applyResize(Window *window, const RectF &area, bool widthChanged, bool heightChanged) override;
+
     StackColumn m_column;
 };
 

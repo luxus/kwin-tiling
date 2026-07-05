@@ -721,7 +721,7 @@ void TilingController::onInteractiveMoveResizeStarted()
     // misclassified as a move just restores the window harmlessly.
     if (window->isInteractiveResize()) {
         if (layoutEngineForWindow(window)) {
-            m_activeResizes.insert(window);
+            m_activeResizes.insert(window, window->frameGeometry());
         }
         return;
     }
@@ -760,14 +760,19 @@ void TilingController::onInteractiveMoveResizeStarted()
 void TilingController::onInteractiveMoveResizeFinished()
 {
     Window *window = qobject_cast<Window *>(sender());
-    if (window && m_activeResizes.remove(window)) {
-        onWindowResizeFinished(window);
-        return;
+    if (window) {
+        auto resizeIt = m_activeResizes.find(window);
+        if (resizeIt != m_activeResizes.end()) {
+            const RectF startGeometry = resizeIt.value();
+            m_activeResizes.erase(resizeIt);
+            onWindowResizeFinished(window, startGeometry);
+            return;
+        }
     }
     onWindowMoveFinished(window);
 }
 
-void TilingController::onWindowResizeFinished(Window *window)
+void TilingController::onWindowResizeFinished(Window *window, const RectF &startGeometry)
 {
     if (!window || !m_workspace) {
         return;
@@ -785,13 +790,13 @@ void TilingController::onWindowResizeFinished(Window *window)
     // ratio, and horizontal drags within a column into height weights.
     // Unsupported drags (e.g. in stacked) reflow/snap.
     const RectF area = m_workspace->clientArea(PlacementArea, window);
-    if (!engine->endResizeWindow(window, area)) {
+    if (!engine->endResizeWindow(window, area, startGeometry)) {
         return;
     }
 
-    // Persist the resulting split if the engine has one.
+    // Persist the resulting split if the engine has one and it actually changed.
     const qreal ratio = engine->primarySplit();
-    if (ratio > 0.0) {
+    if (ratio > 0.0 && !qFuzzyCompare(ratio, m_masterRatio)) {
         m_masterRatio = ratio;
         KSharedConfigPtr config = KSharedConfig::openConfig(KWIN_CONFIG);
         KConfigGroup(config, QStringLiteral("Tiling")).writeEntry("MasterRatio", m_masterRatio);

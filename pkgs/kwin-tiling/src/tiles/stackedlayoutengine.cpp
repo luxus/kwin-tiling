@@ -96,11 +96,9 @@ void StackedLayoutEngine::adjustWindowHeight(Window *window, qreal delta)
     reflow();
 }
 
-bool StackedLayoutEngine::endResizeWindow(Window *window, const RectF &area)
+bool StackedLayoutEngine::applyResize(Window *window, const RectF &area, bool widthChanged, bool heightChanged)
 {
-    if (!window || (area.width() <= 0 && area.height() <= 0)) {
-        return false;
-    }
+    Q_UNUSED(widthChanged)
     if (!m_column.contains(window)) {
         return false;
     }
@@ -110,7 +108,7 @@ bool StackedLayoutEngine::endResizeWindow(Window *window, const RectF &area)
         reflow();
         return true;
     }
-    if (area.height() > 0) {
+    if (heightChanged && area.height() > 0) {
         const qreal newHeight = window->frameGeometry().height();
         if (newHeight > 0) {
             m_column.applyHeightDrag(window, newHeight / area.height(), 0, m_column.count());

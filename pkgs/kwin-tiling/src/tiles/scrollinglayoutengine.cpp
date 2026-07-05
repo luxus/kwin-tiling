@@ -356,11 +356,8 @@ void ScrollingLayoutEngine::adjustWindowHeight(Window *window, qreal delta)
     reflow();
 }
 
-bool ScrollingLayoutEngine::endResizeWindow(Window *window, const RectF &area)
+bool ScrollingLayoutEngine::applyResize(Window *window, const RectF &area, bool widthChanged, bool heightChanged)
 {
-    if (!window || (area.width() <= 0 && area.height() <= 0)) {
-        return false;
-    }
     int c = -1;
     int l = -1;
     if (!findWindow(window, &c, &l)) {
@@ -374,14 +371,14 @@ bool ScrollingLayoutEngine::endResizeWindow(Window *window, const RectF &area)
     }
 
     const auto geom = window->frameGeometry();
-    if (area.height() > 0) {
+    if (heightChanged && area.height() > 0) {
         const qreal newHeight = geom.height();
         if (newHeight > 0) {
             m_columns[c].stack.applyHeightDrag(window, newHeight / area.height(), 0, n);
         }
     }
 
-    if (area.width() > 0 && geom.width() > 0) {
+    if (widthChanged && area.width() > 0 && geom.width() > 0) {
         m_columns[c].width = std::clamp(geom.width() / area.width(), 0.1, 1.0);
     }
 
