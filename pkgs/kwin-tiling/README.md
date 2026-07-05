@@ -141,7 +141,122 @@ the new compositor on their next rebuild/switch once they track this flake.
 - Directional focus/move continue onto the adjacent monitor at a layout edge.
 - Smart gaps basic (0 when <=1 window); manual on/off toggle available.
 - Configurable new-window placement (postponed).
-- Open features: more layouts.
+- Open features: more layouts (Grid; see "Planned" below).
+- Resize split-update recomputes both master ratio and height weight from the
+  final geometry on every resize, regardless of which edge actually moved
+  (see "Planned" below).
+
+## Planned: kwilt-inspired improvements
+
+Evaluated [jtekk1/kwilt](https://github.com/jtekk1/kwilt), a KWin *script*
+(QJSEngine scripting API, not a compositor patch): a flat per-(output,
+desktop) window queue where only the last N windows are visible and the rest
+are minimized ("knocked out"), config read once at script load, no
+persistence, no tests. Its architecture doesn't transfer — most of it is
+solving problems this project doesn't have (or has already solved better: our
+per-app float rules and per-(output,desktop) layout memory are persisted,
+kwilt's are session-only). What's worth taking is four behaviors, one
+correctness fix, and one refactor to add a grid layout without duplicating
+geometry/direction code a fourth time. Explicitly **not** taking kwilt's
+bounded-visible-window model (`dual`/`monocle` knock out everything past a
+cap) — this project always tiles every window, and importing a
+minimize-on-overflow mode would fight smart gaps (keyed off
+`engine->windows().count()`) and change what "tiled" means here.
+
+### Resize start-geometry snapshot (do first — correctness, not a feature)
+
+`onInteractiveMoveResizeStarted` snapshots geometry for **moves**
+(`MoveContext`) but not resizes (`m_activeResizes` is a bare
+`QSet<Window *>`). Every `endResizeWindow` override (`MasterStackLayoutEngine`,
+`StackedLayoutEngine`, `ScrollingLayoutEngine`) therefore recomputes *both*
+master ratio and height weight from the final absolute geometry on every
+resize, whether or not that axis moved. A height-only drag inside a column
+still re-derives and re-persists `MasterRatio` (`onWindowResizeFinished` calls
+`config->sync()` unconditionally), and pixel-rounding in KWin's tile geometry
+means this can drift the persisted ratio over many height-only resizes.
+
+Fix: change `m_activeResizes` to `QHash<Window *, RectF>` storing
+`frameGeometry()` at resize-start; thread a `startGeometry` parameter through
+`LayoutEngine::endResizeWindow`; gate the width branch and the height branch
+independently on `qAbs(delta) > 2px` — the same threshold kwilt's
+`captureResizeCtx`/`handleResize` uses. Touches `tilingcontroller.h/.cpp`,
+`layoutengine.h`, and all three `endResizeWindow` overrides.
+
+### Master pin
+
+Sticky master, distinct from the existing one-shot `promoteToMaster()`: pins a
+specific window so it re-claims the master slot as siblings are added or
+removed. Session-only (not persisted), keyed by `"<output>/<desktop-id>"` —
+**not** by `LayoutEngine *`, because `setLayoutOn()` replaces the engine
+instance on a layout-kind switch, which would silently drop a pointer-keyed
+pin. Re-assert on every structural change to that engine (`addWindowToLayout`,
+`onWindowRemoved`, `migrateWindow`) by reusing the existing `promoteToMaster`
+move-to-front call (`engine->moveWindow(pinned,
+-engine->windows().indexOf(pinned))`) — no new `LayoutEngine` API needed. New:
+`TilingController::toggleMasterPin()`, `QHash<QString, QPointer<Window>>
+m_masterPins`, one shortcut.
+
+### Focus last window
+
+Toggle straight back to the previously active window — no tabbox UI, distinct
+from KWin's multi-press Alt+Tab. The `TilingController` constructor already
+connects `Workspace::windowActivated` (to drive `setActiveWindow` on
+Scrolling); extend that same lambda to track `m_lastFocused`/`m_prevFocused`,
+add `focusLast()`, one shortcut (`Meta+U`, matching kwilt). Not gated on
+`shouldTile` — works for any window, tiled or floating.
+
+### Hide decorations on tiled windows (`BorderlessWhenTiled`)
+
+`Window::noBorder()` / `setNoBorder(bool)` / `userCanSetNoBorder()` are stock
+KWin API (`src/window.h`) — no `hooks.patch` change needed for the property
+itself. Add `bool borderForced` / `bool originalNoBorder` to `TilingState`
+(already a real member on `Window`, so no dynamic-property hack like kwilt
+needs). Force on tile, restore on float, from `addWindowToLayout` /
+`removeWindowFromLayouts` (guarded by `userCanSetNoBorder()`); sweep live in
+`reconfigure()` the same way the float-rule sweep already does. New kcfg bool
++ KCM checkbox next to `FloatAbove` / `LayoutSwitchOsd`.
+
+### Generalized directional focus + a Grid layout
+
+Adding kwilt's `autoGrid` as a fifth `LayoutEngine` subclass the naive way
+would duplicate geometry math *and* directional-focus logic a fourth time —
+`MasterStackLayoutEngine`, `StackedLayoutEngine`, and `ScrollingLayoutEngine`
+each hand-roll their own `windowInDirection`. Two extractions first, the same
+move that produced `StackColumn` / `columnmath.h` out of duplicated
+vertical-stack math:
+
+1. **`gridmath.h`** (peer of `columnmath.h`: Qt/KWin-free, unit-tested via a
+   new `tests/gridmath_test.cpp` run by `nix flake check`):
+   - `GridShape targetShape(int n)` — closed-form `k×k` / `k×(k+1)`
+     progression (capacities 1, 2, 4, 6, 9, 12, 16, 20, 25, ...). Generalizes
+     past kwilt's hardcoded N=12 ceiling with no new cases.
+   - `cellRects(int n, GridShape, w, h)` — the "first cell spans the
+     shrinking column, transitional strip on the last step before perfect"
+     placement, written as a loop over `rows`/`cols`, not a switch-per-N.
+     kwilt's README table (exact shapes for N=1..12) becomes the test
+     fixture to match. **N>12 is new design surface** kwilt never solved (it
+     just caps and knocks out) and matters more here: this project has no
+     minimize-overflow mechanic, so Grid has to keep scaling or it becomes
+     the only layout with a hard visual cliff.
+2. **Shared geometric direction-finder** in `layoutengine.cpp` (peer of the
+   existing `reflowZoomed` shared helper): nearest-leaf-centroid-in-half-plane
+   with an axis penalty, porting kwilt's `neighborSlot`.
+   `GridLayoutEngine::windowInDirection` uses it directly; worth trying as a
+   drop-in replacement for `Stacked`/`Scrolling`'s bespoke versions too, to
+   actually shrink duplicated code instead of just not growing it.
+3. **`GridLayoutEngine`**: flat `QList<QPointer<CustomTile>>` of leaves
+   straight off root (`Floating` direction, same ownership pattern as
+   `MasterStackLayoutEngine`'s Centered mode / `ScrollingLayoutEngine`),
+   geometry from `gridmath`, direction from (2). `endResizeWindow` snaps back
+   initially — kwilt's `autoGrid` has no adjustable ratio either, so this is
+   parity, not a gap.
+4. Wiring: `LayoutKind::Grid` appended to the enum (never reorder — it's the
+   kwinrc-persisted value), `createLayoutEngine` /
+   `layoutKindToString`/`layoutDisplayName`/`layoutKindFromString`,
+   `EnabledLayouts` default, KCM checkbox, `features.mdx` + `shipped.md`.
+
+This is a real chunk of work on its own — the math and test fixtures are
+worth landing before wiring up the engine.
 
 ## Move/resize robustness
 
