@@ -38,17 +38,41 @@ At a glance:
 See [Features](features) for the full breakdown of each layout, rule, and
 improvement.
 
-## Get started
+## Two ways to start
 
-Add the flake module to a NixOS host that should run tiling:
+You only need the patched KWin build from this flake. **How** you log in
+determines how much else you wire up.
+
+### 1. KDE Plasma + tiling — very easy
+
+Keep your normal Plasma Wayland session. Add the flake module, enable tiling,
+done.
 
 ```nix
+inputs.kwin-tiling.url = "github:luxus/kwin-tiling";
+# On the host:
 imports = [ inputs.kwin-tiling.nixosModules.kwin-tiling ];
 ```
 
-Enable tiling in `~/.config/kwinrc` (`[Tiling] Enabled=true`) or in *System
-Settings → Window Management → Tiling*. Shortcuts and daily use are covered on
-the [Usage & Shortcuts](usage) page.
+Then turn tiling on in `~/.config/kwinrc` (`[Tiling] Enabled=true`) or *System
+Settings → Window Management → Tiling*. plasmashell, ksmserver, and your
+existing KDE workflow stay as they are — you are just running a patched `kwin`.
+
+Best when you already use Plasma and only want native tiling.
+
+### 2. KWin + Noctalia — custom session
+
+Run **KWin alone** as the compositor in a custom Wayland session, with
+[Noctalia](https://github.com/noctalia-dev/noctalia) as the shell (bar,
+launcher, lock) instead of plasmashell. You still need the patched KWin from
+this flake, plus session plumbing: a `wayland-sessions` entry, a handful of KDE
+user services (portal, kded, powerdevil, …), and Noctalia-specific patches for
+lock/logout on kwin-only.
+
+Best for a minimal KDE stack, greetd, or when you do not want full Plasma.
+
+See [KWin + Noctalia session](session) for the full checklist. Shortcuts and
+the tiling KCM work the same in both paths — [Usage & Shortcuts](usage).
 
 For packaging details and source layout, see `pkgs/kwin-tiling/README.md` in the
 repository.

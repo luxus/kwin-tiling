@@ -3,6 +3,11 @@ title: Usage & Shortcuts
 description: Keyboard shortcuts, settings panel, and daily use of native KWin tiling.
 ---
 
+Tiling works the same whether you run **KDE Plasma + tiling** (normal Plasma
+session, easiest start) or a **KWin + Noctalia** custom session. See
+[Overview → Two ways to start](/) for which path fits you; this page covers
+shortcuts and the settings panel for both.
+
 All shortcuts are registered as KWin actions. Rebind them in *System Settings
 → Shortcuts → KWin*.
 

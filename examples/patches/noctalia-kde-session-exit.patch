@@ -1,0 +1,93 @@
+--- a/src/compositors/compositor_platform.cpp
++++ b/src/compositors/compositor_platform.cpp
+@@ -28,7 +28,10 @@
+ #include "wayland/wayland_connection.h"
+ #include "wayland/wayland_workspaces.h"
+ 
++#include <sdbus-c++/sdbus-c++.h>
++
+ #include <algorithm>
++#include <array>
+ #include <cerrno>
+ #include <csignal>
+ #include <cstdlib>
+@@ -36,6 +39,7 @@
+ #include <json.hpp>
+ #include <optional>
+ #include <string>
++#include <string_view>
+ #include <sys/types.h>
+ #include <unordered_set>
+ #include <utility>
+@@ -124,6 +128,60 @@
+     return terminateLabwcPid();
+   }
+ 
++  constexpr auto kDbusInterface = "org.freedesktop.DBus";
++  const sdbus::ServiceName kDbusBusName{kDbusInterface};
++  const sdbus::ObjectPath kDbusObjectPath{"/org/freedesktop/DBus"};
++
++  struct KdeSessionExitTarget {
++    std::string_view service;
++    std::string_view path;
++    std::string_view interface;
++    std::string_view method;
++  };
++
++  [[nodiscard]] bool sessionBusNameHasOwner(sdbus::IConnection& connection, std::string_view name) {
++    auto proxy = sdbus::createProxy(connection, kDbusBusName, kDbusObjectPath);
++    bool hasOwner = false;
++    proxy->callMethod("NameHasOwner")
++        .onInterface(kDbusInterface)
++        .withArguments(std::string{name})
++        .storeResultsTo(hasOwner);
++    return hasOwner;
++  }
++
++  [[nodiscard]] bool requestKdeSessionExitTarget(sdbus::IConnection& connection, const KdeSessionExitTarget& target) {
++    if (!sessionBusNameHasOwner(connection, target.service)) {
++      return false;
++    }
++
++    auto proxy = sdbus::createProxy(
++        connection, sdbus::ServiceName{std::string{target.service}}, sdbus::ObjectPath{std::string{target.path}}
++    );
++    proxy->callMethod(std::string{target.method}).onInterface(std::string{target.interface});
++    kLog.info("logout: delegated to {}.{}", target.service, target.method);
++    return true;
++  }
++
++  // KWin alone is not enough: needs ksmserver plus plasma-shutdown (org.kde.Shutdown) and/or
++  // ksmserver-logout-greeter (org.kde.LogoutPrompt). kwin-only sessions fall back to logind.
++  [[nodiscard]] bool requestKdeSessionExit() {
++    try {
++      auto connection = sdbus::createSessionBusConnection();
++      static constexpr std::array targets = {
++          KdeSessionExitTarget{"org.kde.Shutdown", "/Shutdown", "org.kde.Shutdown", "logout"},
++          KdeSessionExitTarget{"org.kde.LogoutPrompt", "/LogoutPrompt", "org.kde.LogoutPrompt", "promptLogout"},
++      };
++      for (const auto& target : targets) {
++        if (requestKdeSessionExitTarget(*connection, target)) {
++          return true;
++        }
++      }
++    } catch (const sdbus::Error& e) {
++      kLog.warn("logout: KDE session D-Bus delegation failed: {}", e.getMessage());
++    }
++    return false;
++  }
++
+   [[nodiscard]] bool requestLoginSessionExit() {
+     if (const char* sessionId = std::getenv("XDG_SESSION_ID"); sessionId != nullptr && sessionId[0] != '\0') {
+       if (process::launchFirstAvailable({{"loginctl", "terminate-session", sessionId}})) {
+@@ -1179,6 +1237,10 @@
+     }
+     break;
+   case compositors::CompositorKind::Kde:
++    if (requestKdeSessionExit()) {
++      return true;
++    }
++    break;
+   case compositors::CompositorKind::Unknown:
+     break;
+   }
