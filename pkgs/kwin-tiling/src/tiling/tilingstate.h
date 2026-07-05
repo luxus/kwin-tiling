@@ -20,6 +20,8 @@ public:
     };
 
     Mode mode = Mode::Floating;
+    bool borderForced = false;
+    bool originalNoBorder = false;
 };
 
 } // namespace KWin

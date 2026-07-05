@@ -78,10 +78,15 @@ TilingController::TilingController(Workspace *workspace)
             if (!window) {
                 return;
             }
+            if (window != m_lastFocused) {
+                m_prevFocused = m_lastFocused;
+                m_lastFocused = window;
+            }
             if (LayoutEngine *engine = layoutEngineForWindow(window)) {
                 engine->setActiveWindow(window);
             }
         });
+        m_lastFocused = m_workspace->activeWindow();
     }
     reconfigure();
 }
@@ -106,6 +111,7 @@ void TilingController::reconfigure()
     m_masterCount = qMax(1, tilingGroup.readEntry("MasterCount", 1));
     m_floatAbove = tilingGroup.readEntry("FloatAbove", true);
     m_layoutSwitchOsd = tilingGroup.readEntry("LayoutSwitchOsd", true);
+    m_borderlessWhenTiled = tilingGroup.readEntry("BorderlessWhenTiled", false);
     m_rules->load(rulesGroup);
 
     // Push master count/ratio to live engines so changes in the KCM (or
@@ -149,6 +155,13 @@ void TilingController::reconfigure()
             if (window->tilingState().mode == TilingState::Mode::Tiled
                 && m_rules->initialMode(window) == TilingState::Mode::Floating) {
                 setFloating(window, true);
+            }
+            if (window->tilingState().mode == TilingState::Mode::Tiled) {
+                if (m_borderlessWhenTiled) {
+                    forceNoBorder(window);
+                } else {
+                    restoreBorder(window);
+                }
             }
         }
     }
@@ -440,7 +453,12 @@ void TilingController::onWindowRemoved(Window *window)
     m_activeResizes.remove(window);
     LogicalOutput *out = window->output();
     removeWindowFromLayouts(window);
-    if (out) applyGapSettingsToOutput(out); // #120 smart gaps update
+    if (out) {
+        applyGapSettingsToOutput(out); // #120 smart gaps update
+        for (VirtualDesktop *desktop : VirtualDesktopManager::self()->desktops()) {
+            reassertMasterPin(out, desktop);
+        }
+    }
 }
 
 void TilingController::addWindowToLayout(Window *window, LogicalOutput *output, VirtualDesktop *desktop)
@@ -476,6 +494,8 @@ void TilingController::addWindowToLayout(Window *window, LogicalOutput *output, 
         qWarning() << "TilingController: window" << window->caption()
                    << "was not managed by any layout engine after addWindow; leaving mode untouched";
     }
+    forceNoBorder(window);
+    reassertMasterPin(output, desktop);
 }
 
 void TilingController::migrateWindow(Window *window, LogicalOutput *newOutput, VirtualDesktop *newDesktop)
@@ -496,6 +516,15 @@ void TilingController::migrateWindow(Window *window, LogicalOutput *newOutput, V
         return;
     }
 
+    bool pinFollows = false;
+    if (oldOutput && oldDesktop) {
+        const QString oldKey = pinKeyFor(oldOutput, oldDesktop);
+        if (m_masterPins.value(oldKey) == window) {
+            m_masterPins.remove(oldKey);
+            pinFollows = true;
+        }
+    }
+
     // Release the source (it reflows to fill the freed slot), then join the
     // destination — addWindowToLayout creates the engine if this is the first
     // window to land on that (output, desktop).
@@ -507,6 +536,14 @@ void TilingController::migrateWindow(Window *window, LogicalOutput *newOutput, V
     }
     addWindowToLayout(window, newOutput, newDesktop);
     applyGapSettingsToOutput(newOutput);
+
+    if (pinFollows && shouldTile(window)) {
+        m_masterPins.insert(pinKeyFor(newOutput, newDesktop), window);
+    }
+    if (oldOutput && oldDesktop) {
+        reassertMasterPin(oldOutput, oldDesktop);
+    }
+    reassertMasterPin(newOutput, newDesktop);
 }
 
 void TilingController::removeWindowFromLayouts(Window *window)
@@ -514,6 +551,8 @@ void TilingController::removeWindowFromLayouts(Window *window)
     if (!m_workspace) {
         return;
     }
+
+    restoreBorder(window);
 
     for (LogicalOutput *output : m_workspace->outputs()) {
         TileManager *manager = m_workspace->tileManager(output);
@@ -1001,19 +1040,86 @@ Window *TilingController::windowUnderCursorInEngine(LayoutEngine *engine) const
     return nullptr;
 }
 
+void TilingController::focusLast()
+{
+    if (m_prevFocused && m_prevFocused != m_workspace->activeWindow()) {
+        m_workspace->activateWindow(m_prevFocused);
+    }
+}
+
+bool TilingController::promoteToMaster(Window *window)
+{
+    if (!window) {
+        return false;
+    }
+
+    LayoutEngine *engine = layoutEngineForWindow(window);
+    if (!engine) {
+        return false;
+    }
+
+    const int idx = engine->windows().indexOf(window);
+    if (idx <= 0) {
+        return false;
+    }
+    engine->moveWindow(window, -idx);
+    return true;
+}
+
 void TilingController::promoteToMaster()
+{
+    promoteToMaster(activeTiledWindow());
+}
+
+QString TilingController::pinKeyFor(LogicalOutput *output, VirtualDesktop *desktop) const
+{
+    if (!output || !desktop) {
+        return {};
+    }
+    return output->name() + QLatin1Char('/') + desktop->id();
+}
+
+void TilingController::reassertMasterPin(LogicalOutput *output, VirtualDesktop *desktop)
+{
+    if (!m_workspace || !output || !desktop) {
+        return;
+    }
+    Window *pinned = m_masterPins.value(pinKeyFor(output, desktop));
+    if (!pinned || !shouldTile(pinned)) {
+        return;
+    }
+    TileManager *manager = m_workspace->tileManager(output);
+    if (!manager) {
+        return;
+    }
+    LayoutEngine *engine = manager->layoutEngine(desktop);
+    if (!engine || !engine->windows().contains(pinned)) {
+        return;
+    }
+    if (engine->primaryWindow() == pinned) {
+        return;
+    }
+    promoteToMaster(pinned);
+}
+
+void TilingController::toggleMasterPin()
 {
     Window *window = activeTiledWindow();
     if (!window) {
         return;
     }
-
-    LayoutEngine *engine = layoutEngineForWindow(window);
-    if (!engine) {
+    LogicalOutput *output = nullptr;
+    VirtualDesktop *desktop = nullptr;
+    if (!layoutEngineForWindow(window, &output, &desktop)) {
         return;
     }
-
-    engine->moveWindow(window, -engine->windows().indexOf(window));
+    const QString key = pinKeyFor(output, desktop);
+    if (m_masterPins.value(key) == window) {
+        m_masterPins.remove(key);
+    } else {
+        m_masterPins.insert(key, window);
+        reassertMasterPin(output, desktop);
+    }
 }
 
 void TilingController::moveWindowNext()
@@ -1512,6 +1618,33 @@ void TilingController::retile()
         }
         fresh->addWindow(w);
     }
+}
+
+void TilingController::forceNoBorder(Window *window)
+{
+    if (!m_borderlessWhenTiled || !window || !window->userCanSetNoBorder()) {
+        return;
+    }
+    TilingState &state = window->tilingState();
+    if (state.borderForced) {
+        return;
+    }
+    state.originalNoBorder = window->noBorder();
+    window->setNoBorder(true);
+    state.borderForced = true;
+}
+
+void TilingController::restoreBorder(Window *window)
+{
+    if (!window) {
+        return;
+    }
+    TilingState &state = window->tilingState();
+    if (!state.borderForced) {
+        return;
+    }
+    window->setNoBorder(state.originalNoBorder);
+    state.borderForced = false;
 }
 
 void TilingController::applyFloatStacking(Window *window)

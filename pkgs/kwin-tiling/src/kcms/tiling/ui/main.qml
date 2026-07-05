@@ -161,6 +161,18 @@ KCM.SimpleKCM {
                     settingName: "floatAbove"
                 }
             }
+
+            QQC2.CheckBox {
+                id: borderlessWhenTiled
+                Kirigami.FormData.label: i18n("Tiled windows:")
+                text: i18n("Hide window decorations while tiled")
+                checked: kcm.settings.borderlessWhenTiled
+                onToggled: kcm.settings.borderlessWhenTiled = checked
+                KCM.SettingStateBinding {
+                    configObject: kcm.settings
+                    settingName: "borderlessWhenTiled"
+                }
+            }
         }
 
         // ====================================================================

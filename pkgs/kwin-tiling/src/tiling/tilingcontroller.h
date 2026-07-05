@@ -80,6 +80,7 @@ public:
     void focusDown();
     void toggleFloating();
     void promoteToMaster();
+    void toggleMasterPin();
     void moveWindowToOutput(TilingDirection direction);
     void moveWindowNext();
     void moveWindowPrevious();
@@ -137,6 +138,9 @@ public:
     // windows that belong on it. Manual recovery from a desynced/phantom state.
     void retile();
 
+    // Toggle focus back to the previously-active window (any window, tiled or floating).
+    void focusLast();
+
     TilingRules *rules() const { return m_rules.get(); }
 
 private Q_SLOTS:
@@ -163,7 +167,12 @@ private:
     void removeWindowFromLayouts(Window *window);
     // Keep floating windows stacked above tiled ones (when FloatAbove is set).
     void applyFloatStacking(Window *window);
+    void forceNoBorder(Window *window);
+    void restoreBorder(Window *window);
     void migrateWindow(Window *window, LogicalOutput *newOutput, VirtualDesktop *newDesktop);
+    bool promoteToMaster(Window *window);
+    QString pinKeyFor(LogicalOutput *output, VirtualDesktop *desktop) const;
+    void reassertMasterPin(LogicalOutput *output, VirtualDesktop *desktop);
     LayoutEngine *activeLayoutEngine() const;
     LayoutEngine *layoutEngineForWindow(Window *window, LogicalOutput **output = nullptr, VirtualDesktop **desktop = nullptr) const;
     Window *activeTiledWindow() const;
@@ -198,6 +207,7 @@ private:
     int m_masterCount = 1;
     bool m_floatAbove = true;
     bool m_layoutSwitchOsd = true;
+    bool m_borderlessWhenTiled = false;
     // Live "gaps off" toggle (toggleGaps); transient, resets on restart.
     bool m_gapsSuppressed = false;
 
@@ -210,6 +220,9 @@ private:
     // Windows with an interactive resize in flight (distinguishes resize from
     // move on the shared interactiveMoveResizeFinished signal).
     QHash<Window *, RectF> m_activeResizes;
+    QPointer<Window> m_lastFocused;
+    QPointer<Window> m_prevFocused;
+    QHash<QString, QPointer<Window>> m_masterPins;
 };
 
 } // namespace KWin

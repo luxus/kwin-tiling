@@ -403,6 +403,11 @@ index a77a8ac..13303a8 100644
 +            m_tilingController->promoteToMaster();
 +        }
 +    }, true);
++    initShortcut("Tiling Toggle Master Pin", i18n("Tiling Toggle Master Pin"), Qt::META | Qt::Key_S, [this]() {
++        if (m_tilingController) {
++            m_tilingController->toggleMasterPin();
++        }
++    }, true);
 +    initShortcut("Tiling Move Window Previous", i18n("Tiling Move Window Previous"), Qt::META | Qt::SHIFT | Qt::Key_Left, [this]() {
 +        if (m_tilingController) {
 +            m_tilingController->moveWindowPrevious();
@@ -551,6 +556,11 @@ index a77a8ac..13303a8 100644
 +    initShortcut("Tiling Toggle Gaps", i18n("Tiling Toggle Gaps"), QKeySequence(), [this]() {
 +        if (m_tilingController) {
 +            m_tilingController->toggleGaps();
++        }
++    }, true);
++    initShortcut("Tiling Focus Last Window", i18n("Tiling Focus Last Window"), Qt::META | Qt::Key_U, [this]() {
++        if (m_tilingController) {
++            m_tilingController->focusLast();
 +        }
 +    }, true);
 +
