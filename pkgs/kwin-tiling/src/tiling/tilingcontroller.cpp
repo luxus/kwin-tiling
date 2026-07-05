@@ -105,6 +105,7 @@ void TilingController::reconfigure()
     m_defaultColumnWidth = qBound(0.1, tilingGroup.readEntry("DefaultColumnWidth", 0.5), 1.0);
     m_masterCount = qMax(1, tilingGroup.readEntry("MasterCount", 1));
     m_floatAbove = tilingGroup.readEntry("FloatAbove", true);
+    m_layoutSwitchOsd = tilingGroup.readEntry("LayoutSwitchOsd", true);
     m_rules->load(rulesGroup);
 
     // Push master count/ratio to live engines so changes in the KCM (or
@@ -1220,7 +1221,7 @@ void TilingController::cycleLayout()
 
 void TilingController::showLayoutNotification(LayoutEngine::LayoutKind kind)
 {
-    if (QStandardPaths::isTestModeEnabled()) {
+    if (!m_layoutSwitchOsd || QStandardPaths::isTestModeEnabled()) {
         return;
     }
 

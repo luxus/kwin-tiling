@@ -130,6 +130,23 @@ KCM.SimpleKCM {
 
             Item {
                 Kirigami.FormData.isSection: true
+                Kirigami.FormData.label: i18n("Layout Switching")
+            }
+
+            QQC2.CheckBox {
+                id: layoutSwitchOsd
+                Kirigami.FormData.label: i18n("On-screen notification:")
+                text: i18n("Show layout name when switching")
+                checked: kcm.settings.layoutSwitchOsd
+                onToggled: kcm.settings.layoutSwitchOsd = checked
+                KCM.SettingStateBinding {
+                    configObject: kcm.settings
+                    settingName: "layoutSwitchOsd"
+                }
+            }
+
+            Item {
+                Kirigami.FormData.isSection: true
                 Kirigami.FormData.label: i18n("Floating Windows")
             }
 
