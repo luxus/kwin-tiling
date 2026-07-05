@@ -46,6 +46,7 @@ public:
     };
 
     static QString layoutKindToString(LayoutKind kind);
+    static QString layoutDisplayName(LayoutKind kind);
     static LayoutKind layoutKindFromString(const QString &name, LayoutKind fallback = LayoutKind::MasterStack);
 
     explicit LayoutEngine(QObject *parent = nullptr);
@@ -128,6 +129,11 @@ public:
      * Returns all tiled windows managed by this engine in layout order.
      */
     virtual QList<Window *> windows() const = 0;
+
+    /**
+     * Returns the primary/master window for this layout, or nullptr if empty.
+     */
+    virtual Window *primaryWindow() const = 0;
 
     /**
      * Primary-split control: the master/stack ratio and master-window count.

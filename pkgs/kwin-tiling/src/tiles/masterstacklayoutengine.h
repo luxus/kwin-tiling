@@ -18,14 +18,11 @@ class Window;
 /**
  * Master-stack and centered-master layouts.
  *
- * Both arrange a single StackColumn (the leaf strip) into columns by index
- * range, so the master ratio/count, the leaf/weight/drag/monocle mechanics, and
- * the resize handling are shared; only the rectangles differ:
- *   - MasterStack: master run on one side, stack run on the other (2 columns).
- *   - Centered   : the master run centred at `masterRatio` width, the remaining
- *                  windows split into a left and a right column (3 columns,
- *                  e.g. 20/60/20), each stacked. A lone window (no stack) fills
- *                  the full width.
+ * Both compose StackColumn primitives; only the arrangement differs:
+ *   - MasterStack: one column, two index ranges (master run + stack run).
+ *   - Centered   : three columns (left | centre master | right), each a
+ *                  StackColumn. New windows fill the centre up to masterCount,
+ *                  then alternate onto the side stacks.
  */
 class KWIN_EXPORT MasterStackLayoutEngine : public LayoutEngine
 {
@@ -48,6 +45,7 @@ public:
     void pruneEmpty() override;
 
     QList<Window *> windows() const override;
+    Window *primaryWindow() const override;
     Window *windowInDirection(Window *from, FocusDirection direction) const override;
 
     void setPrimarySplit(qreal ratio) override { setMasterRatio(ratio); }
@@ -65,23 +63,38 @@ public:
     void setMasterCount(int count);
 
 private:
-    // MasterStack: master run [0, masters) and stack run [masters, count).
+    enum class SideColumn {
+        Left,
+        Center,
+        Right,
+    };
+
+    bool isCentered() const { return m_kind == LayoutKind::Centered; }
+
+    StackColumn *findColumn(Window *window, SideColumn *side = nullptr);
+    const StackColumn *findColumn(Window *window, SideColumn *side = nullptr) const;
+    StackColumn *columnFor(SideColumn side);
+    const StackColumn *columnFor(SideColumn side) const;
+
+    void addWindowCentered(Window *window);
     void reflowMasterStack(int count);
-    // Centered: centre run + left/right runs (or full width when no stack).
-    void reflowCentered(int count);
+    void reflowCentered();
+    void centeredHorizontalLayout(qreal &leftWidth, qreal &centerWidth, qreal &rightWidth,
+                                  qreal &leftX, qreal &centerX, qreal &rightX) const;
     Window *windowInDirectionCentered(Window *from, FocusDirection direction) const;
-    // Centered split: number of windows in the centre run and in the left run
-    // (the rest go right). leftCount is 0 when there is no stack.
-    void centeredCounts(int count, int &masters, int &leftCount) const;
-    // The [first, last) strip range of the column containing leaf `idx`, for
-    // the current kind — used to scope height resize to one column.
     void columnRangeFor(int idx, int count, int &first, int &last) const;
 
     const LayoutKind m_kind;
     StackColumn m_column;
+    StackColumn m_left;
+    StackColumn m_center;
+    StackColumn m_right;
     qreal m_masterRatio = 0.5;
     int m_masterCount = 1;
     bool m_masterOnRight = false;
+    bool m_nextSideIsRight = false;
+    bool m_moveHasSource = false;
+    SideColumn m_moveSourceSide = SideColumn::Center;
 };
 
 } // namespace KWin

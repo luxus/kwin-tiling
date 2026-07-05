@@ -20,6 +20,10 @@
 
 #include <KConfigGroup>
 #include <KSharedConfig>
+#include <QDBusConnection>
+#include <QDBusMessage>
+#include <QDBusPendingCall>
+#include <QStandardPaths>
 #include <QtGlobal>
 
 namespace KWin
@@ -218,12 +222,21 @@ LayoutEngine::LayoutKind TilingController::globalDefaultLayoutKind() const
     return m_defaultLayout;
 }
 
-LayoutEngine::LayoutKind TilingController::resolveLayoutKind(LogicalOutput *output) const
+LayoutEngine::LayoutKind TilingController::resolveLayoutKind(LogicalOutput *output, VirtualDesktop *desktop) const
 {
     KSharedConfigPtr config = KSharedConfig::openConfig(KWIN_CONFIG);
     KConfigGroup tilingGroup(config, QStringLiteral("Tiling"));
     LayoutEngine::LayoutKind kind = globalDefaultLayoutKind();
-    if (output) {
+
+    if (desktop && output) {
+        const KConfigGroup combinedGroup(&tilingGroup,
+                                         QStringLiteral("DesktopOutput %1:%2").arg(desktop->x11DesktopNumber()).arg(output->name()));
+        if (combinedGroup.hasKey("DefaultLayout")) {
+            kind = LayoutEngine::layoutKindFromString(combinedGroup.readEntry("DefaultLayout", QString()));
+        }
+    }
+
+    if (desktop && output && kind == globalDefaultLayoutKind()) {
         const KConfigGroup outputGroup(&tilingGroup, QStringLiteral("Output %1").arg(output->name()));
         if (outputGroup.hasKey("DefaultLayout")) {
             kind = LayoutEngine::layoutKindFromString(outputGroup.readEntry("DefaultLayout", QString()));
@@ -256,7 +269,7 @@ LayoutEngine::LayoutKind TilingController::layoutKindFor(LogicalOutput *output, 
             }
         }
     }
-    return resolveLayoutKind(output);
+    return resolveLayoutKind(output, desktop);
 }
 
 void TilingController::persistLayoutChoice(LogicalOutput *output, VirtualDesktop *desktop, LayoutEngine::LayoutKind kind)
@@ -817,7 +830,7 @@ void TilingController::onWindowMoveFinished(Window *window)
                 ? VirtualDesktopManager::self()->currentDesktop(currentOutput)
                 : window->desktops().constFirst();
             if (TileManager *destManager = m_workspace->tileManager(currentOutput)) {
-                setupLayoutEngine(destManager, desktop, resolveLayoutKind(currentOutput));
+                setupLayoutEngine(destManager, desktop, resolveLayoutKind(currentOutput, desktop));
                 if (LayoutEngine *destEngine = destManager->layoutEngine(desktop)) {
                     Window *target = windowUnderCursorInEngine(destEngine);
                     if (target == window) {
@@ -1084,6 +1097,7 @@ void TilingController::setLayout(LayoutEngine::LayoutKind kind)
     if (TileManager *manager = m_workspace->tileManager(output)) {
         if (LayoutEngine *engine = manager->layoutEngine(desktop)) {
             persistLayoutChoice(output, desktop, engine->layoutKind());
+            showLayoutNotification(engine->layoutKind());
         }
     }
 }
@@ -1123,7 +1137,15 @@ void TilingController::setLayoutOn(LogicalOutput *output, VirtualDesktop *deskto
 
     // Take ownership of the current windows so we can re-add them in the same
     // order once the new engine is in place.
-    const QList<Window *> carriedWindows = existing->windows();
+    QList<Window *> carriedWindows = existing->windows();
+
+    // Keep the primary/master window first so it stays master in the new layout.
+    if (Window *primary = existing->primaryWindow()) {
+        if (carriedWindows.size() > 1 && carriedWindows.first() != primary) {
+            carriedWindows.removeOne(primary);
+            carriedWindows.prepend(primary);
+        }
+    }
 
     auto engine = createLayoutEngine(kind, manager);
     manager->setLayoutEngine(desktop, std::move(engine));
@@ -1194,6 +1216,23 @@ void TilingController::cycleLayout()
     }
     const int nextIndex = (currentIndex + 1) % enabled.size();
     setLayout(enabled.at(nextIndex));
+}
+
+void TilingController::showLayoutNotification(LayoutEngine::LayoutKind kind)
+{
+    if (QStandardPaths::isTestModeEnabled()) {
+        return;
+    }
+
+    const QString text = LayoutEngine::layoutDisplayName(kind);
+    const QString iconName = QStringLiteral("kwin");
+
+    QDBusMessage message = QDBusMessage::createMethodCall(QStringLiteral("org.kde.plasmashell"),
+                                                          QStringLiteral("/org/kde/osdService"),
+                                                          QStringLiteral("org.kde.osdService"),
+                                                          QStringLiteral("showText"));
+    message.setArguments({iconName, text});
+    QDBusConnection::sessionBus().asyncCall(message);
 }
 
 void TilingController::moveWindowToOutput(TilingDirection direction)
@@ -1442,7 +1481,7 @@ void TilingController::retile()
     // Keep the current layout kind but force a fresh engine, so any stale or
     // phantom leaves are discarded, then re-add the windows that actually
     // belong on this output+desktop. This is the manual recovery hatch.
-    LayoutEngine::LayoutKind kind = resolveLayoutKind(output);
+    LayoutEngine::LayoutKind kind = resolveLayoutKind(output, desktop);
     if (LayoutEngine *existing = manager->layoutEngine(desktop)) {
         kind = existing->layoutKind();
     }

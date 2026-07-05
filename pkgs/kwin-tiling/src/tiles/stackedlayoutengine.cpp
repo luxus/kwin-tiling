@@ -136,6 +136,12 @@ QList<Window *> StackedLayoutEngine::windows() const
     return m_column.windows();
 }
 
+Window *StackedLayoutEngine::primaryWindow() const
+{
+    const QList<Window *> ws = m_column.windows();
+    return ws.isEmpty() ? nullptr : ws.first();
+}
+
 Window *StackedLayoutEngine::windowInDirection(Window *from, FocusDirection direction) const
 {
     const QList<Window *> ws = m_column.windows();

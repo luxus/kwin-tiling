@@ -50,6 +50,7 @@ public:
     void pruneEmpty() override;
 
     QList<Window *> windows() const override;
+    Window *primaryWindow() const override;
     Window *windowInDirection(Window *from, FocusDirection direction) const override;
     void setActiveWindow(Window *window) override;
 
