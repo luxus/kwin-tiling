@@ -198,6 +198,7 @@ private:
     qreal m_defaultColumnWidth = 0.5;
     int m_masterCount = 1;
     bool m_floatAbove = true;
+    bool m_layoutSwitchOsd = true;
     // Live "gaps off" toggle (toggleGaps); transient, resets on restart.
     bool m_gapsSuppressed = false;
 
