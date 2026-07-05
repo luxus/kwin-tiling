@@ -70,5 +70,34 @@ Rounded corners and focus outlines stay in
 [`kde-rounded-corners`](https://github.com/matinlotfali/KDE-Rounded-Corners) —
 the same pattern everywhere: extend KWin, don't fork it.
 
+## Compared to kwilt
+
+[jtekk1/kwilt](https://github.com/jtekk1/kwilt) is a KWin *script* (KWin's
+QJSEngine scripting API), not a compositor patch — a different category of
+project, and a useful look at the script-API ceiling this project exists to
+get past. Its model is a flat per-(output, desktop) window queue where only
+the last N windows are visible and the rest are minimized ("knocked out");
+config is read once at script load, and there's no persistence or test suite.
+
+We evaluated it for ideas, not architecture — most of it doesn't transfer to a
+compiled `CustomTile`-tree engine, and a few things here are already more
+capable (per-app float rules and per-(output, desktop) layout memory are
+persisted; kwilt's reset every script reload). What's worth taking: a sticky
+master-window pin, a focus-last shortcut, optionally hiding decorations on
+tiled windows, and its `autoGrid` layout — a smoothly-interpolating
+2×2→2×3→3×3→3×4 grid — as a new layout kind. There's also one correctness
+lesson from its resize handling: kwilt snapshots geometry at drag-start and
+only updates a split when that specific edge moved; ours currently recomputes
+both master ratio and per-window height weight from the final geometry on
+every resize, which does unnecessary work and can drift the persisted ratio.
+
+What we're not taking: kwilt's bounded-visible-window model (`dual` and
+`monocle` knock out every window past a cap). This project always tiles every
+window on screen — importing a minimize-on-overflow mode would fight the
+smart-gaps logic and change what "tiled" means here.
+
+See `pkgs/kwin-tiling/README.md`'s "Planned: kwilt-inspired improvements" for
+the implementation plan.
+
 For packaging details and source layout, see `pkgs/kwin-tiling/README.md` in the
 repository.
