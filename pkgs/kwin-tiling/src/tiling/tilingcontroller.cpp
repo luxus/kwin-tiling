@@ -456,6 +456,13 @@ void TilingController::onWindowRemoved(Window *window)
     // entry keyed by a dangling pointer).
     m_activeMoves.remove(window);
     m_activeResizes.remove(window);
+    for (auto it = m_masterPins.begin(); it != m_masterPins.end();) {
+        if (it.value().isNull() || it.value() == window) {
+            it = m_masterPins.erase(it);
+        } else {
+            ++it;
+        }
+    }
     LogicalOutput *out = window->output();
     removeWindowFromLayouts(window);
     if (out) {
@@ -498,6 +505,7 @@ void TilingController::addWindowToLayout(Window *window, LogicalOutput *output, 
     if (!layoutEngineForWindow(window)) {
         qWarning() << "TilingController: window" << window->caption()
                    << "was not managed by any layout engine after addWindow; leaving mode untouched";
+        return;
     }
     forceNoBorder(window);
     reassertMasterPin(output, desktop);
