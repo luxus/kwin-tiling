@@ -24,18 +24,7 @@ StackedLayoutEngine::~StackedLayoutEngine()
 
 void StackedLayoutEngine::attach(RootTile *root)
 {
-    if (root) {
-        // Take full ownership of the root: drop any pre-existing default-layout
-        // children and make it a plain floating container the engine drives.
-        const QList<Tile *> existingChildren = root->childTiles();
-        for (Tile *child : existingChildren) {
-            if (CustomTile *custom = qobject_cast<CustomTile *>(child)) {
-                root->destroyChild(custom);
-            }
-        }
-        root->setLayoutDirection(Tile::LayoutDirection::Floating);
-        root->setRelativeGeometry(RectF(0, 0, 1, 1));
-    }
+    takeOwnershipOfRoot(root);
     m_column.setRoot(root);
 }
 
@@ -134,12 +123,6 @@ bool StackedLayoutEngine::endResizeWindow(Window *window, const RectF &area)
 QList<Window *> StackedLayoutEngine::windows() const
 {
     return m_column.windows();
-}
-
-Window *StackedLayoutEngine::primaryWindow() const
-{
-    const QList<Window *> ws = m_column.windows();
-    return ws.isEmpty() ? nullptr : ws.first();
 }
 
 Window *StackedLayoutEngine::windowInDirection(Window *from, FocusDirection direction) const

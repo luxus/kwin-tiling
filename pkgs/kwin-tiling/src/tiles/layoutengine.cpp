@@ -7,6 +7,7 @@
 #include "layoutengine.h"
 
 #include "customtile.h"
+#include "tile.h"
 #include "window.h" // QPointer<Window> in setZoomedWindow needs the complete type
 
 namespace KWin
@@ -18,6 +19,21 @@ LayoutEngine::LayoutEngine(QObject *parent)
 }
 
 LayoutEngine::~LayoutEngine() = default;
+
+void LayoutEngine::takeOwnershipOfRoot(RootTile *root)
+{
+    if (!root) {
+        return;
+    }
+    const QList<Tile *> existingChildren = root->childTiles();
+    for (Tile *child : existingChildren) {
+        if (CustomTile *custom = qobject_cast<CustomTile *>(child)) {
+            root->destroyChild(custom);
+        }
+    }
+    root->setLayoutDirection(Tile::LayoutDirection::Floating);
+    root->setRelativeGeometry(RectF(0, 0, 1, 1));
+}
 
 bool LayoutEngine::reflowZoomed(const QList<CustomTile *> &allLeaves)
 {
