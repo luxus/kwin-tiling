@@ -14,7 +14,6 @@
 #include <QHash>
 #include <QObject>
 #include <QPointer>
-#include <QSet>
 
 class KConfigGroup;
 
@@ -148,7 +147,7 @@ private Q_SLOTS:
 private:
     bool shouldTile(const Window *window) const;
     void onWindowMoveFinished(Window *window);
-    void onWindowResizeFinished(Window *window);
+    void onWindowResizeFinished(Window *window, const RectF &startGeometry);
     void onWindowOutputChanged(Window *window, LogicalOutput *oldOutput);
     // A minimized tiled window leaves its layout (siblings reflow to fill) and
     // re-tiles on restore. Without this the minimized window keeps its slot.
@@ -210,7 +209,7 @@ private:
     QHash<Window *, MoveContext> m_activeMoves;
     // Windows with an interactive resize in flight (distinguishes resize from
     // move on the shared interactiveMoveResizeFinished signal).
-    QSet<Window *> m_activeResizes;
+    QHash<Window *, RectF> m_activeResizes;
 };
 
 } // namespace KWin

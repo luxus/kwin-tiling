@@ -20,6 +20,17 @@ LayoutEngine::LayoutEngine(QObject *parent)
 
 LayoutEngine::~LayoutEngine() = default;
 
+bool LayoutEngine::endResizeWindow(Window *window, const RectF &area, const RectF &startGeometry)
+{
+    if (!window || (area.width() <= 0 && area.height() <= 0)) {
+        return false;
+    }
+    const auto geom = window->frameGeometry();
+    const bool widthChanged = qAbs(geom.width() - startGeometry.width()) > 2.0;
+    const bool heightChanged = qAbs(geom.height() - startGeometry.height()) > 2.0;
+    return applyResize(window, area, widthChanged, heightChanged);
+}
+
 void LayoutEngine::takeOwnershipOfRoot(RootTile *root)
 {
     if (!root) {

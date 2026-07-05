@@ -52,7 +52,6 @@ public:
     qreal primarySplit() const override { return m_masterRatio; }
     void setPrimaryCount(int count) override { setMasterCount(count); }
     void adjustWindowHeight(Window *window, qreal delta) override;
-    bool endResizeWindow(Window *window, const RectF &area) override;
     void resetSizes() override;
     void flipMaster() override;
 
@@ -83,6 +82,7 @@ private:
                                   qreal &leftX, qreal &centerX, qreal &rightX) const;
     Window *windowInDirectionCentered(Window *from, FocusDirection direction) const;
     void columnRangeFor(int idx, int count, int &first, int &last) const;
+    bool applyResize(Window *window, const RectF &area, bool widthChanged, bool heightChanged) override;
 
     const LayoutKind m_kind;
     StackColumn m_column;
