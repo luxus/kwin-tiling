@@ -22,6 +22,7 @@ export default defineConfig({
               { label: 'Design', slug: 'design' },
               { label: 'Features', slug: 'features' },
               { label: 'Usage & Shortcuts', slug: 'usage' },
+              { label: 'KWin + Noctalia session', slug: 'session' },
               { label: 'Roadmap', slug: 'roadmap' },
           ],
       }),

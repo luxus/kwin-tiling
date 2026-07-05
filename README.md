@@ -10,11 +10,26 @@ It is **not** a fork: the bulk of the feature is vendored as normal source under
 tree; `hooks.patch` carries **only** the edits to existing KWin files plus the
 CMake wiring. A nixpkgs/Plasma bump just needs that small patch re-tested.
 
-See the docs site under `website/` (Overview / Features / Usage / Roadmap) for
-the full feature list and shortcuts, and `pkgs/kwin-tiling/README.md` for
+See the docs site under `website/` (Overview / Features / Usage / KWin +
+Noctalia session / Roadmap) for the full feature list, shortcuts, and minimum
+KDE session wiring for Noctalia, and `pkgs/kwin-tiling/README.md` for
 implementation/maintenance notes.
 
 ![Tiled desktop with master-stack and stacked layouts across two monitors](website/public/images/desktop-tiling-demo.webp)
+
+## Two ways to start
+
+**1. KDE Plasma + tiling (very easy)** — add the flake module to your host, log
+into your normal Plasma Wayland session, enable tiling in `kwinrc` or *System
+Settings → Window Management → Tiling*. No session changes; plasmashell and the
+rest of Plasma stay as they are.
+
+**2. KWin + Noctalia (custom session)** — same patched KWin, but in a minimal
+Wayland session with [Noctalia](https://github.com/noctalia-dev/noctalia) as
+the shell instead of plasmashell. Needs extra session wiring (systemd units,
+portals, env). See the docs site page **KWin + Noctalia session** for a
+self-contained NixOS + Home Manager example (`examples/patches/` has the
+Noctalia patches).
 
 ## Use it from your flake
 

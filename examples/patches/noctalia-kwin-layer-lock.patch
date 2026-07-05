@@ -1,0 +1,324 @@
+diff -ruN a/src/shell/lockscreen/lock_screen.cpp b/src/shell/lockscreen/lock_screen.cpp
+--- a/src/shell/lockscreen/lock_screen.cpp	2026-06-29 23:53:39.552777101 +0200
++++ b/src/shell/lockscreen/lock_screen.cpp	2026-06-29 23:53:39.574421761 +0200
+@@ -95,7 +95,8 @@
+   if (isActive()) {
+     return true;
+   }
+-  if (!m_wayland->hasSessionLockManager()) {
++  const bool useLayerShellLock = !m_wayland->hasSessionLockManager() && m_wayland->hasLayerShell();
++  if (!m_wayland->hasSessionLockManager() && !useLayerShellLock) {
+     kLog.warn("session lock protocol unavailable");
+     return false;
+   }
+@@ -117,6 +118,29 @@
+     }
+   }
+ 
++  if (useLayerShellLock) {
++    m_layerShellFallback = true;
++    m_lockPending = false;
++    m_locked = false;
++    clearSensitiveString(m_password);
++    m_status = i18n::tr("lockscreen.waiting");
++    m_statusIsError = false;
++    syncInstances();
++    if (m_instances.empty()) {
++      m_layerShellFallback = false;
++      kLog.warn("no outputs available for lock screen");
++      return false;
++    }
++    wl_display_flush(m_wayland->display());
++    kLog.info("layer-shell lock requested");
++    if (m_onLockEngaged) {
++      m_onLockEngaged();
++    }
++    engageLayerShellLock();
++    return true;
++  }
++
++  m_layerShellFallback = false;
+   m_lock = ext_session_lock_manager_v1_lock(m_wayland->sessionLockManager());
+   if (m_lock == nullptr) {
+     kLog.warn("failed to create session lock object");
+@@ -160,6 +184,7 @@
+   stopFingerprint();
+ 
+   const bool wasLockedInteractive = m_locked;
++  const bool wasLayerShell = m_layerShellFallback;
+ 
+   if (m_lock != nullptr) {
+     if (m_locked) {
+@@ -174,6 +199,7 @@
+ 
+   m_lockPending = false;
+   m_locked = false;
++  m_layerShellFallback = false;
+   clearSensitiveString(m_password);
+   m_status.clear();
+   m_statusIsError = false;
+@@ -190,6 +216,9 @@
+   clearInstances();
+   m_pointerSurface = nullptr;
+   wl_display_flush(m_wayland->display());
++  if (wasLayerShell) {
++    kLog.info("layer-shell lock released");
++  }
+ }
+ 
+ void LockScreen::onFontChanged() { requestLayout(); }
+@@ -665,7 +694,10 @@
+ 
+   surface->setBlackout(!isInteractiveOutput(output));
+ 
+-  if (!surface->initialize(m_lock, output.output, output.scale)) {
++  const bool initialized = m_layerShellFallback
++      ? surface->initializeLayerShell(output.output, output.scale)
++      : surface->initialize(m_lock, output.output, output.scale);
++  if (!initialized) {
+     kLog.warn("failed to create lock surface for output {}", output.name);
+     return;
+   }
+@@ -680,10 +712,36 @@
+   );
+ }
+ 
++void LockScreen::engageLayerShellLock() {
++  m_locked = true;
++  m_status = i18n::tr("lockscreen.ready");
++  m_statusIsError = false;
++  for (auto& instance : m_instances) {
++    instance.surface->setLockedState(true);
++  }
++  updatePromptOnSurfaces();
++  startFingerprint();
++  kLog.info("layer-shell lock engaged");
++  if (m_onSessionLocked) {
++    m_onSessionLocked();
++  }
++  if (m_pendingAfterLocked) {
++    auto pending = std::move(m_pendingAfterLocked);
++    m_pendingAfterLocked = {};
++    DeferredCall::callLater(std::move(pending));
++  }
++}
++
+ void LockScreen::resetLockState() {
+   m_pendingAfterLocked = {};
+   m_suspendTimeoutTimer.stop();
+   m_lockDeferred = false;
++  if (m_layerShellFallback) {
++    m_layerShellFallback = false;
++    m_lockPending = false;
++    m_locked = false;
++    return;
++  }
+   if (m_lock == nullptr) {
+     m_lockPending = false;
+     m_locked = false;
+diff -ruN a/src/shell/lockscreen/lock_screen.h b/src/shell/lockscreen/lock_screen.h
+--- a/src/shell/lockscreen/lock_screen.h	2026-06-29 23:53:39.552777101 +0200
++++ b/src/shell/lockscreen/lock_screen.h	2026-06-29 23:53:39.574421761 +0200
+@@ -91,6 +91,7 @@
+   [[nodiscard]] bool isInteractiveOutput(const WaylandOutput& output) const;
+   [[nodiscard]] std::string wallpaperPathForOutput(const std::string& connectorName) const;
+   void createInstance(const WaylandOutput& output);
++  void engageLayerShellLock();
+   void resetLockState();
+   void clearInstances();
+   void updatePromptOnSurfaces();
+@@ -124,6 +125,7 @@
+   bool m_locked = false;
+   bool m_desktopCapturesPrimed = false;
+   bool m_lockDeferred = false;
++  bool m_layerShellFallback = false;
+   std::function<void()> m_pendingAfterLocked;
+   std::function<void()> m_onSessionLocked;
+   std::function<void()> m_onSessionUnlocked;
+diff -ruN a/src/shell/lockscreen/lock_surface.cpp b/src/shell/lockscreen/lock_surface.cpp
+--- a/src/shell/lockscreen/lock_surface.cpp	2026-06-29 23:53:39.552777101 +0200
++++ b/src/shell/lockscreen/lock_surface.cpp	2026-06-29 23:53:39.574421761 +0200
+@@ -4,6 +4,8 @@
+ #include "core/ui_phase.h"
+ #include "ext-session-lock-v1-client-protocol.h"
+ #include "i18n/i18n.h"
++#include "wayland/layer_surface.h"
++#include "wlr-layer-shell-unstable-v1-client-protocol.h"
+ #include "render/core/blur_cache.h"
+ #include "render/core/render_styles.h"
+ #include "render/core/shared_texture_cache.h"
+@@ -29,6 +31,10 @@
+       .configure = &LockSurface::handleConfigure,
+   };
+ 
++  const zwlr_layer_surface_v1_listener kLayerLockSurfaceListener = {
++      .configure = &LockSurface::handleLayerConfigure,
++  };
++
+   bool parseColorWallpaperPath(std::string_view path, Color& out) {
+     constexpr std::string_view kPrefix = "color:";
+     if (!path.starts_with(kPrefix)) {
+@@ -144,6 +150,10 @@
+     releaseWallpaperTextureRef(m_textureWallpaperPath);
+   }
+   m_connection.unregisterSurface(m_surface);
++  if (m_layerSurface != nullptr) {
++    zwlr_layer_surface_v1_destroy(m_layerSurface);
++    m_layerSurface = nullptr;
++  }
+   if (m_lockSurface != nullptr) {
+     ext_session_lock_surface_v1_destroy(m_lockSurface);
+     m_lockSurface = nullptr;
+@@ -181,11 +191,70 @@
+   return true;
+ }
+ 
++bool LockSurface::initializeLayerShell(wl_output* output, std::int32_t scale) {
++  if (output == nullptr || renderContext() == nullptr || !m_connection.hasLayerShell()) {
++    return false;
++  }
++
++  if (!createWlSurface()) {
++    return false;
++  }
++  m_useLayerShell = true;
++  m_inputDispatcher.setTextInputContext(m_surface, m_connection.textInputService());
++
++  m_output = output;
++  m_connection.registerSurfaceOutput(m_surface, output);
++  setBufferScale(scale);
++
++  m_layerSurface = zwlr_layer_shell_v1_get_layer_surface(
++      m_connection.layerShell(), m_surface, output, static_cast<std::uint32_t>(LayerShellLayer::Overlay),
++      "noctalia-lockscreen"
++  );
++  if (m_layerSurface == nullptr) {
++    m_useLayerShell = false;
++    destroySurface();
++    return false;
++  }
++
++  if (zwlr_layer_surface_v1_add_listener(m_layerSurface, &kLayerLockSurfaceListener, this) != 0) {
++    zwlr_layer_surface_v1_destroy(m_layerSurface);
++    m_layerSurface = nullptr;
++    m_useLayerShell = false;
++    destroySurface();
++    return false;
++  }
++
++  m_connection.registerLayerSurface(m_surface, m_layerSurface);
++  zwlr_layer_surface_v1_set_anchor(
++      m_layerSurface,
++      LayerShellAnchor::Top | LayerShellAnchor::Bottom | LayerShellAnchor::Left | LayerShellAnchor::Right
++  );
++  zwlr_layer_surface_v1_set_size(m_layerSurface, 0, 0);
++  zwlr_layer_surface_v1_set_exclusive_zone(m_layerSurface, -1);
++  applyLayerKeyboardInteractivity();
++  wl_surface_commit(m_surface);
++
++  setRunning(true);
++  return true;
++}
++
++void LockSurface::applyLayerKeyboardInteractivity() {
++  if (!m_useLayerShell || m_layerSurface == nullptr) {
++    return;
++  }
++  const auto mode = m_locked ? LayerShellKeyboard::Exclusive : LayerShellKeyboard::None;
++  zwlr_layer_surface_v1_set_keyboard_interactivity(m_layerSurface, static_cast<std::uint32_t>(mode));
++  if (m_surface != nullptr) {
++    wl_surface_commit(m_surface);
++  }
++}
++
+ void LockSurface::setLockedState(bool locked) {
+   if (m_locked == locked) {
+     return;
+   }
+   m_locked = locked;
++  applyLayerKeyboardInteractivity();
+   if (m_locked) {
+     focusPasswordField();
+   } else {
+@@ -412,6 +481,36 @@
+   self->Surface::onConfigure(width, height);
+ }
+ 
++void LockSurface::handleLayerConfigure(
++    void* data, zwlr_layer_surface_v1* layerSurface, std::uint32_t serial, std::uint32_t width, std::uint32_t height
++) {
++  auto* self = static_cast<LockSurface*>(data);
++  zwlr_layer_surface_v1_ack_configure(layerSurface, serial);
++  std::uint32_t resolvedWidth = width;
++  std::uint32_t resolvedHeight = height;
++  if (resolvedWidth == 0 || resolvedHeight == 0) {
++    if (const auto* output = self->m_connection.findOutputByWl(self->m_output); output != nullptr) {
++      if (resolvedWidth == 0) {
++        resolvedWidth = output->logicalWidth > 0 ? static_cast<std::uint32_t>(output->logicalWidth) : 1920u;
++      }
++      if (resolvedHeight == 0) {
++        resolvedHeight = output->logicalHeight > 0 ? static_cast<std::uint32_t>(output->logicalHeight) : 1080u;
++      }
++    } else {
++      if (resolvedWidth == 0) {
++        resolvedWidth = 1920u;
++      }
++      if (resolvedHeight == 0) {
++        resolvedHeight = 1080u;
++      }
++    }
++  }
++  if (self->width() != resolvedWidth || self->height() != resolvedHeight) {
++    self->m_firstFrameRendered = false;
++  }
++  self->Surface::onConfigure(resolvedWidth, resolvedHeight);
++}
++
+ void LockSurface::prepareFrame(bool needsUpdate, bool needsLayout) {
+   auto* renderer = renderContext();
+   if (renderer == nullptr || width() == 0 || height() == 0) {
+diff -ruN a/src/shell/lockscreen/lock_surface.h b/src/shell/lockscreen/lock_surface.h
+--- a/src/shell/lockscreen/lock_surface.h	2026-06-29 23:53:39.552777101 +0200
++++ b/src/shell/lockscreen/lock_surface.h	2026-06-29 23:53:39.574421761 +0200
+@@ -18,6 +18,7 @@
+ struct ext_session_lock_surface_v1;
+ struct ext_session_lock_v1;
+ struct wl_output;
++struct zwlr_layer_surface_v1;
+ 
+ class Button;
+ class Box;
+@@ -38,6 +39,7 @@
+   using Surface::initialize;
+   bool initialize() override { return false; }
+   bool initialize(ext_session_lock_v1* lock, wl_output* output, std::int32_t scale);
++  bool initializeLayerShell(wl_output* output, std::int32_t scale);
+   void setLockedState(bool locked);
+   void setPromptState(std::string user, std::string password, std::string status, bool error, bool authenticating);
+   void setTextureCache(SharedTextureCache* cache) noexcept { m_textureCache = cache; }
+@@ -69,11 +71,16 @@
+       void* data, ext_session_lock_surface_v1* lockSurface, std::uint32_t serial, std::uint32_t width,
+       std::uint32_t height
+   );
++  static void handleLayerConfigure(
++      void* data, zwlr_layer_surface_v1* layerSurface, std::uint32_t serial, std::uint32_t width,
++      std::uint32_t height
++  );
+ 
+ protected:
+   void render() override;
+ 
+ private:
++  void applyLayerKeyboardInteractivity();
+   void prepareFrame(bool needsUpdate, bool needsLayout);
+   void applyWallpaperTexture();
+   void applyBlurredDesktopTexture();
+@@ -85,6 +92,8 @@
+   void focusPasswordField();
+ 
+   ext_session_lock_surface_v1* m_lockSurface = nullptr;
++  zwlr_layer_surface_v1* m_layerSurface = nullptr;
++  bool m_useLayerShell = false;
+   wl_output* m_output = nullptr;
+   ConfigService* m_config = nullptr;
+   Node m_root;
