@@ -19,6 +19,7 @@ export default defineConfig({
           social: [{ icon: 'github', label: 'GitHub', href: 'https://github.com/luxus/kwin-tiling' }],
           sidebar: [
               { label: 'Overview', slug: '' },
+              { label: 'Design', slug: 'design' },
               { label: 'Features', slug: 'features' },
               { label: 'Usage & Shortcuts', slug: 'usage' },
               { label: 'Roadmap', slug: 'roadmap' },

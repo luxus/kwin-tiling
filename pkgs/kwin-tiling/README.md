@@ -6,9 +6,10 @@ the ceiling of the KWin script API.
 
 **Source of truth:** `pkgs/kwin-tiling/` (the package). The flake exposes it as
 `packages.<sys>.kwin-tiling`, `overlays.default`, and `nixosModules.kwin-tiling`.
-Origin of the C++: the tiling feature of
-[gitlab.com/theblackdon/kineticwe](https://gitlab.com/theblackdon/kineticwe) (the
-KineticWE fork), curated down to just the feature.
+Motivation: native tiling inside KWin (smoother than the script API) via a slim
+patch over stock KWin, not a fork. Early ideas from
+[gitlab.com/theblackdon/kineticwe](https://gitlab.com/theblackdon/kineticwe);
+little of that code remains.
 
 ## How it's packaged
 
@@ -142,63 +143,66 @@ the new compositor on their next rebuild/switch once they track this flake.
 - Configurable new-window placement (postponed).
 - Open features: more layouts.
 
-## Collaboration with KineticWE (theblackdon)
+## Move/resize robustness
 
-This vendoring started from https://gitlab.com/theblackdon/kineticwe. We took the
-best of both:
-- Adopted the core multi-monitor move fix (pointer-driven moveResizeOutput +
-  Wayland output pinning during interactive move, see commit aa26550).
-- Kept/extended the richer cursor-aware drop, swap, and cross-output logic.
-- Fixed remaining "ghost space" on same-spot releases (use cancelMoveWindow +
-  pruneEmpty when the source leaf was left empty by KWin's untile-for-drag).
-- Made mouse vertical height resize inside columns actually work (previously
-  only keyboard `adjustWindowHeight` did; now `endResizeWindow` derives weights
-  from final geometry, same model as keyboard).
+Interactive move and resize got extra attention because native tiling lives in
+the compositor hot path:
 
-The `hooks.patch` ends with a couple of additional hunks for the move
-robustness fixes (they can be regenerated cleanly from a kwin tree). The src/
-here is the canonical version of the engines + controller.
+- Pointer-driven `moveResizeOutput` + Wayland output pinning during interactive
+  move (see commit aa26550).
+- Cursor-aware drop, swap, and cross-output logic.
+- "Ghost space" on same-spot releases: `cancelMoveWindow` + `pruneEmpty` when
+  KWin's untile-for-drag leaves an empty source leaf.
+- Mouse vertical height resize inside columns: `endResizeWindow` derives weights
+  from final geometry (same model as keyboard `adjustWindowHeight`).
 
-## Features and improvements added or extended beyond the original fork
+The `hooks.patch` carries a couple of additional hunks for move robustness;
+regenerate them cleanly from a kwin tree when rebasing.
 
-The core tiling logic came from the fork, but we added or completed several things:
+## Features shipped
 
-- **Master count** (number of windows in the primary/master area): full runtime control via keyboard (`Meta+Ctrl+.` / `Meta+Ctrl+,`), KCM, config persistence, and `setPrimaryCount` in the engine. The layout correctly clamps and reflows when the count changes.
-- **Master size/ratio** with live persistence: keyboard adjust (`Meta+Ctrl+L/H`), divider drag, and writes back to `[Tiling]` in kwinrc so it survives restarts and applies to new engines.
-- **Per-leaf height weights** inside columns (MasterStack): keyboard (`Meta+Ctrl+K/J`) and now **full mouse support** (horizontal splitters inside master or stack column). `endResizeWindow` derives the new weight from the final geometry (same relative model as keyboard). Previously limited or keyboard-only in our integration.
-- Robustness fixes not (or only partially) present:
-  - Proper handling for "same spot" or minimal drags that would otherwise leave ghost/phantom tiles (uses `cancelMoveWindow` + `pruneEmpty`).
-  - Better cross-output and per-output-virtual-desktop move behavior (combined fork's prevention with our drop/swap logic).
-  - Defensive `pruneEmpty` calls after structural changes.
-- Smart gaps (zero gaps when ≤1 window in a layout).
-- The packaging split itself: vendored new source + tiny hooks.patch so we don't carry a full fork.
-- Per-output layout choice + cycle, and the full TilingController integration with KWin's move/resize/desktop signals.
-- KCM settings (gaps, master count, master ratio) now apply live on reload without logout or session restart. Changes are pushed to existing engines and trigger reflow immediately.
-- Per-monitor (per-output) override UI in the KCM now clearly distinguishes global defaults from custom values per monitor, with a "Reset all per-monitor overrides" button to clear them.
+- **Master count** — runtime control via keyboard (`Meta+Ctrl+.` / `Meta+Ctrl+,`),
+  KCM, config persistence, and `setPrimaryCount`; layout clamps and reflows on
+  change.
+- **Master size/ratio** — keyboard (`Meta+Ctrl+L/H`), divider drag, persisted to
+  `[Tiling]` in kwinrc.
+- **Per-leaf height weights** — keyboard (`Meta+Ctrl+K/J`) and mouse (horizontal
+  splitters inside master or stack column).
+- **Cross-output moves** — per-output virtual-desktop behavior; defensive
+  `pruneEmpty` after structural changes.
+- Smart gaps (zero when ≤1 window in a layout).
+- Per-output layout choice + cycle; full `TilingController` integration with
+  KWin's move/resize/desktop signals.
+- KCM settings apply live on reload; per-monitor override UI with reset.
 
 See the shipped list and roadmap for the complete current status.
 
-## What we intentionally dropped from the fork
+## Rounded corners
 
-We took **only the tiling feature**, not the full KineticWE compositor experience:
+Hand-rolled compositor borders are out of scope. Use the separate
+[`kde-rounded-corners`](https://github.com/matinlotfali/KDE-Rounded-Corners) KWin
+effect (`pkgs.kde-rounded-corners`) — a normal plugin, same pattern as this
+patch: small upstream-friendly integration, not a fork.
 
-- Binary rename (kineticwe) — we keep the stock `kwin_wayland` binary.
-- All distro install scripts and packaging hacks (install-*.sh etc.).
-- Toolchain / build system changes.
-- Hand-rolled window borders and rounded corners (the fork baked custom corner/outline logic directly into the compositor).
+## Compared to KineticWE
 
-### Rounded corners
+Early inspiration from
+[theblackdon/kineticwe](https://gitlab.com/theblackdon/kineticwe) — a fork that
+proved native tiling could work inside KWin. We ported ideas and features, not
+the fork; little of that code remains.
 
-Instead of the fork's custom implementation we use the separate, actively maintained
-[`kde-rounded-corners`](https://github.com/matinlotfali/KDE-Rounded-Corners) KWin effect
-(`pkgs.kde-rounded-corners`).
+| | KineticWE fork | this package |
+| --- | --- | --- |
+| Compositor | entire KWin tree (~3,300 tracked files) | `kdePackages.kwin.overrideAttrs` |
+| Files touched | 123 `src/` files diverge from upstream KWin | 37 (22 vendored + 15 in `hooks.patch`) |
+| Existing KWin edits | spread across the fork | +468 / −38 lines in 15 files |
+| Workarounds dropped | QPainter backend (~20 files, ~1.9k LOC), hand-rolled borders (~500 LOC), install scripts (~2k LOC), `kineticwe` binary | stock `kwin_wayland`; effects as plugins |
 
-- Works for **both** `kwin-noctalia` and regular Plasma sessions.
-- Configured declaratively via `hjem/desktop/kde-rounded-corners.nix` (oneshot units that
-  set the right kwinrc keys + plugin enablement).
-- We configure it for clean outlines (size 0 for "square" + thin outline focus hints) while
-  still supporting CSD/frameless windows (Obsidian etc.).
-- The effect is a normal KWin plugin; no forking of the compositor required.
+14 of our 15 hooked files are the same integration points KineticWE changed for
+tiling; the fork also modifies **109 other** `src/` files (render backends,
+OpenGL, plugins, scene) that we don't carry. Layout engines set relative
+geometry on KWin's `CustomTile` tree — the compositor's own tile machinery
+handles gaps, geometry, and rendering, so we don't need a parallel render path
+or compositor rebrand.
 
-This is the same pattern we follow everywhere: prefer a small, upstream-friendly patch or
-separate effect over baking custom compositor changes.
+On a Plasma bump you re-test `hooks.patch`, not an entire fork rebase.
