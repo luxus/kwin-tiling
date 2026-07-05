@@ -43,6 +43,7 @@ public:
         Stacked = 1,
         Scrolling = 2,
         Centered = 3,
+        Grid = 4,
     };
 
     static QString layoutKindToString(LayoutKind kind);
@@ -249,6 +250,13 @@ protected:
      * children and make it a plain floating container the engine drives.
      */
     void takeOwnershipOfRoot(RootTile *root);
+
+    /**
+     * Shared geometric direction-finder over window/relative-geometry pairs.
+     */
+    Window *windowInDirectionFromRects(const QList<QPair<Window *, RectF>> &entries,
+                                       Window *from,
+                                       FocusDirection direction) const;
 
     /**
      * Engine-specific resize back-solve. Called by endResizeWindow() after

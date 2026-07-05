@@ -26,7 +26,7 @@ All shortcuts are registered as KWin actions. Rebind them in *System Settings
 | Retile (rebuild current screen) | `Meta+Shift+R` |
 | Focus last window | `Meta+U` |
 | Cycle layout | *(unbound)* |
-| Switch to MasterStack / Stacked / Scrolling | *(unbound)* |
+| Switch to MasterStack / Stacked / Scrolling / Grid | *(unbound)* |
 | Reset sizes | *(unbound)* |
 | Toggle zoom (monocle) | *(unbound)* |
 | Flip master side / Toggle gaps | *(unbound)* |

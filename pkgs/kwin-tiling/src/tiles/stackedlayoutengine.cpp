@@ -125,24 +125,18 @@ QList<Window *> StackedLayoutEngine::windows() const
 
 Window *StackedLayoutEngine::windowInDirection(Window *from, FocusDirection direction) const
 {
-    const QList<Window *> ws = m_column.windows();
-    if (ws.isEmpty()) {
-        return nullptr;
+    QList<QPair<Window *, RectF>> entries;
+    for (CustomTile *leaf : m_column.leaves()) {
+        if (!leaf) {
+            continue;
+        }
+        const QList<Window *> ws = leaf->windows();
+        if (ws.isEmpty()) {
+            continue;
+        }
+        entries.append({ws.first(), leaf->relativeGeometry()});
     }
-    if (!from || m_column.indexOf(from) < 0) {
-        return ws.first();
-    }
-    switch (direction) {
-    case FocusDirection::Up:
-        return m_column.vertical(from, false);
-    case FocusDirection::Down:
-        return m_column.vertical(from, true);
-    case FocusDirection::Left:
-    case FocusDirection::Right:
-        // No horizontal neighbours in a single column.
-        return nullptr;
-    }
-    return nullptr;
+    return windowInDirectionFromRects(entries, from, direction);
 }
 
 } // namespace KWin

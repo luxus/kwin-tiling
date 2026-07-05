@@ -1,10 +1,14 @@
-- **Layouts** — MasterStack, Stacked, Scrolling, and Centered; pick a default per monitor, cycle at runtime
+- **Layouts** — MasterStack, Stacked, Scrolling, Centered, and Grid; pick a default per monitor, cycle at runtime
 - **Gaps** — adjustable space between tiles and around screen edges; per-monitor overrides with reset
 - **Window rules** — float or ignore windows by app class or title; utilities, dialogs, and transients auto-float
-- **Keyboard** — focus in four directions, toggle float, promote to master, move within layout, move across monitors, adjust master width/count
+- **Keyboard** — focus in four directions, toggle float, promote to master, toggle master pin, focus last window, move within layout, move across monitors, adjust master width/count
 - **Mouse** — drag windows to swap or insert; drag dividers to resize master ratio and per-window heights inside a column
-- **Settings KCM** — enable layouts, gaps, master ratio/count, and per-monitor overrides in *System Settings → Window Management → Tiling*; changes apply live
+- **Settings KCM** — enable layouts, gaps, master ratio/count, borderless-when-tiled, and per-monitor overrides in *System Settings → Window Management → Tiling*; changes apply live
 - **Autotile** — new windows tile automatically; moving between desktops or monitors reflows and follows focus
 - **Persistence** — master ratio, master count, and layout choices survive restarts via `kwinrc`
 - **Smart gaps** — gaps collapse to zero when only one window is on screen
+- **Master pin** — lock a window to the master slot per output/desktop until unpinned
+- **Focus last** — toggle back to the previously active window (`Meta+U`)
+- **Borderless when tiled** — optional setting to hide window decorations while tiled
+- **Resize axis gating** — split updates only apply to the axis actually dragged
 - **Packaging** — vendored source + small hooks patch over stock KWin; ships as a Nix flake module/overlay

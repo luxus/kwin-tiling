@@ -10,6 +10,7 @@
 #include "core/rect.h"
 #include "cursor.h"
 #include "tiles/layoutengine.h"
+#include "tiles/gridlayoutengine.h"
 #include "tiles/masterstacklayoutengine.h"
 #include "tiles/scrollinglayoutengine.h"
 #include "tiles/stackedlayoutengine.h"
@@ -43,6 +44,8 @@ std::unique_ptr<LayoutEngine> createLayoutEngine(LayoutEngine::LayoutKind kind, 
         return std::make_unique<MasterStackLayoutEngine>(parent, LayoutEngine::LayoutKind::Centered);
     case LayoutEngine::LayoutKind::Scrolling:
         return std::make_unique<ScrollingLayoutEngine>(parent);
+    case LayoutEngine::LayoutKind::Grid:
+        return std::make_unique<GridLayoutEngine>(parent);
     case LayoutEngine::LayoutKind::MasterStack:
     default:
         return std::make_unique<MasterStackLayoutEngine>(parent);
@@ -313,6 +316,8 @@ QList<LayoutEngine::LayoutKind> TilingController::enabledLayoutKinds() const
             result.append(LayoutEngine::LayoutKind::Scrolling);
         } else if (name.compare(QLatin1String("Centered"), Qt::CaseInsensitive) == 0) {
             result.append(LayoutEngine::LayoutKind::Centered);
+        } else if (name.compare(QLatin1String("Grid"), Qt::CaseInsensitive) == 0) {
+            result.append(LayoutEngine::LayoutKind::Grid);
         }
     }
     if (result.isEmpty()) {

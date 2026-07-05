@@ -21,7 +21,8 @@ KCM.SimpleKCM {
         { text: i18n("MasterStack"), value: "MasterStack" },
         { text: i18n("Stacked"), value: "Stacked" },
         { text: i18n("Scrolling"), value: "Scrolling" },
-        { text: i18n("Centered"), value: "Centered" }
+        { text: i18n("Centered"), value: "Centered" },
+        { text: i18n("Grid"), value: "Grid" }
     ]
 
     // Tabs across the top of the module.
@@ -114,6 +115,21 @@ KCM.SimpleKCM {
                         layouts.push("Centered");
                     } else if (!checked) {
                         layouts = layouts.filter(l => l !== "Centered");
+                    }
+                    kcm.settings.enabledLayouts = layouts;
+                }
+            }
+
+            QQC2.CheckBox {
+                id: enableGrid
+                text: i18n("Grid")
+                checked: kcm.settings.enabledLayouts.indexOf("Grid") !== -1
+                onToggled: {
+                    let layouts = kcm.settings.enabledLayouts.slice();
+                    if (checked && layouts.indexOf("Grid") === -1) {
+                        layouts.push("Grid");
+                    } else if (!checked) {
+                        layouts = layouts.filter(l => l !== "Grid");
                     }
                     kcm.settings.enabledLayouts = layouts;
                 }
