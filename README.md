@@ -28,8 +28,8 @@ rest of Plasma stay as they are.
 Wayland session with [Noctalia](https://github.com/noctalia-dev/noctalia) as
 the shell instead of plasmashell. Needs extra session wiring (systemd units,
 portals, env). See the docs site page **KWin + Noctalia session** for a
-self-contained NixOS + Home Manager example (`examples/patches/` has the
-Noctalia patches).
+self-contained NixOS + Home Manager example. Noctalia KWin patches:
+[luxus/noctalia-kwin](https://github.com/luxus/noctalia-kwin).
 
 ## Use it from your flake
 

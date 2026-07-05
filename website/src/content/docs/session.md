@@ -141,17 +141,14 @@ session you typically need two small Noctalia patches:
    when Plasma session D-Bus is present; otherwise fall back to
    `loginctl terminate-session` (normal for kwin-only + greetd).
 
-Apply them by overriding the Noctalia package in your flake. Copy the patches
-from this repository's [`examples/patches/`](https://github.com/luxus/kwin-tiling/tree/main/examples/patches)
-into your config tree:
+Use the packaged build from [luxus/noctalia-kwin](https://github.com/luxus/noctalia-kwin)
+instead of hand-applying patches:
 
 ```nix
-noctaliaPkg = inputs.noctalia.packages.${system}.default.overrideAttrs (old: {
-  patches = (old.patches or [ ]) ++ [
-    ./patches/noctalia-kwin-layer-lock.patch
-    ./patches/noctalia-kde-session-exit.patch
-  ];
-});
+inputs.noctalia-kwin.url = "github:luxus/noctalia-kwin";
+inputs.noctalia-kwin.inputs.noctalia.follows = "noctalia";
+
+noctaliaPkg = inputs.noctalia-kwin.packages.${system}.default;
 ```
 
 Ship a `.desktop` file with **Desktop Actions** (launcher, lock, session menu,
@@ -211,6 +208,8 @@ Extend with krdp, rounded corners, or a greeter picker as needed.
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
     kwin-tiling.url = "github:luxus/kwin-tiling";
     noctalia.url = "github:noctalia-dev/noctalia";
+    noctalia-kwin.url = "github:luxus/noctalia-kwin";
+    noctalia-kwin.inputs.noctalia.follows = "noctalia";
     home-manager.url = "github:nix-community/home-manager";
     home-manager.inputs.nixpkgs.follows = "nixpkgs";
   };
@@ -261,12 +260,7 @@ let
   system = pkgs.stdenv.hostPlatform.system;
   kde = pkgs.kdePackages;
 
-  noctaliaPkg = inputs.noctalia.packages.${system}.default.overrideAttrs (old: {
-    patches = (old.patches or [ ]) ++ [
-      ./patches/noctalia-kwin-layer-lock.patch
-      ./patches/noctalia-kde-session-exit.patch
-    ];
-  });
+  noctaliaPkg = inputs.noctalia-kwin.packages.${system}.default;
   noctaliaBin = lib.getExe noctaliaPkg;
 
   kcmQmlPath = lib.concatStringsSep ":" (map (p: "${p}/lib/qt-6/qml") [

@@ -1,10 +1,7 @@
-# KWin + Noctalia session examples
+# Examples
 
-Supporting files for the [KWin + Noctalia session](https://github.com/luxus/kwin-tiling)
-docs page.
+The full NixOS + Home Manager walkthrough for KWin + Noctalia lives on the docs
+site under **KWin + Noctalia session** (`website/src/content/docs/session.md`).
 
-- `patches/` — Noctalia overrides for lock screen (layer-shell) and KDE logout on
-  kwin-only sessions. Copy into your NixOS/Home Manager config tree.
-
-The full NixOS + Home Manager walkthrough lives on the docs site under **KWin +
-Noctalia session** (`website/src/content/docs/session.md`).
+Noctalia KWin patches are packaged in
+[luxus/noctalia-kwin](https://github.com/luxus/noctalia-kwin).
