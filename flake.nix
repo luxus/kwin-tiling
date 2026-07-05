@@ -50,6 +50,22 @@
               ./columnmath-test
               touch $out
             '';
+        gridmath =
+          pkgs.runCommand "kwin-tiling-gridmath-test" { nativeBuildInputs = [ pkgs.gcc ]; }
+            ''
+              g++ -std=c++20 -O2 -Wall -Wextra -o gridmath-test \
+                ${./pkgs/kwin-tiling}/tests/gridmath_test.cpp
+              ./gridmath-test
+              touch $out
+            '';
+        directionmath =
+          pkgs.runCommand "kwin-tiling-directionmath-test" { nativeBuildInputs = [ pkgs.gcc ]; }
+            ''
+              g++ -std=c++20 -O2 -Wall -Wextra -o directionmath-test \
+                ${./pkgs/kwin-tiling}/tests/directionmath_test.cpp
+              ./directionmath-test
+              touch $out
+            '';
       });
 
       formatter = forAllSystems (pkgs: pkgs.nixfmt-rfc-style);

@@ -9,6 +9,7 @@ index ac1a3a5..d8d2a29 100644
 +    tiles/layoutengine.cpp
 +    tiles/masterstacklayoutengine.cpp
      tiles/quicktile.cpp
++    tiles/gridlayoutengine.cpp
 +    tiles/scrollinglayoutengine.cpp
 +    tiles/stackedlayoutengine.cpp
      tiles/tile.cpp
@@ -516,6 +517,11 @@ index a77a8ac..13303a8 100644
 +    initShortcut("Tiling Switch To Scrolling", i18n("Tiling Switch To Scrolling"), QKeySequence(), [this]() {
 +        if (m_tilingController) {
 +            m_tilingController->setLayout(LayoutEngine::LayoutKind::Scrolling);
++        }
++    }, true);
++    initShortcut("Tiling Switch To Grid", i18n("Tiling Switch To Grid"), QKeySequence(), [this]() {
++        if (m_tilingController) {
++            m_tilingController->setLayout(LayoutEngine::LayoutKind::Grid);
 +        }
 +    }, true);
 +    initShortcut("Tiling Reset Sizes", i18n("Tiling Reset Sizes"), QKeySequence(), [this]() {
