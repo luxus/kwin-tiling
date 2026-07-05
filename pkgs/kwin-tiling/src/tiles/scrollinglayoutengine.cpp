@@ -200,6 +200,12 @@ QList<Window *> ScrollingLayoutEngine::windows() const
     return result;
 }
 
+Window *ScrollingLayoutEngine::primaryWindow() const
+{
+    const QList<Window *> ws = windows();
+    return ws.isEmpty() ? nullptr : ws.first();
+}
+
 Window *ScrollingLayoutEngine::windowInDirection(Window *from, FocusDirection direction) const
 {
     if (m_columns.isEmpty()) {

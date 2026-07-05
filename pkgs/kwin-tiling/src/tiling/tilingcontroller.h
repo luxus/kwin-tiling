@@ -174,7 +174,7 @@ private:
     // MasterStack, default column width for Scrolling. Keeps the MasterRatio
     // and DefaultColumnWidth settings from clobbering each other.
     void seedEngineSizing(LayoutEngine *engine, LayoutEngine::LayoutKind kind);
-    LayoutEngine::LayoutKind resolveLayoutKind(LogicalOutput *output) const;
+    LayoutEngine::LayoutKind resolveLayoutKind(LogicalOutput *output, VirtualDesktop *desktop = nullptr) const;
     // Per-(output, desktop) layout: a remembered manual choice (see
     // persistLayoutChoice) wins over resolveLayoutKind's config default, so a
     // Cycle/Switch survives a reconfigure and restart.
@@ -187,6 +187,7 @@ private:
 
     void setLayoutOn(LogicalOutput *output, VirtualDesktop *desktop, LayoutEngine::LayoutKind kind);
     void reconcileLayoutKinds();
+    void showLayoutNotification(LayoutEngine::LayoutKind kind);
 
     QPointer<Workspace> m_workspace;
     std::unique_ptr<TilingRules> m_rules;

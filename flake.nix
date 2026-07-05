@@ -1,7 +1,7 @@
 {
   description = "Native dynamic tiling patched into KWin — package, overlay, and NixOS module";
 
-  inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable-small";
+  inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
 
   outputs =
     { self, nixpkgs }:
