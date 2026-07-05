@@ -1,0 +1,74 @@
+---
+title: Design
+description: Why we patch stock KWin instead of forking — and how that compares to KineticWE.
+---
+
+The goal is smooth **native** tiling inside KWin — not another script hitting the
+script API ceiling — without maintaining a renamed compositor fork.
+
+## Patch, don't fork
+
+We patch stock `kdePackages.kwin`:
+
+- **New code** lives as normal source files under `pkgs/kwin-tiling/src/` and is
+  copied into the KWin tree at build time.
+- **Existing KWin files** are changed through a small `hooks.patch` (~900 lines,
+  +468 / −38 net) — CMake wiring, input hooks, workspace/window integration.
+
+That keeps the compositor binary, protocol support, multi-monitor handling, and
+Plasma integration identical to upstream. When KDE fixes a bug in KWin, you get
+it automatically. On a nixpkgs bump you only re-test the patch surface, not an
+entire fork.
+
+Layout engines set relative geometry on KWin's `CustomTile` tree. KWin's own
+`Tile` / `TileManager` machinery handles gaps, window geometry, and rendering —
+we add layout logic on top of infrastructure that already exists.
+
+For rounded corners and focus outlines on frameless windows, use the separate
+[`kde-rounded-corners`](https://github.com/matinlotfali/KDE-Rounded-Corners)
+effect — a normal KWin plugin, not baked into the compositor.
+
+## Compared to KineticWE
+
+Early ideas came from
+[theblackdon/kineticwe](https://gitlab.com/theblackdon/kineticwe), a fork that
+proved native tiling could live inside KWin. We ported concepts and features from
+that work — little of its code remains here — and took a much slimmer integration
+path instead of carrying the fork.
+
+| | KineticWE fork | kwin-tiling |
+| --- | --- | --- |
+| Compositor to maintain | entire KWin tree (~3,300 tracked files) | stock `kdePackages.kwin` |
+| Integration surface | **123** `src/` files diverge from upstream KWin today | **37** files (**22** new + **15** hooked) |
+| Changes to existing KWin | baked into the fork (hard to isolate) | **+468 / −38** lines in `hooks.patch` |
+| Extra workarounds | ~20-file QPainter render path (~1.9k LOC), hand-rolled borders/rounded corners (~500 LOC), distro install scripts (~2k LOC), `kineticwe` binary rename | rounded corners via a separate KWin effect plugin |
+| Plasma bumps | rebase the whole compositor | re-test the patch surface |
+
+The tiling hooks overlap heavily — **14 of our 15** hooked files are among the
+changes KineticWE made — but the fork also touches **109 other** `src/` files
+(render backends, OpenGL, plugins, scene graph) that we don't need. Because we
+extend KWin instead of maintaining a parallel compositor, there is no second
+render path, no binary rename, and no per-distro install scaffolding.
+
+### What we dropped from the fork
+
+- Binary rename (`kineticwe` → stock `kwin_wayland`)
+- Distro install scripts and custom packaging hacks
+- Hand-rolled window borders and built-in rounded corners
+- QPainter backend workaround (~20 files) — we use KWin's existing render path
+
+### What we kept or extended
+
+Ideas and features ported from KineticWE, reimplemented on our slimmer base:
+
+- Master-stack, stacked, and centred layout engines (plus scrolling, which we added)
+- Native `TilingController` integration with KWin's move/resize/desktop signals
+- Float/ignore rules, gaps, and the settings KCM
+- Cross-monitor move robustness and mouse resize inside columns
+
+Rounded corners and focus outlines stay in
+[`kde-rounded-corners`](https://github.com/matinlotfali/KDE-Rounded-Corners) —
+the same pattern everywhere: extend KWin, don't fork it.
+
+For packaging details and source layout, see `pkgs/kwin-tiling/README.md` in the
+repository.

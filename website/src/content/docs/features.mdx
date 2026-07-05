@@ -133,21 +133,18 @@ When tiling is enabled:
   retiles on the new one, and moves focus with it
 - Floating windows stay above tiled ones when `FloatAbove` is enabled
 
-## Improvements beyond KineticWE
-
-The core tiling idea came from KineticWE, but this integration adds and
-completes several things:
+## Implementation highlights
 
 - **Master count** — control how many windows sit in the master area (keyboard,
   KCM, and persistence)
 - **Per-window height weights** — resize heights inside a column with both
-  keyboard and mouse (KineticWE had limited or keyboard-only support here)
+  keyboard and mouse
 - **Live KCM** — gap, master ratio, and master count changes apply without
   restarting the session
 - **Cross-monitor robustness** — moving windows between outputs no longer leaves
   phantom tiles; empty leaves are pruned after structural changes
 - **Clean packaging** — vendored source plus a small patch over stock KWin,
-  shipped as a Nix flake module instead of a full compositor fork
+  shipped as a Nix flake module
 
 ## How it fits together
 

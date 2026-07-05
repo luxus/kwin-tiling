@@ -16,42 +16,16 @@ windows snap into a layout; you move, resize, and float them with keyboard
 shortcuts and the mouse. Everything is configured through *System Settings* and
 persists across restarts.
 
-The tiling logic started in
-[theblackdon/kineticwe](https://gitlab.com/theblackdon/kineticwe) (the KineticWE
-fork). This project takes **only** that feature and ships it as a small patch
-on top of upstream KWin.
-
-## Patch, don't fork
-
-Instead of maintaining a renamed compositor fork, we patch stock `kdePackages.kwin`:
-
-- **New code** lives as normal source files under `pkgs/kwin-tiling/src/` and is
-  copied into the KWin tree at build time.
-- **Existing KWin files** are changed through a small `hooks.patch` (~750 lines)
-  — CMake wiring, input hooks, workspace/window integration.
-
-That keeps the compositor binary, protocol support, multi-monitor handling, and
-Plasma integration identical to upstream. When KDE fixes a bug in KWin, you get
-it automatically. On a nixpkgs bump you only re-test the patch surface, not an
-entire fork.
-
-## What we dropped from KineticWE
-
-We cherry-picked the tiling feature and left the rest behind:
-
-- Binary rename and full KineticWE compositor rebrand
-- Distro install scripts and custom build hacks
-- Hand-rolled window borders and built-in rounded corners
-
-For rounded corners and focus outlines on frameless windows, use the separate
-[`kde-rounded-corners`](https://github.com/matinlotfali/KDE-Rounded-Corners)
-effect instead.
+The motivation is **native** tiling — smoother and more capable than what the
+KWin script API allows — without maintaining a renamed compositor fork. We patch
+stock KWin with vendored source and a small hooks patch instead of carrying a
+full compositor fork like
+[KineticWE](https://gitlab.com/theblackdon/kineticwe) did. See
+[Design](design) for the comparison — **37 files** touched here vs **123**
+diverging `src/` files in the fork, and none of its QPainter backend or install
+scaffolding.
 
 ## What we shipped
-
-Beyond what KineticWE had, we completed several pieces (master count, mouse
-resize inside columns, live KCM changes, cross-monitor robustness) and packaged
-it cleanly for NixOS.
 
 At a glance:
 

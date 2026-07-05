@@ -68,10 +68,17 @@ files are additive and rarely conflict; the hooks into
 
 ## Origin
 
-The tiling feature was extracted from
-[theblackdon/kineticwe](https://gitlab.com/theblackdon/kineticwe) (the KineticWE
-fork), curated down to just the dynamic-tiling feature — minus the binary
-rename, distro/toolchain hacks, and hand-rolled borders/rounded corners. For
+The goal was smooth native tiling inside KWin — not another KWin script hitting
+the script API ceiling — without maintaining a compositor fork. This repo patches
+stock KWin with vendored source and a small hooks patch instead.
+
+Early inspiration came from
+[theblackdon/kineticwe](https://gitlab.com/theblackdon/kineticwe), a fork that
+showed native tiling could live in the compositor. We ported ideas and features,
+not the fork — little of that code remains. Compared to carrying the full fork
+(~3,300 tracked files, 123 diverging `src/` files today), we touch **37** files
+(**22** vendored + **15** hooked, +468/−38 lines in `hooks.patch`) and skip its
+QPainter backend, hand-rolled borders, install scripts, and binary rename. For
 rounded corners use the separate
 [kde-rounded-corners](https://github.com/matinlotfali/KDE-Rounded-Corners)
 effect.
