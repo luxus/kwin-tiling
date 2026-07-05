@@ -21,7 +21,8 @@ KCM.SimpleKCM {
         { text: i18n("MasterStack"), value: "MasterStack" },
         { text: i18n("Stacked"), value: "Stacked" },
         { text: i18n("Scrolling"), value: "Scrolling" },
-        { text: i18n("Centered"), value: "Centered" }
+        { text: i18n("Centered"), value: "Centered" },
+        { text: i18n("Grid"), value: "Grid" }
     ]
 
     // Tabs across the top of the module.
@@ -119,6 +120,21 @@ KCM.SimpleKCM {
                 }
             }
 
+            QQC2.CheckBox {
+                id: enableGrid
+                text: i18n("Grid")
+                checked: kcm.settings.enabledLayouts.indexOf("Grid") !== -1
+                onToggled: {
+                    let layouts = kcm.settings.enabledLayouts.slice();
+                    if (checked && layouts.indexOf("Grid") === -1) {
+                        layouts.push("Grid");
+                    } else if (!checked) {
+                        layouts = layouts.filter(l => l !== "Grid");
+                    }
+                    kcm.settings.enabledLayouts = layouts;
+                }
+            }
+
             QQC2.Label {
                 visible: kcm.settings.enabledLayouts.length < 2
                 Kirigami.FormData.label: i18nc("@info", "Note:")
@@ -159,6 +175,18 @@ KCM.SimpleKCM {
                 KCM.SettingStateBinding {
                     configObject: kcm.settings
                     settingName: "floatAbove"
+                }
+            }
+
+            QQC2.CheckBox {
+                id: borderlessWhenTiled
+                Kirigami.FormData.label: i18n("Tiled windows:")
+                text: i18n("Hide window decorations while tiled")
+                checked: kcm.settings.borderlessWhenTiled
+                onToggled: kcm.settings.borderlessWhenTiled = checked
+                KCM.SettingStateBinding {
+                    configObject: kcm.settings
+                    settingName: "borderlessWhenTiled"
                 }
             }
         }

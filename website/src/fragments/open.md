@@ -1,7 +1,3 @@
-- **Grid layout** — smoothly-interpolating grid (evaluated from [kwilt](https://github.com/jtekk1/kwilt)'s `autoGrid`) as a new layout kind, built on a shared geometric direction-finder rather than another bespoke `windowInDirection`; spiral and other layouts remain open too
+- **More layouts** — spiral and other layout engines beyond Grid
 - **Per-monitor sizing** — independent master width, master count, and scrolling column width (layout and gaps already support per-monitor overrides)
 - **Retile / reset** — one-shot command to rebuild the layout when tiles and windows drift out of sync
-- **Master pin** — lock a specific window to the master slot so it keeps reclaiming it as other windows come and go, independent of the one-shot promote-to-master
-- **Focus last window** — toggle straight back to the previously active window, no tabbox UI
-- **Hide decorations on tiled windows** — optional borderless mode for tiled windows, restored automatically on float
-- **Resize split updates should gate per axis** — a resize currently re-derives both master ratio and height weight from the final geometry regardless of which edge moved; should snapshot start geometry and only update the axis that actually changed

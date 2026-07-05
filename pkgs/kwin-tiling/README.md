@@ -64,12 +64,14 @@ in *System Settings → Shortcuts → KWin*.
 | Focus left/right/up/down | `Meta+Arrows` |
 | Toggle floating | `Meta+W` |
 | Promote to master | `Meta+Shift+Space` |
+| Toggle master pin | `Meta+S` |
 | Move window prev/next in layout | `Meta+Shift+Left/Right` |
 | Move window to left/right output | `Meta+Shift+Ctrl+Left/Right` |
 | Increase / decrease master width | `Meta+Ctrl+L` / `Meta+Ctrl+H` |
 | Increase / decrease window height | `Meta+Ctrl+K` / `Meta+Ctrl+J` |
 | Increase / decrease master count | `Meta+Ctrl+.` / `Meta+Ctrl+,` |
 | Retile (rebuild current screen) | `Meta+Shift+R` |
+| Focus last window | `Meta+U` |
 | Cycle layout / Switch to MasterStack / Stacked / Scrolling | unbound |
 | Reset sizes (master ratio + heights / column widths) | unbound |
 | Toggle zoom (monocle: active window full-screen) | unbound |
@@ -106,6 +108,7 @@ Read by the controller on `reconfigure`; also surfaced in the KCM
 | `MasterCount` | int | `1` | windows in the master area |
 | `DefaultColumnWidth` | double | `0.5` | Scrolling: new column width fraction (0.1–1.0) |
 | `FloatAbove` | bool | `true` | keep floating windows stacked above tiled ones |
+| `BorderlessWhenTiled` | bool | `false` | hide window decorations on tiled windows |
 | `GapLeft/Right/Top/Bottom` | int | `0` | outer gaps |
 | `GapBetween` | int | `0` | gap between tiles |
 | `Output <name>` subgroup | — | — | per-monitor `DefaultLayout` + gap overrides |
@@ -141,12 +144,9 @@ the new compositor on their next rebuild/switch once they track this flake.
 - Directional focus/move continue onto the adjacent monitor at a layout edge.
 - Smart gaps basic (0 when <=1 window); manual on/off toggle available.
 - Configurable new-window placement (postponed).
-- Open features: more layouts (Grid; see "Planned" below).
-- Resize split-update recomputes both master ratio and height weight from the
-  final geometry on every resize, regardless of which edge actually moved
-  (see "Planned" below).
+- Open features: more layouts (spiral, etc.).
 
-## Planned: kwilt-inspired improvements
+## Planned: kwilt-inspired improvements (mostly shipped — see Features shipped)
 
 Evaluated [jtekk1/kwilt](https://github.com/jtekk1/kwilt), a KWin *script*
 (QJSEngine scripting API, not a compositor patch): a flat per-(output,
@@ -276,6 +276,12 @@ regenerate them cleanly from a kwin tree when rebasing.
 
 ## Features shipped
 
+- **Grid layout** — smoothly-interpolating grid layout kind (`gridmath.h` +
+  `GridLayoutEngine`); enable via KCM, cycle or switch at runtime.
+- **Master pin** — sticky master per output/desktop (`Meta+S`).
+- **Focus last** — toggle to previously active window (`Meta+U`).
+- **Borderless when tiled** — optional `BorderlessWhenTiled` KCM setting.
+- **Resize axis gating** — per-axis split updates with start-geometry snapshot.
 - **Master count** — runtime control via keyboard (`Meta+Ctrl+.` / `Meta+Ctrl+,`),
   KCM, config persistence, and `setPrimaryCount`; layout clamps and reflows on
   change.

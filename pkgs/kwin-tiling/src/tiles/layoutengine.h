@@ -43,6 +43,7 @@ public:
         Stacked = 1,
         Scrolling = 2,
         Centered = 3,
+        Grid = 4,
     };
 
     static QString layoutKindToString(LayoutKind kind);
@@ -133,7 +134,11 @@ public:
     /**
      * Returns the primary/master window for this layout, or nullptr if empty.
      */
-    virtual Window *primaryWindow() const = 0;
+    virtual Window *primaryWindow() const
+    {
+        const QList<Window *> ws = windows();
+        return ws.isEmpty() ? nullptr : ws.first();
+    }
 
     /**
      * Primary-split control: the master/stack ratio and master-window count.
@@ -164,15 +169,11 @@ public:
     /**
      * Interactive-resize support. The user finished resizing @p window; the
      * engine reinterprets its new geometry (within work area @p area) as a
-     * change to its own splits and reflows. Returns true if it adjusted a
-     * split (false lets the caller fall back to a plain reflow / snap-back).
+     * change to its own splits and reflows. @p startGeometry is the window's
+     * frame geometry at resize-start. Returns true if it adjusted a split
+     * (false lets the caller fall back to a plain reflow / snap-back).
      */
-    virtual bool endResizeWindow(Window *window, const RectF &area)
-    {
-        Q_UNUSED(window)
-        Q_UNUSED(area)
-        return false;
-    }
+    bool endResizeWindow(Window *window, const RectF &area, const RectF &startGeometry);
 
     /**
      * Directional focus support. Returns the window in the requested direction
@@ -243,6 +244,33 @@ protected:
      * the engine proceeds with its normal layout.
      */
     bool reflowZoomed(const QList<CustomTile *> &allLeaves);
+
+    /**
+     * Take full ownership of @p root: drop any pre-existing default-layout
+     * children and make it a plain floating container the engine drives.
+     */
+    void takeOwnershipOfRoot(RootTile *root);
+
+    /**
+     * Shared geometric direction-finder over window/relative-geometry pairs.
+     */
+    Window *windowInDirectionFromRects(const QList<QPair<Window *, RectF>> &entries,
+                                       Window *from,
+                                       FocusDirection direction) const;
+
+    /**
+     * Engine-specific resize back-solve. Called by endResizeWindow() after
+     * shared guards and per-axis change detection (@p widthChanged /
+     * @p heightChanged, 2px threshold vs. @p startGeometry).
+     */
+    virtual bool applyResize(Window *window, const RectF &area, bool widthChanged, bool heightChanged)
+    {
+        Q_UNUSED(window)
+        Q_UNUSED(area)
+        Q_UNUSED(widthChanged)
+        Q_UNUSED(heightChanged)
+        return false;
+    }
 
     QPointer<Window> m_zoomedWindow;
 };

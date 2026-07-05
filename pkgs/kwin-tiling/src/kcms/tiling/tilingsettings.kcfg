@@ -43,6 +43,10 @@
       <label>Show an on-screen notification when switching layouts</label>
       <default>true</default>
     </entry>
+    <entry name="borderlessWhenTiled" key="BorderlessWhenTiled" type="Bool">
+      <label>Hide window decorations on tiled windows</label>
+      <default>false</default>
+    </entry>
     <entry name="gapLeft" key="GapLeft" type="Int">
       <label>Gap between the left screen edge and tiles</label>
       <default>0</default>

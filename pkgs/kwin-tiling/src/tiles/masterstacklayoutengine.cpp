@@ -75,16 +75,7 @@ const StackColumn *MasterStackLayoutEngine::columnFor(SideColumn side) const
 
 void MasterStackLayoutEngine::attach(RootTile *root)
 {
-    if (root) {
-        const QList<Tile *> existingChildren = root->childTiles();
-        for (Tile *child : existingChildren) {
-            if (CustomTile *custom = qobject_cast<CustomTile *>(child)) {
-                root->destroyChild(custom);
-            }
-        }
-        root->setLayoutDirection(Tile::LayoutDirection::Floating);
-        root->setRelativeGeometry(RectF(0, 0, 1, 1));
-    }
+    takeOwnershipOfRoot(root);
     if (isCentered()) {
         m_left.setRoot(root);
         m_center.setRoot(root);
@@ -503,12 +494,8 @@ void MasterStackLayoutEngine::flipMaster()
     reflow();
 }
 
-bool MasterStackLayoutEngine::endResizeWindow(Window *window, const RectF &area)
+bool MasterStackLayoutEngine::applyResize(Window *window, const RectF &area, bool widthChanged, bool heightChanged)
 {
-    if (!window || (area.width() <= 0 && area.height() <= 0)) {
-        return false;
-    }
-
     if (isCentered()) {
         SideColumn side;
         StackColumn *col = findColumn(window, &side);
@@ -526,12 +513,12 @@ bool MasterStackLayoutEngine::endResizeWindow(Window *window, const RectF &area)
         }
 
         const auto geom = window->frameGeometry();
-        if (area.height() > 0 && count >= 2 && geom.height() > 0) {
+        if (heightChanged && area.height() > 0 && count >= 2 && geom.height() > 0) {
             col->applyHeightDrag(window, geom.height() / area.height(), 0, count);
             reflow();
         }
 
-        if (area.width() > 0 && geom.width() > 0) {
+        if (widthChanged && area.width() > 0 && geom.width() > 0) {
             const qreal frac = geom.width() / area.width();
             if (side == SideColumn::Center) {
                 setMasterRatio(frac);
@@ -557,7 +544,7 @@ bool MasterStackLayoutEngine::endResizeWindow(Window *window, const RectF &area)
     int colStart = 0;
     int colEnd = count;
     columnRangeFor(idx, count, colStart, colEnd);
-    if (area.height() > 0 && (colEnd - colStart) >= 2) {
+    if (heightChanged && area.height() > 0 && (colEnd - colStart) >= 2) {
         const qreal newHeight = geom.height();
         if (newHeight > 0) {
             m_column.applyHeightDrag(window, newHeight / area.height(), colStart, colEnd);
@@ -565,7 +552,7 @@ bool MasterStackLayoutEngine::endResizeWindow(Window *window, const RectF &area)
         }
     }
 
-    if (area.width() > 0 && geom.width() > 0) {
+    if (widthChanged && area.width() > 0 && geom.width() > 0) {
         const int masters = std::min(m_masterCount, count - 1);
         const qreal ratio = (idx < masters)
             ? geom.width() / area.width()
@@ -592,8 +579,7 @@ Window *MasterStackLayoutEngine::primaryWindow() const
     if (isCentered()) {
         return m_center.windowAt(0);
     }
-    const QList<Window *> ws = m_column.windows();
-    return ws.isEmpty() ? nullptr : ws.first();
+    return LayoutEngine::primaryWindow();
 }
 
 Window *MasterStackLayoutEngine::windowInDirection(Window *from, FocusDirection direction) const

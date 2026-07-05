@@ -24,18 +24,7 @@ StackedLayoutEngine::~StackedLayoutEngine()
 
 void StackedLayoutEngine::attach(RootTile *root)
 {
-    if (root) {
-        // Take full ownership of the root: drop any pre-existing default-layout
-        // children and make it a plain floating container the engine drives.
-        const QList<Tile *> existingChildren = root->childTiles();
-        for (Tile *child : existingChildren) {
-            if (CustomTile *custom = qobject_cast<CustomTile *>(child)) {
-                root->destroyChild(custom);
-            }
-        }
-        root->setLayoutDirection(Tile::LayoutDirection::Floating);
-        root->setRelativeGeometry(RectF(0, 0, 1, 1));
-    }
+    takeOwnershipOfRoot(root);
     m_column.setRoot(root);
 }
 
@@ -107,11 +96,9 @@ void StackedLayoutEngine::adjustWindowHeight(Window *window, qreal delta)
     reflow();
 }
 
-bool StackedLayoutEngine::endResizeWindow(Window *window, const RectF &area)
+bool StackedLayoutEngine::applyResize(Window *window, const RectF &area, bool widthChanged, bool heightChanged)
 {
-    if (!window || (area.width() <= 0 && area.height() <= 0)) {
-        return false;
-    }
+    Q_UNUSED(widthChanged)
     if (!m_column.contains(window)) {
         return false;
     }
@@ -121,7 +108,7 @@ bool StackedLayoutEngine::endResizeWindow(Window *window, const RectF &area)
         reflow();
         return true;
     }
-    if (area.height() > 0) {
+    if (heightChanged && area.height() > 0) {
         const qreal newHeight = window->frameGeometry().height();
         if (newHeight > 0) {
             m_column.applyHeightDrag(window, newHeight / area.height(), 0, m_column.count());
@@ -136,32 +123,20 @@ QList<Window *> StackedLayoutEngine::windows() const
     return m_column.windows();
 }
 
-Window *StackedLayoutEngine::primaryWindow() const
-{
-    const QList<Window *> ws = m_column.windows();
-    return ws.isEmpty() ? nullptr : ws.first();
-}
-
 Window *StackedLayoutEngine::windowInDirection(Window *from, FocusDirection direction) const
 {
-    const QList<Window *> ws = m_column.windows();
-    if (ws.isEmpty()) {
-        return nullptr;
+    QList<QPair<Window *, RectF>> entries;
+    for (CustomTile *leaf : m_column.leaves()) {
+        if (!leaf) {
+            continue;
+        }
+        const QList<Window *> ws = leaf->windows();
+        if (ws.isEmpty()) {
+            continue;
+        }
+        entries.append({ws.first(), leaf->relativeGeometry()});
     }
-    if (!from || m_column.indexOf(from) < 0) {
-        return ws.first();
-    }
-    switch (direction) {
-    case FocusDirection::Up:
-        return m_column.vertical(from, false);
-    case FocusDirection::Down:
-        return m_column.vertical(from, true);
-    case FocusDirection::Left:
-    case FocusDirection::Right:
-        // No horizontal neighbours in a single column.
-        return nullptr;
-    }
-    return nullptr;
+    return windowInDirectionFromRects(entries, from, direction);
 }
 
 } // namespace KWin

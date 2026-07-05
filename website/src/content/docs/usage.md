@@ -18,13 +18,15 @@ All shortcuts are registered as KWin actions. Rebind them in *System Settings
 | Focus left / right / up / down | `Meta+Left` / `Meta+Right` / `Meta+Up` / `Meta+Down` |
 | Toggle floating | `Meta+W` |
 | Promote to master | `Meta+Shift+Space` |
+| Toggle master pin | `Meta+S` |
 | Move window prev / next in layout | `Meta+Shift+Left` / `Meta+Shift+Right` |
 | Move window to left / right monitor | `Meta+Shift+Ctrl+Left` / `Meta+Shift+Ctrl+Right` |
 | Increase / decrease master width | `Meta+Ctrl+L` / `Meta+Ctrl+H` |
 | Increase / decrease master count | `Meta+Ctrl+.` / `Meta+Ctrl+,` |
 | Retile (rebuild current screen) | `Meta+Shift+R` |
+| Focus last window | `Meta+U` |
 | Cycle layout | *(unbound)* |
-| Switch to MasterStack / Stacked / Scrolling | *(unbound)* |
+| Switch to MasterStack / Stacked / Scrolling / Grid | *(unbound)* |
 | Reset sizes | *(unbound)* |
 | Toggle zoom (monocle) | *(unbound)* |
 | Flip master side / Toggle gaps | *(unbound)* |
