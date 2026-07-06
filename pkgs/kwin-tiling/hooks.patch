@@ -2,7 +2,7 @@ diff --git a/src/CMakeLists.txt b/src/CMakeLists.txt
 index ac1a3a5..436bb1b 100644
 --- a/src/CMakeLists.txt
 +++ b/src/CMakeLists.txt
-@@ -217,9 +217,17 @@ target_sources(kwin PRIVATE
+@@ -217,9 +217,18 @@ target_sources(kwin PRIVATE
      tablet_input.cpp
      tabletmodemanager.cpp
      tiles/customtile.cpp
@@ -15,6 +15,7 @@ index ac1a3a5..436bb1b 100644
      tiles/tile.cpp
      tiles/tilemanager.cpp
 +    tiling/tilingcontroller.cpp
++    tiling/tilingosd.cpp
 +    tiling/tilingreflow.cpp
 +    tiling/tilingrules.cpp
      touch_input.cpp
@@ -76,6 +77,15 @@ index 4bcdc44..f7af7bb 100644
  
  if (KWIN_BUILD_TABBOX)
      add_subdirectory(tabbox)
+diff --git a/src/qml/CMakeLists.txt b/src/qml/CMakeLists.txt
+index 1111111..2222222 100644
+--- a/src/qml/CMakeLists.txt
++++ b/src/qml/CMakeLists.txt
+@@ -1,3 +1,4 @@
+ install(DIRECTORY outline/plasma DESTINATION ${KDE_INSTALL_DATADIR}/kwin-wayland/outline)
+ install(DIRECTORY onscreennotification/plasma DESTINATION ${KDE_INSTALL_DATADIR}/kwin-wayland/onscreennotification)
++install(DIRECTORY onscreennotification/tiling DESTINATION ${KDE_INSTALL_DATADIR}/kwin-wayland/onscreennotification)
+ install(DIRECTORY frames/plasma DESTINATION ${KDE_INSTALL_DATADIR}/kwin-wayland/frames)
 diff --git a/src/plugins/CMakeLists.txt b/src/plugins/CMakeLists.txt
 index 4131b6f..302e3a5 100644
 --- a/src/plugins/CMakeLists.txt
@@ -634,7 +644,7 @@ index a753692..67dc97b 100644
 +    if (!desktop || desktop == current) {
 +        return;
      }
-+    ws->sendWindowToDesktops(window, {desktop}, options->isRollOverDesktops());
++    ws->sendWindowToDesktops(window, {desktop}, true);
 +    vds->setCurrent(desktop, window->output());
  }
  
@@ -662,7 +672,7 @@ index a753692..67dc97b 100644
 -        ws->setMoveResizeWindow(ws->activeWindow());
 -        vds->setCurrent(newCurrent, ws->activeWindow()->output());
 -        ws->setMoveResizeWindow(nullptr);
-+    ws->sendWindowToDesktops(window, {newCurrent}, options->isRollOverDesktops());
++    ws->sendWindowToDesktops(window, {newCurrent}, true);
 +    vds->setCurrent(newCurrent, window->output());
 +    // When native tiling is enabled, follow i3/dwm-style: the moved window
 +    // takes focus on the new desktop instead of being left behind.

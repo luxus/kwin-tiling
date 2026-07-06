@@ -10,7 +10,7 @@
 #include "tiling/tilingreflow.h"
 #include "core/rect.h"
 #include "cursor.h"
-#include "osd.h"
+#include "tiling/tilingosd.h"
 #include "tiles/layoutengine.h"
 #include "tiles/gridlayoutengine.h"
 #include "tiles/masterstacklayoutengine.h"
@@ -23,6 +23,10 @@
 
 #include <KConfigGroup>
 #include <KSharedConfig>
+#include <QDBusConnection>
+#include <QDBusConnectionInterface>
+#include <QDBusMessage>
+#include <QDBusPendingCall>
 #include <QStandardPaths>
 #include <QtGlobal>
 
@@ -1423,11 +1427,23 @@ void TilingController::showLayoutNotification(LayoutEngine::LayoutKind kind)
     }
 
     const QString text = LayoutEngine::layoutDisplayName(kind);
-    const QString iconName = QStringLiteral("view-grid");
+    const QString iconName = QStringLiteral("kwin");
 
-    // Use KWin's on-screen notification so layout switches show an OSD even
-    // without plasmashell (e.g. KWin + Noctalia sessions).
-    OSD::show(text, iconName);
+    // Prefer the Plasma shell OSD (centered, sized to content) when available.
+    if (QDBusConnection::sessionBus().interface()->isServiceRegistered(QStringLiteral("org.kde.plasmashell"))) {
+        QDBusMessage message = QDBusMessage::createMethodCall(QStringLiteral("org.kde.plasmashell"),
+                                                                QStringLiteral("/org/kde/osdService"),
+                                                                QStringLiteral("org.kde.osdService"),
+                                                                QStringLiteral("showText"));
+        message.setArguments({iconName, text});
+        QDBusConnection::sessionBus().asyncCall(message);
+        return;
+    }
+
+    // KWin-only sessions (e.g. Noctalia): use a centered tiling OSD. KWin's
+    // built-in OnScreenNotification uses a floating dialog that truncates text
+    // and fades out when the pointer enters its geometry.
+    TilingOsd::show(m_workspace, text, iconName);
 }
 
 void TilingController::moveWindowToOutput(TilingDirection direction)
