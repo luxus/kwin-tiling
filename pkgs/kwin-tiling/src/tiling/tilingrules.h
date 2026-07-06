@@ -1,6 +1,6 @@
 /*
     KWin - the KDE window manager
-    SPDX-FileCopyrightText: 2026 KWin Tiling Fork
+    SPDX-FileCopyrightText: 2026 luxus
     SPDX-License-Identifier: GPL-2.0-or-later
 */
 
@@ -40,7 +40,6 @@ public:
      */
     bool isFloating(const Window *window) const;
 
-    // #121 per-app rules
     bool isAlwaysTiled(const Window *window) const { return matchClass(window, m_alwaysTileClasses); }
     bool prefersStacked(const Window *window) const { return matchClass(window, m_stackedClasses); }
 
@@ -57,8 +56,8 @@ private:
     QStringList m_ignoreTitles;
     QStringList m_floatingClasses;
     QStringList m_floatingTitles;
-    QStringList m_alwaysTileClasses;  // #121 always-tile override
-    QStringList m_stackedClasses;     // #121 prefer stacked layout for class
+    QStringList m_alwaysTileClasses;
+    QStringList m_stackedClasses;
     bool m_floatUtility = true;
     bool m_floatDialog = true;
     bool m_floatTransient = true;

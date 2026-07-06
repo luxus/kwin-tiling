@@ -1,6 +1,6 @@
 /*
     KWin - the KDE window manager
-    SPDX-FileCopyrightText: 2026 KWin Tiling Fork
+    SPDX-FileCopyrightText: 2026 luxus
     SPDX-License-Identifier: GPL-2.0-or-later
 */
 
@@ -22,8 +22,8 @@ void TilingRules::load(const KConfigGroup &group)
     m_ignoreTitles = group.readEntry("IgnoreTitle", QStringList());
     m_floatingClasses = group.readEntry("FloatingClass", QStringList());
     m_floatingTitles = group.readEntry("FloatingTitle", QStringList());
-    m_alwaysTileClasses = group.readEntry("AlwaysTileClass", QStringList()); // #121
-    m_stackedClasses = group.readEntry("StackedClass", QStringList());     // #121
+    m_alwaysTileClasses = group.readEntry("AlwaysTileClass", QStringList());
+    m_stackedClasses = group.readEntry("StackedClass", QStringList());
     m_floatUtility = group.readEntry("FloatUtility", true);
     m_floatDialog = group.readEntry("FloatDialog", true);
     m_floatTransient = group.readEntry("FloatTransient", true);
@@ -90,7 +90,7 @@ TilingState::Mode TilingRules::initialMode(const Window *window) const
     if (isIgnored(window)) {
         return TilingState::Mode::Floating;
     }
-    if (isAlwaysTiled(window)) { // #121 force tile
+    if (isAlwaysTiled(window)) {
         return TilingState::Mode::Tiled;
     }
     if (isFloating(window)) {

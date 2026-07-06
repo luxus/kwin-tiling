@@ -1,6 +1,6 @@
 /*
     KWin - the KDE window manager
-    SPDX-FileCopyrightText: 2026 KWin Tiling Fork
+    SPDX-FileCopyrightText: 2026 luxus
     SPDX-License-Identifier: GPL-2.0-or-later
 */
 
@@ -46,6 +46,9 @@ public:
     void addWindow(Window *window) override;
     void removeWindow(Window *window) override;
     void moveWindow(Window *window, int delta) override;
+    void beginMoveWindow(Window *window) override;
+    bool endMoveWindow(Window *window, Window *target) override;
+    void cancelMoveWindow(Window *window) override;
     void reflow() override;
     void pruneEmpty() override;
 
@@ -92,6 +95,8 @@ private:
     QPointer<Window> m_activeWindow;
     qreal m_scrollOffset = 0.0;   // in view-width fractions
     qreal m_defaultColWidth = 0.5;
+    bool m_moveHasSource = false;
+    int m_moveSourceColumn = -1;
 };
 
 } // namespace KWin

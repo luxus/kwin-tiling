@@ -1,0 +1,11 @@
+Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+Upstream-Name: kwin-tiling
+Source: https://github.com/luxus/kwin-tiling
+
+Files: pkgs/kwin-tiling/src/** pkgs/kwin-tiling/tests/**
+Copyright: 2026 luxus
+License: GPL-2.0-or-later
+
+Files: LICENSE LICENSES/*
+Copyright: Free Software Foundation, Inc.
+License: GPL-2.0-or-later

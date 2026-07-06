@@ -1,6 +1,6 @@
 /*
     KWin - the KDE window manager
-    SPDX-FileCopyrightText: 2026 KWin Tiling Fork
+    SPDX-FileCopyrightText: 2026 luxus
     SPDX-License-Identifier: GPL-2.0-or-later
 */
 
@@ -184,7 +184,7 @@ void TilingController::reconfigure()
     // that now match a rule and are still tiled; we never auto-tile a floating
     // window here, so manual Meta+W floats are never clobbered and an unrelated
     // reloadConfig stays a no-op.
-    // ponytail: asymmetric by design (TilingState has no float-source flag). If
+    // Asymmetric by design (TilingState has no float-source flag). If
     // un-floating on rule *removal* must also be live, track why a window floats
     // (manual vs rule) and re-evaluate both directions.
     if (m_enabled && m_workspace) {
@@ -412,7 +412,7 @@ void TilingController::applyGapSettingsToOutput(LogicalOutput *output)
             LayoutEngine *eng = manager->layoutEngine(desktop);
             int n = eng ? eng->windows().count() : 0;
             if (m_gapsSuppressed || n <= 1) {
-                // No gaps: either the user toggled them off, or #120 smart gaps
+                // No gaps: either the user toggled them off, or smart gaps
                 // (no indent/between for a single or empty layout).
                 root->setGapBetween(0);
                 root->setGapMargins({});
@@ -482,7 +482,9 @@ void TilingController::onWindowAdded(Window *window)
             ? VirtualDesktopManager::self()->currentDesktop(output)
             : window->desktops().constFirst();
         addWindowToLayout(window, output, desktop);
-        if (output) applyGapSettingsToOutput(output); // #120 smart gaps update
+        if (output) {
+            applyGapSettingsToOutput(output);
+        }
     }
     applyFloatStacking(window);
 }
@@ -507,7 +509,7 @@ void TilingController::onWindowRemoved(Window *window)
     LogicalOutput *out = window->output();
     removeWindowFromLayouts(window);
     if (out) {
-        applyGapSettingsToOutput(out); // #120 smart gaps update
+        applyGapSettingsToOutput(out);
         for (VirtualDesktop *desktop : VirtualDesktopManager::self()->desktops()) {
             reassertMasterPin(out, desktop);
         }
@@ -526,7 +528,7 @@ void TilingController::addWindowToLayout(Window *window, LogicalOutput *output, 
     }
 
     LayoutEngine::LayoutKind kind = layoutKindFor(output, desktop);
-    if (m_rules && m_rules->prefersStacked(window)) { // #121 per-app
+    if (m_rules && m_rules->prefersStacked(window)) {
         kind = LayoutEngine::LayoutKind::Stacked;
     }
     setupLayoutEngine(output, manager, desktop, kind);
@@ -998,7 +1000,7 @@ void TilingController::onWindowMoveFinished(Window *window)
         : window->desktops().constFirst();
     addWindowToLayout(window, output, desktop);
     if (LayoutEngine *eng = layoutEngineForWindow(window)) {
-        eng->pruneEmpty();  // belt: any path that touched layout should not leave phantoms
+        eng->pruneEmpty(); // any path that touched layout should not leave phantoms
     }
 }
 
@@ -1061,21 +1063,20 @@ void TilingController::onWindowMinimizedChanged(Window *window)
         LogicalOutput *out = window->output();
         removeWindowFromLayouts(window);
         if (out) {
-            applyGapSettingsToOutput(out); // #120 smart gaps update
+            applyGapSettingsToOutput(out);
         }
     } else if (!layoutEngineForWindow(window)) {
         // Restored and not already tiled: re-tile it on its own output/desktop,
-        // resolved exactly like onWindowAdded.
-        // ponytail: re-appends at the end of the layout order (same as the
-        // close/reopen path), not its pre-minimize slot. Add slot memory only
-        // if users actually miss it.
+        // resolved exactly like onWindowAdded. Re-appends at the end of the
+        // layout order (same as the close/reopen path), not its pre-minimize
+        // slot. Add slot memory only if users actually miss it.
         LogicalOutput *output = window->output() ? window->output() : m_workspace->activeOutput();
         VirtualDesktop *desktop = window->desktops().isEmpty()
             ? VirtualDesktopManager::self()->currentDesktop(output)
             : window->desktops().constFirst();
         addWindowToLayout(window, output, desktop);
         if (output) {
-            applyGapSettingsToOutput(output); // #120 smart gaps update
+            applyGapSettingsToOutput(output);
         }
     }
 }
@@ -1105,6 +1106,9 @@ Window *TilingController::windowUnderCursorInEngine(LayoutEngine *engine) const
 
 void TilingController::focusLast()
 {
+    if (!m_workspace) {
+        return;
+    }
     if (m_prevFocused && m_prevFocused != m_workspace->activeWindow()) {
         m_workspace->activateWindow(m_prevFocused);
     }
@@ -1214,9 +1218,13 @@ void TilingController::moveWindowPrevious()
 void TilingController::moveInDirection(LayoutEngine::FocusDirection direction)
 {
     Window *window = activeTiledWindow();
-    if (!window) return;
+    if (!window) {
+        return;
+    }
     LayoutEngine *engine = layoutEngineForWindow(window);
-    if (!engine) return;
+    if (!engine) {
+        return;
+    }
     Window *target = engine->windowInDirection(window, direction);
     if (target) {
         const auto &wins = engine->windows();
@@ -1244,7 +1252,6 @@ void TilingController::moveInDirection(LayoutEngine::FocusDirection direction)
     }
 }
 
-// #118 directional move/swap (ponytail: reuse geom windowInDirection + list delta swap)
 void TilingController::moveLeft() { moveInDirection(LayoutEngine::FocusDirection::Left); }
 void TilingController::moveRight() { moveInDirection(LayoutEngine::FocusDirection::Right); }
 void TilingController::moveUp() { moveInDirection(LayoutEngine::FocusDirection::Up); }

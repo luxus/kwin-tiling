@@ -1,5 +1,5 @@
 /*
-    SPDX-FileCopyrightText: 2026 KWin Tiling Fork
+    SPDX-FileCopyrightText: 2026 luxus
     SPDX-License-Identifier: GPL-2.0-or-later
 
     Standalone self-check for directionmath.h — run with:

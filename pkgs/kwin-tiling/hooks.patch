@@ -1,5 +1,5 @@
 diff --git a/src/CMakeLists.txt b/src/CMakeLists.txt
-index ac1a3a5..d8d2a29 100644
+index ac1a3a5..24deea6 100644
 --- a/src/CMakeLists.txt
 +++ b/src/CMakeLists.txt
 @@ -217,9 +217,16 @@ target_sources(kwin PRIVATE
@@ -76,7 +76,7 @@ index 4131b6f..302e3a5 100644
  add_subdirectory(touchpoints)
  add_subdirectory(trackmouse)
 diff --git a/src/tiles/tile.cpp b/src/tiles/tile.cpp
-index 85cfb97..eb95877 100644
+index 85cfb97..0e02570 100644
 --- a/src/tiles/tile.cpp
 +++ b/src/tiles/tile.cpp
 @@ -29,6 +29,8 @@ Tile::Tile(TileManager *tiling, Tile *parent)
@@ -88,21 +88,7 @@ index 85cfb97..eb95877 100644
      }
      connect(Workspace::self(), &Workspace::configChanged, this, &Tile::windowGeometryChanged);
      connect(Workspace::self(), &Workspace::windowRemoved, this, &Tile::unmanage);
-@@ -137,11 +139,8 @@ void Tile::setRelativeGeometry(const RectF &geom)
-     Q_EMIT absoluteGeometryChanged();
-     Q_EMIT windowGeometryChanged();
- 
--    if (isActive()) {
--        for (auto *w : std::as_const(m_windows)) {
--            // Resize only if we are the currently managing tile for that window
--            w->moveResize(windowGeometry());
--        }
-+    for (auto *w : std::as_const(m_windows)) {
-+        w->moveResize(windowGeometry());
-     }
- }
- 
-@@ -170,12 +169,13 @@ RectF Tile::absoluteGeometryInScreen() const
+@@ -170,12 +172,13 @@ RectF Tile::absoluteGeometryInScreen() const
  
  RectF Tile::windowGeometry() const
  {
@@ -121,7 +107,7 @@ index 85cfb97..eb95877 100644
  
      const auto geom = absoluteGeometry();
      return geom.intersected(m_tiling->output()->geometryF()) - effectiveMargins;
-@@ -254,6 +254,58 @@ void Tile::setPadding(qreal padding)
+@@ -254,6 +257,58 @@ void Tile::setPadding(qreal padding)
      Q_EMIT windowGeometryChanged();
  }
  
@@ -322,7 +308,7 @@ index cf87dcc..8d04182 100644
      bool m_tearingDown = false;
      friend class CustomTile;
 diff --git a/src/useractions.cpp b/src/useractions.cpp
-index a77a8ac..13303a8 100644
+index a753692..67dc97b 100644
 --- a/src/useractions.cpp
 +++ b/src/useractions.cpp
 @@ -44,6 +44,7 @@
@@ -369,9 +355,9 @@ index a77a8ac..13303a8 100644
      m_minimizeOperation->setEnabled(m_window->isMinimizable());
      m_closeOperation->setEnabled(m_window->isCloseable());
      m_shortcutOperation->setEnabled(m_window->rules()->checkShortcut(QString()).isNull());
-@@ -983,6 +1006,203 @@ void Workspace::initShortcuts()
- 
-     initShortcut("Kill Window", i18n("Kill Window"), Qt::META | Qt::CTRL | Qt::Key_Escape, &Workspace::slotKillWindow, true);
+@@ -986,6 +1009,208 @@ void Workspace::initShortcuts()
+     initShortcut(QStringLiteral("MoveMouseToFocus"), i18n("Move Mouse to Focus"), QKeySequence(Qt::META | Qt::Key_F5), &Workspace::slotMouseToFocus, false);
+     initShortcut(QStringLiteral("MoveMouseToCenter"), i18n("Move Mouse to Center"), QKeySequence(Qt::META | Qt::Key_F6), &Workspace::slotMouseToCenter, false);
  
 +    // Native tiling shortcuts
 +    initShortcut("Tiling Focus Left", i18n("Tiling Focus Left"), Qt::META | Qt::Key_Left, [this]() {
@@ -419,7 +405,7 @@ index a77a8ac..13303a8 100644
 +            m_tilingController->moveWindowNext();
 +        }
 +    }, true);
-+    // #118 directional move/swap (ponytail minimal; alt to avoid overlap with move prev/next)
++    // Directional move/swap within layout (Meta+Alt to avoid overlap with move prev/next).
 +    initShortcut("Tiling Move Window Left", i18n("Tiling Move Window Left"), Qt::META | Qt::ALT | Qt::Key_Left, [this]() {
 +        if (m_tilingController) {
 +            m_tilingController->moveLeft();
@@ -524,6 +510,11 @@ index a77a8ac..13303a8 100644
 +            m_tilingController->setLayout(LayoutEngine::LayoutKind::Grid);
 +        }
 +    }, true);
++    initShortcut("Tiling Switch To Centered", i18n("Tiling Switch To Centered"), QKeySequence(), [this]() {
++        if (m_tilingController) {
++            m_tilingController->setLayout(LayoutEngine::LayoutKind::Centered);
++        }
++    }, true);
 +    initShortcut("Tiling Reset Sizes", i18n("Tiling Reset Sizes"), QKeySequence(), [this]() {
 +        if (m_tilingController) {
 +            m_tilingController->resetSizes();
@@ -573,7 +564,7 @@ index a77a8ac..13303a8 100644
  #if KWIN_BUILD_TABBOX
      m_tabbox->initShortcuts();
  #endif
-@@ -1430,17 +1650,13 @@ void windowToDesktop(Window *window, VirtualDesktopManager::Direction direction)
+@@ -1433,17 +1658,13 @@ void windowToDesktop(Window *window, VirtualDesktopManager::Direction direction)
  
      VirtualDesktopManager *vds = VirtualDesktopManager::self();
      Workspace *ws = Workspace::self();
@@ -588,24 +579,28 @@ index a77a8ac..13303a8 100644
 -        vds->setCurrent(desktop, window->output());
 -        ws->setMoveResizeWindow(nullptr);
 +    VirtualDesktop *current = vds->currentDesktop(window->output());
-+    const auto desktop = vds->inDirection(current, direction, true);
++    const auto desktop = vds->inDirection(current, direction, options->isRollOverDesktops());
 +    if (!desktop || desktop == current) {
 +        return;
      }
-+    ws->sendWindowToDesktops(window, {desktop}, true);
++    ws->sendWindowToDesktops(window, {desktop}, options->isRollOverDesktops());
 +    vds->setCurrent(desktop, window->output());
  }
  
  /**
-@@ -1477,20 +1693,20 @@ void activeWindowToDesktop(VirtualDesktopManager::Direction direction)
+@@ -1480,19 +1701,21 @@ void activeWindowToDesktop(VirtualDesktopManager::Direction direction)
  {
      VirtualDesktopManager *vds = VirtualDesktopManager::self();
      Workspace *ws = Workspace::self();
 -    VirtualDesktop *current = vds->currentDesktop(ws->activeWindow()->output());
--    VirtualDesktop *newCurrent = VirtualDesktopManager::self()->inDirection(current, direction, options->isRollOverDesktops());
--    if (newCurrent == current) {
 +    Window *window = ws->activeWindow();
 +    if (!window || window->isDesktop() || window->isDock()) {
++        return;
++    }
++    VirtualDesktop *current = vds->currentDesktop(window->output());
+     VirtualDesktop *newCurrent = VirtualDesktopManager::self()->inDirection(current, direction, options->isRollOverDesktops());
+-    if (newCurrent == current) {
++    if (!newCurrent || newCurrent == current) {
          return;
      }
 -    if (ws->moveResizeWindow()) {
@@ -616,24 +611,20 @@ index a77a8ac..13303a8 100644
 -        ws->setMoveResizeWindow(ws->activeWindow());
 -        vds->setCurrent(newCurrent, ws->activeWindow()->output());
 -        ws->setMoveResizeWindow(nullptr);
-+    VirtualDesktop *current = vds->currentDesktop(window->output());
-+    VirtualDesktop *newCurrent = VirtualDesktopManager::self()->inDirection(current, direction, options->isRollOverDesktops());
-+    if (!newCurrent || newCurrent == current) {
-+        return;
-     }
-+    ws->sendWindowToDesktops(window, {newCurrent}, true);
++    ws->sendWindowToDesktops(window, {newCurrent}, options->isRollOverDesktops());
 +    vds->setCurrent(newCurrent, window->output());
-+    // i3/dwm-style: the moved window follows the user to the new desktop and
-+    // takes focus there instead of being left behind.
-+    ws->requestFocus(window);
++    // When native tiling is enabled, follow i3/dwm-style: the moved window
++    // takes focus on the new desktop instead of being left behind.
++    if (ws->tilingController() && ws->tilingController()->isEnabled()) {
++        ws->requestFocus(window);
+     }
  }
  
- void Workspace::slotWindowToDesktopRight()
 diff --git a/src/useractions.h b/src/useractions.h
 index cfe346b..6929a3b 100644
 --- a/src/useractions.h
 +++ b/src/useractions.h
-@@ -202,6 +217,8 @@ private:
+@@ -202,6 +202,8 @@ private:
      QAction *m_noBorderOperation;
      QAction *m_minimizeOperation;
      QAction *m_closeOperation;
@@ -646,7 +637,7 @@ diff --git a/src/waylandwindow.cpp b/src/waylandwindow.cpp
 index 559a334..00203ed 100644
 --- a/src/waylandwindow.cpp
 +++ b/src/waylandwindow.cpp
-@@ -11,6 +26,7 @@
+@@ -11,6 +11,7 @@
  #include "scene/windowitem.h"
  #include "wayland/clientconnection.h"
  #include "wayland/display.h"
@@ -654,7 +645,7 @@ index 559a334..00203ed 100644
  #include "wayland/surface.h"
  #include "wayland_server.h"
  #include "workspace.h"
-@@ -155,6 +171,23 @@ void WaylandWindow::updateClientOutputs()
+@@ -155,6 +156,23 @@ void WaylandWindow::updateClientOutputs()
          return;
      }
  
@@ -678,7 +669,7 @@ index 559a334..00203ed 100644
      surface()->setOutputs(waylandServer()->display()->outputsIntersecting(rect),
                            waylandServer()->display()->largestIntersectingOutput(rect));
  }
-@@ -236,7 +269,18 @@ void WaylandWindow::updateGeometry(const RectF &rect)
+@@ -236,7 +254,18 @@ void WaylandWindow::updateGeometry(const RectF &rect)
          return;
      }
  
@@ -702,7 +693,7 @@ diff --git a/src/window.cpp b/src/window.cpp
 index aedd275..f0e1c10 100644
 --- a/src/window.cpp
 +++ b/src/window.cpp
-@@ -1232,6 +1247,12 @@ void Window::updateInteractiveMoveResize(const QPointF &global, Qt::KeyboardModi
+@@ -1232,6 +1232,12 @@ void Window::updateInteractiveMoveResize(const QPointF &global, Qt::KeyboardModi
                  }
              }
  
@@ -715,7 +706,7 @@ index aedd275..f0e1c10 100644
              move(nextMoveResizeGeom.topLeft());
              Q_EMIT interactiveMoveResizeStepped(nextMoveResizeGeom);
          }
-@@ -3353,7 +3374,15 @@ RectF Window::moveResizeGeometry() const
+@@ -3353,7 +3359,15 @@ RectF Window::moveResizeGeometry() const
  void Window::setMoveResizeGeometry(const RectF &geo)
  {
      m_moveResizeGeometry = geo;
@@ -732,7 +723,7 @@ index aedd275..f0e1c10 100644
  }
  
  LogicalOutput *Window::moveResizeOutput() const
-@@ -3818,6 +3847,16 @@ void Window::setTileCompatibility(Tile *tile)
+@@ -3818,6 +3832,16 @@ void Window::setTileCompatibility(Tile *tile)
      }
  }
  
@@ -753,7 +744,7 @@ diff --git a/src/window.h b/src/window.h
 index f1a5283..b3f113e 100644
 --- a/src/window.h
 +++ b/src/window.h
-@@ -16,6 +31,7 @@
+@@ -16,6 +16,7 @@
  #include "options.h"
  #include "rules.h"
  #include "scene/borderradius.h"
@@ -761,7 +752,7 @@ index f1a5283..b3f113e 100644
  #include "utils/common.h"
  #include "utils/gravity.h"
  
-@@ -1157,6 +1173,9 @@ public:
+@@ -1157,6 +1158,9 @@ public:
      void forgetTile(Tile *tile);
      void setTileCompatibility(Tile *tile);
  
@@ -771,7 +762,7 @@ index f1a5283..b3f113e 100644
      void handleQuickTileShortcut(QuickTileMode mode);
      void setQuickTileModeAtCurrentPosition(QuickTileMode mode);
      void setQuickTileMode(QuickTileMode mode, const QPointF &tileAtPoint);
-@@ -1878,6 +1897,7 @@ protected:
+@@ -1878,6 +1882,7 @@ protected:
      bool m_delayedRaise = false;
      QPointer<Tile> m_requestedTile;
      QPointer<Tile> m_tile;
@@ -780,10 +771,10 @@ index f1a5283..b3f113e 100644
      // electric border/quick tiling
      std::optional<ElectricBorderMode> m_electricMode = std::nullopt;
 diff --git a/src/workspace.cpp b/src/workspace.cpp
-index 126ae37..0cea533 100644
+index 126ae37..c152150 100644
 --- a/src/workspace.cpp
 +++ b/src/workspace.cpp
-@@ -54,6 +69,7 @@
+@@ -54,6 +54,7 @@
  #include "scene/workspacescene.h"
  #include "tabletmodemanager.h"
  #include "tiles/tilemanager.h"
@@ -791,7 +782,7 @@ index 126ae37..0cea533 100644
  #include "useractions.h"
  #include "utils/envvar.h"
  #include "utils/kernel.h"
-@@ -307,6 +323,9 @@ void Workspace::init()
+@@ -307,6 +308,9 @@ void Workspace::init()
      slotOutputBackendOutputsQueried();
      connect(kwinApp()->outputBackend(), &OutputBackend::outputsQueried, this, &Workspace::slotOutputBackendOutputsQueried);
  
@@ -801,7 +792,7 @@ index 126ae37..0cea533 100644
      reconfigureTimer.setSingleShot(true);
      m_rearrangeTimer.setSingleShot(true);
  
-@@ -854,6 +873,11 @@ void Workspace::addX11Window(X11Window *window)
+@@ -854,6 +858,11 @@ void Workspace::addX11Window(X11Window *window)
      m_focusChain->update(window, FocusChain::Update);
      Q_ASSERT(!m_windows.contains(window));
      m_windows.append(window);
@@ -813,7 +804,7 @@ index 126ae37..0cea533 100644
      addToStack(window);
      window->updateLayer();
      window->checkActiveModal();
-@@ -916,14 +940,19 @@ void Workspace::addWaylandWindow(Window *window)
+@@ -916,14 +925,19 @@ void Workspace::addWaylandWindow(Window *window)
      setupWindowConnections(window);
      window->updateLayer();
  
@@ -836,7 +827,7 @@ index 126ae37..0cea533 100644
      addToStack(window);
  
      const bool shouldActivate = window->wantsInput() && !window->isPopupWindow()
-@@ -961,6 +990,10 @@ void Workspace::removeWaylandWindow(Window *window)
+@@ -961,6 +975,10 @@ void Workspace::removeWaylandWindow(Window *window)
  
  void Workspace::removeWindow(Window *window)
  {
@@ -847,7 +838,7 @@ index 126ae37..0cea533 100644
      if (window == m_activePopupWindow) {
          closeActivePopup();
      }
-@@ -1033,6 +1066,10 @@ void Workspace::slotReconfigure()
+@@ -1033,6 +1051,10 @@ void Workspace::slotReconfigure()
              }
          }
      }
@@ -858,16 +849,7 @@ index 126ae37..0cea533 100644
  }
  
  void Workspace::slotCurrentDesktopChanged(VirtualDesktop *oldDesktop, VirtualDesktop *newDesktop, LogicalOutput *output)
-@@ -1098,7 +1135,7 @@ void Workspace::updateWindowVisibilityAndActivateOnDesktopChange(VirtualDesktop
-     --block_focus;
- 
-     for (Window *window : std::as_const(m_windows)) {
--        if (!window->isOnDesktop(newDesktop) || !window->isOnOutput(output)) {
-+        if (!window->isOnDesktop(newDesktop)) {
-             continue;
-         }
- 
-@@ -1109,6 +1146,12 @@ void Workspace::updateWindowVisibilityAndActivateOnDesktopChange(VirtualDesktop
+@@ -1109,6 +1131,12 @@ void Workspace::updateWindowVisibilityAndActivateOnDesktopChange(VirtualDesktop
              }
          }
  
@@ -881,10 +863,10 @@ index 126ae37..0cea533 100644
      }
  
 diff --git a/src/workspace.h b/src/workspace.h
-index be1ff90..816e3f3 100644
+index 7d09249..43833b5 100644
 --- a/src/workspace.h
 +++ b/src/workspace.h
-@@ -88,6 +103,7 @@ class Placement;
+@@ -88,6 +88,7 @@ class Placement;
  class OutputConfiguration;
  class RootTile;
  class TileManager;
@@ -892,7 +874,7 @@ index be1ff90..816e3f3 100644
  class OutputConfigurationStore;
  class LidSwitchTracker;
  class DpmsInputEventFilter;
-@@ -427,6 +443,7 @@ public:
+@@ -427,6 +428,7 @@ public:
      Activities *activities() const;
  #endif
      OutputConfigurationStore *outputConfigureStore() const;
@@ -900,7 +882,7 @@ index be1ff90..816e3f3 100644
  
      /**
       * Apply the requested output configuration. Note that you must use this function
-@@ -738,6 +755,7 @@ private:
+@@ -740,6 +742,7 @@ private:
      PlaceholderOutput *m_placeholderOutput = nullptr;
      std::unique_ptr<PlaceholderInputEventFilter> m_placeholderFilter;
      std::map<LogicalOutput *, std::unique_ptr<TileManager>> m_tileManagers;
@@ -908,7 +890,7 @@ index be1ff90..816e3f3 100644
      std::unique_ptr<OutputConfigurationStore> m_outputConfigStore;
      std::unique_ptr<LidSwitchTracker> m_lidSwitchTracker;
      std::unique_ptr<OrientationSensor> m_orientationSensor;
-@@ -827,6 +845,11 @@ inline bool Workspace::showingDesktop() const
+@@ -829,6 +832,11 @@ inline bool Workspace::showingDesktop() const
      return showing_desktop;
  }
  

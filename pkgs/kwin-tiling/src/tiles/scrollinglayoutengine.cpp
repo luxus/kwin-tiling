@@ -1,6 +1,6 @@
 /*
     KWin - the KDE window manager
-    SPDX-FileCopyrightText: 2026 KWin Tiling Fork
+    SPDX-FileCopyrightText: 2026 luxus
     SPDX-License-Identifier: GPL-2.0-or-later
 */
 
@@ -73,6 +73,89 @@ void ScrollingLayoutEngine::removeWindow(Window *window)
     }
 
     reflow();
+}
+
+void ScrollingLayoutEngine::beginMoveWindow(Window *window)
+{
+    int c = -1;
+    int l = -1;
+    if (!findWindow(window, &c, &l)) {
+        return;
+    }
+    m_columns[c].stack.beginMove(window);
+    m_moveHasSource = true;
+    m_moveSourceColumn = c;
+}
+
+bool ScrollingLayoutEngine::endMoveWindow(Window *window, Window *target)
+{
+    if (!m_moveHasSource || m_moveSourceColumn < 0 || m_moveSourceColumn >= m_columns.count()) {
+        return false;
+    }
+    m_moveHasSource = false;
+    const int sourceCol = m_moveSourceColumn;
+    m_moveSourceColumn = -1;
+    StackColumn &source = m_columns[sourceCol].stack;
+
+    if (target && target != window) {
+        int targetCol = -1;
+        int targetLeaf = -1;
+        if (!findWindow(target, &targetCol, &targetLeaf)) {
+            const bool handled = source.endMove(window, nullptr);
+            if (handled) {
+                reflow();
+            }
+            return handled;
+        }
+
+        if (targetCol == sourceCol) {
+            const bool handled = source.endMove(window, target);
+            if (handled) {
+                reflow();
+            }
+            return handled;
+        }
+
+        const int srcIdx = source.indexOf(window);
+        const int tgtIdx = m_columns[targetCol].stack.indexOf(target);
+        if (srcIdx < 0 || tgtIdx < 0) {
+            const bool handled = source.endMove(window, nullptr);
+            if (handled) {
+                reflow();
+            }
+            return handled;
+        }
+
+        StackColumn::Detached detachedWindow = source.detachWindow(window);
+        StackColumn::Detached detachedTarget = m_columns[targetCol].stack.detachWindow(target);
+        source.attachLeaf(detachedTarget, srcIdx);
+        m_columns[targetCol].stack.attachLeaf(detachedWindow, tgtIdx);
+        reflow();
+        return true;
+    }
+
+    const bool handled = source.endMove(window, nullptr);
+    if (handled) {
+        reflow();
+    }
+    return handled;
+}
+
+void ScrollingLayoutEngine::cancelMoveWindow(Window *window)
+{
+    if (!m_moveHasSource || m_moveSourceColumn < 0 || m_moveSourceColumn >= m_columns.count()) {
+        return;
+    }
+    m_moveHasSource = false;
+    const int sourceCol = m_moveSourceColumn;
+    m_moveSourceColumn = -1;
+
+    if (m_columns[sourceCol].stack.cancelMove(window)) {
+        if (m_columns[sourceCol].stack.isEmpty()) {
+            m_columns.removeAt(sourceCol);
+        }
+        reflow();
+    }
 }
 
 void ScrollingLayoutEngine::moveWindow(Window *window, int delta)

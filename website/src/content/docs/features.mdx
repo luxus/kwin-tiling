@@ -15,7 +15,7 @@ works in practice.
 
 ## Layouts
 
-Four layout engines place windows on each monitor and virtual desktop. You pick
+Five layout engines place windows on each monitor and virtual desktop. You pick
 a default in the KCM, cycle at runtime, or override per monitor.
 
 ### MasterStack
@@ -47,6 +47,13 @@ cycling exist but ship unbound — see [Roadmap](roadmap) for planned polish.
 The active (master) window sits in the centre. Remaining windows split into left
 and right stack columns. Useful when you want the focused window front and
 centre.
+
+### Grid
+
+Windows fill a smoothly scaling grid (1, 2, 4, 6, 9, … cells as more windows
+open). Grid is **opt-in** — it is not in the default `EnabledLayouts` list
+because it is newer and less battle-tested than the other layouts. Enable it in
+the KCM or add `Grid` to `EnabledLayouts` in `kwinrc`.
 
 ### Per-monitor overrides
 

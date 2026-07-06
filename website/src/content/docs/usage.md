@@ -20,13 +20,15 @@ All shortcuts are registered as KWin actions. Rebind them in *System Settings
 | Promote to master | `Meta+Shift+Space` |
 | Toggle master pin | `Meta+S` |
 | Move window prev / next in layout | `Meta+Shift+Left` / `Meta+Shift+Right` |
+| Move window left / right / up / down in layout | `Meta+Alt+Left` / `Meta+Alt+Right` / `Meta+Alt+Up` / `Meta+Alt+Down` |
 | Move window to left / right monitor | `Meta+Shift+Ctrl+Left` / `Meta+Shift+Ctrl+Right` |
 | Increase / decrease master width | `Meta+Ctrl+L` / `Meta+Ctrl+H` |
+| Increase / decrease window height | `Meta+Ctrl+K` / `Meta+Ctrl+J` |
 | Increase / decrease master count | `Meta+Ctrl+.` / `Meta+Ctrl+,` |
 | Retile (rebuild current screen) | `Meta+Shift+R` |
 | Focus last window | `Meta+U` |
 | Cycle layout | *(unbound)* |
-| Switch to MasterStack / Stacked / Scrolling / Grid | *(unbound)* |
+| Switch to MasterStack / Stacked / Scrolling / Centered / Grid | *(unbound)* |
 | Reset sizes | *(unbound)* |
 | Toggle zoom (monocle) | *(unbound)* |
 | Flip master side / Toggle gaps | *(unbound)* |
@@ -80,7 +82,7 @@ Settings are stored in `~/.config/kwinrc` under `[Tiling]`:
 [Tiling]
 Enabled=true
 DefaultLayout=MasterStack
-EnabledLayouts=MasterStack,Stacked,Scrolling
+EnabledLayouts=MasterStack,Stacked,Scrolling,Centered
 MasterRatio=0.5
 MasterCount=1
 GapBetween=4

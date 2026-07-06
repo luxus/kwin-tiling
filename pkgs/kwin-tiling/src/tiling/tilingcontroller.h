@@ -1,6 +1,6 @@
 /*
     KWin - the KDE window manager
-    SPDX-FileCopyrightText: 2026 KWin Tiling Fork
+    SPDX-FileCopyrightText: 2026 luxus
     SPDX-License-Identifier: GPL-2.0-or-later
 */
 
@@ -55,6 +55,7 @@ public:
      * Re-read configuration from kwinrc.
      */
     void reconfigure();
+    bool isEnabled() const { return m_enabled; }
 
     /**
      * Initialize default layout engines for all existing outputs/desktops.
@@ -85,7 +86,7 @@ public:
     void moveWindowNext();
     void moveWindowPrevious();
 
-    // #118 directional move/swap within layout (ponytail: reuse windowInDirection + move)
+    // Directional move/swap within layout (reuses windowInDirection + moveWindow).
     void moveLeft();
     void moveRight();
     void moveUp();
