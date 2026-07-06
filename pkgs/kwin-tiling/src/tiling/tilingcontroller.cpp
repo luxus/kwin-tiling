@@ -7,6 +7,7 @@
 #include "tilingcontroller.h"
 
 #include "core/output.h"
+#include "tiling/tilingreflow.h"
 #include "core/rect.h"
 #include "cursor.h"
 #include "tiles/layoutengine.h"
@@ -380,6 +381,9 @@ void TilingController::applyGapSettingsToOutput(LogicalOutput *output)
         return;
     }
 
+    const ReflowScope scope(this, output, ReflowContext::Reason::GapChange,
+                            reflowScopeLayoutKind(output));
+
     TileManager *manager = m_workspace->tileManager(output);
     if (!manager) {
         return;
@@ -540,6 +544,7 @@ void TilingController::addWindowToLayout(Window *window, LogicalOutput *output, 
         return;
     }
 
+    const ReflowScope scope(this, output, ReflowContext::Reason::Add, kind);
     engine->addWindow(window);
 
     // If the window did not end up managed, surface it in logs but do NOT flip
@@ -584,13 +589,18 @@ void TilingController::migrateWindow(Window *window, LogicalOutput *newOutput, V
     // Release the source (it reflows to fill the freed slot), then join the
     // destination — addWindowToLayout creates the engine if this is the first
     // window to land on that (output, desktop).
-    if (oldEngine) {
+    if (oldEngine && oldOutput) {
+        const ReflowScope removeScope(this, oldOutput, ReflowContext::Reason::Remove, oldEngine->layoutKind());
         oldEngine->removeWindow(window);
     }
     if (oldOutput && oldOutput != newOutput) {
         applyGapSettingsToOutput(oldOutput);
     }
-    addWindowToLayout(window, newOutput, newDesktop);
+    {
+        const ReflowScope migrateScope(this, newOutput, ReflowContext::Reason::Migrate,
+                                       layoutKindFor(newOutput, newDesktop));
+        addWindowToLayout(window, newOutput, newDesktop);
+    }
     applyGapSettingsToOutput(newOutput);
 
     if (pinFollows && shouldTile(window)) {
@@ -615,6 +625,8 @@ void TilingController::removeWindowFromLayouts(Window *window)
         if (!manager) {
             continue;
         }
+        const ReflowScope scope(this, output, ReflowContext::Reason::Remove,
+                                reflowScopeLayoutKind(output));
         for (VirtualDesktop *desktop : VirtualDesktopManager::self()->desktops()) {
             if (LayoutEngine *engine = manager->layoutEngine(desktop)) {
                 engine->removeWindow(window);
@@ -771,6 +783,9 @@ void TilingController::toggleFloating()
     if (state.mode == TilingState::Mode::Tiled) {
         state.mode = TilingState::Mode::Floating;
         removeWindowFromLayouts(window);
+        LogicalOutput *output = window->output() ? window->output() : m_workspace->activeOutput();
+        const ReflowScope floatScope(this, output, ReflowContext::Reason::Float,
+                                     reflowScopeLayoutKind(output));
         // Float at a default size centered under the cursor, respecting min/max.
         constexpr qreal defaultWidth = 800.0;
         constexpr qreal defaultHeight = 600.0;
@@ -790,7 +805,8 @@ void TilingController::toggleFloating()
             const RectF screenArea = m_workspace->clientArea(PlacementArea, window);
             geom = window->keepInArea(geom, screenArea);
         }
-        window->moveResize(geom);
+        ReflowHint hint = ReflowHint::build(window, geom, reflowContextFor(output));
+        window->tilingMoveResize(geom, hint);
     } else {
         state.mode = TilingState::Mode::Tiled;
         LogicalOutput *output = window->output() ? window->output() : m_workspace->activeOutput();
@@ -1338,6 +1354,7 @@ void TilingController::setLayoutOn(LogicalOutput *output, VirtualDesktop *deskto
         return;
     }
 
+    const ReflowScope scope(this, output, ReflowContext::Reason::LayoutSwitch, kind);
     for (Window *w : carriedWindows) {
         if (!w || w->isDeleted()) {
             continue;
@@ -1702,6 +1719,7 @@ void TilingController::retile()
     if (!fresh) {
         return;
     }
+    const ReflowScope scope(this, output, ReflowContext::Reason::Retile, kind);
     for (Window *w : m_workspace->windows()) {
         if (!w || w->isDeleted() || w->tilingState().mode != TilingState::Mode::Tiled) {
             continue;
@@ -1715,6 +1733,73 @@ void TilingController::retile()
         }
         fresh->addWindow(w);
     }
+}
+
+ReflowContext &TilingController::reflowContextFor(LogicalOutput *output)
+{
+    static ReflowContext s_default;
+    if (!output) {
+        return s_default;
+    }
+    auto &stack = m_reflowContextStacks[output];
+    if (stack.isEmpty()) {
+        stack.append(ReflowContext{});
+    }
+    return stack.last();
+}
+
+ReflowContext TilingController::reflowContextFor(LogicalOutput *output) const
+{
+    if (!output) {
+        return {};
+    }
+    const auto it = m_reflowContextStacks.constFind(output);
+    if (it == m_reflowContextStacks.cend() || it->isEmpty()) {
+        return {};
+    }
+    return it->last();
+}
+
+void TilingController::pushReflowContext(LogicalOutput *output, const ReflowContext &ctx)
+{
+    if (!output) {
+        return;
+    }
+    m_reflowContextStacks[output].append(ctx);
+}
+
+void TilingController::popReflowContext(LogicalOutput *output)
+{
+    if (!output) {
+        return;
+    }
+    auto it = m_reflowContextStacks.find(output);
+    if (it == m_reflowContextStacks.end()) {
+        return;
+    }
+    if (!it->isEmpty()) {
+        it->removeLast();
+    }
+    if (it->isEmpty()) {
+        m_reflowContextStacks.erase(it);
+    }
+}
+
+int TilingController::nextReflowGroupId()
+{
+    return m_nextReflowGroupId++;
+}
+
+LayoutEngine::LayoutKind TilingController::reflowScopeLayoutKind(LogicalOutput *output,
+                                                                 VirtualDesktop *desktop) const
+{
+    if (!output) {
+        return LayoutEngine::LayoutKind::MasterStack;
+    }
+    if (!desktop) {
+        desktop = VirtualDesktopManager::self()->currentDesktop(output);
+    }
+    return layoutKindFor(output, desktop);
 }
 
 void TilingController::forceNoBorder(Window *window)

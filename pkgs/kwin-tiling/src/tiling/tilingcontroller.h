@@ -7,6 +7,7 @@
 #pragma once
 
 #include "kwin_export.h"
+#include "tilingreflow.h"
 #include "tilingrules.h"
 #include "tilingstate.h"
 #include "tiles/layoutengine.h"
@@ -14,6 +15,7 @@
 #include <QHash>
 #include <QObject>
 #include <QPointer>
+#include <QVector>
 
 class KConfigGroup;
 
@@ -144,6 +146,12 @@ public:
 
     TilingRules *rules() const { return m_rules.get(); }
 
+    ReflowContext &reflowContextFor(LogicalOutput *output);
+    ReflowContext reflowContextFor(LogicalOutput *output) const;
+    void pushReflowContext(LogicalOutput *output, const ReflowContext &ctx);
+    void popReflowContext(LogicalOutput *output);
+    int nextReflowGroupId();
+
 private Q_SLOTS:
     void onInteractiveMoveResizeStarted();
     void onInteractiveMoveResizeFinished();
@@ -198,6 +206,8 @@ private:
     void setLayoutOn(LogicalOutput *output, VirtualDesktop *desktop, LayoutEngine::LayoutKind kind);
     void reconcileLayoutKinds();
     void showLayoutNotification(LayoutEngine::LayoutKind kind);
+    LayoutEngine::LayoutKind reflowScopeLayoutKind(LogicalOutput *output,
+                                                   VirtualDesktop *desktop = nullptr) const;
 
     QPointer<Workspace> m_workspace;
     std::unique_ptr<TilingRules> m_rules;
@@ -225,6 +235,8 @@ private:
     QPointer<Window> m_lastFocused;
     QPointer<Window> m_prevFocused;
     QHash<QString, QPointer<Window>> m_masterPins;
+    QHash<LogicalOutput *, QVector<ReflowContext>> m_reflowContextStacks;
+    int m_nextReflowGroupId = 1;
 };
 
 } // namespace KWin

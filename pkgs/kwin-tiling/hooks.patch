@@ -1,8 +1,8 @@
 diff --git a/src/CMakeLists.txt b/src/CMakeLists.txt
-index ac1a3a5..24deea6 100644
+index ac1a3a5..436bb1b 100644
 --- a/src/CMakeLists.txt
 +++ b/src/CMakeLists.txt
-@@ -217,9 +217,16 @@ target_sources(kwin PRIVATE
+@@ -217,9 +217,17 @@ target_sources(kwin PRIVATE
      tablet_input.cpp
      tabletmodemanager.cpp
      tiles/customtile.cpp
@@ -15,10 +15,23 @@ index ac1a3a5..24deea6 100644
      tiles/tile.cpp
      tiles/tilemanager.cpp
 +    tiling/tilingcontroller.cpp
++    tiling/tilingreflow.cpp
 +    tiling/tilingrules.cpp
      touch_input.cpp
      useractionprompt.cpp
      useractions.cpp
+diff --git a/src/effect/effecthandler.h b/src/effect/effecthandler.h
+index 7d0f516..756e96f 100644
+--- a/src/effect/effecthandler.h
++++ b/src/effect/effecthandler.h
+@@ -103,6 +103,7 @@ enum DataRole {
+     WindowUnminimizedGrabRole,
+     WindowForceBlurRole, ///< For fullscreen effects to enforce blurring of windows,
+     WindowForceBackgroundContrastRole, ///< For fullscreen effects to enforce the background contrast,
++    WindowTilingReflowRole, ///< QVariantMap hint published before native tiling moveResize
+ };
+ 
+ /**
 diff --git a/src/input.cpp b/src/input.cpp
 index 238012f..c546e7c 100644
 --- a/src/input.cpp
@@ -75,11 +88,31 @@ index 4131b6f..302e3a5 100644
  add_subdirectory(touchpadshortcuts)
  add_subdirectory(touchpoints)
  add_subdirectory(trackmouse)
+diff --git a/src/scripting/scriptedeffect.h b/src/scripting/scriptedeffect.h
+index bb9909e..11807bb 100644
+--- a/src/scripting/scriptedeffect.h
++++ b/src/scripting/scriptedeffect.h
+@@ -55,6 +55,7 @@ public:
+         WindowUnminimizedGrabRole,
+         WindowForceBlurRole, ///< For fullscreen effects to enforce blurring of windows,
+         WindowForceBackgroundContrastRole, ///< For fullscreen effects to enforce the background contrast,
++        WindowTilingReflowRole, ///< QVariantMap hint published before native tiling moveResize
+     };
+     enum EasingCurve {
+         GaussianCurve = 128,
 diff --git a/src/tiles/tile.cpp b/src/tiles/tile.cpp
-index 85cfb97..0e02570 100644
+index 85cfb97..e35bdad 100644
 --- a/src/tiles/tile.cpp
 +++ b/src/tiles/tile.cpp
-@@ -29,6 +29,8 @@ Tile::Tile(TileManager *tiling, Tile *parent)
+@@ -10,6 +10,7 @@
+ #include "tile.h"
+ #include "core/output.h"
+ #include "effect/globals.h"
++#include "tiling/tilingreflow.h"
+ #include "tilemanager.h"
+ #include "virtualdesktops.h"
+ #include "window.h"
+@@ -29,6 +30,8 @@ Tile::Tile(TileManager *tiling, Tile *parent)
          m_padding = m_parentTile->padding();
          m_minimumSize = m_parentTile->m_minimumSize;
          m_desktop = m_parentTile->desktop();
@@ -88,7 +121,16 @@ index 85cfb97..0e02570 100644
      }
      connect(Workspace::self(), &Workspace::configChanged, this, &Tile::windowGeometryChanged);
      connect(Workspace::self(), &Workspace::windowRemoved, this, &Tile::unmanage);
-@@ -170,12 +172,13 @@ RectF Tile::absoluteGeometryInScreen() const
+@@ -140,7 +143,7 @@ void Tile::setRelativeGeometry(const RectF &geom)
+     if (isActive()) {
+         for (auto *w : std::as_const(m_windows)) {
+             // Resize only if we are the currently managing tile for that window
+-            w->moveResize(windowGeometry());
++            w->tilingMoveResize(windowGeometry(), m_tiling);
+         }
+     }
+ }
+@@ -170,12 +173,13 @@ RectF Tile::absoluteGeometryInScreen() const
  
  RectF Tile::windowGeometry() const
  {
@@ -107,7 +149,16 @@ index 85cfb97..0e02570 100644
  
      const auto geom = absoluteGeometry();
      return geom.intersected(m_tiling->output()->geometryF()) - effectiveMargins;
-@@ -254,6 +257,58 @@ void Tile::setPadding(qreal padding)
+@@ -246,7 +250,7 @@ void Tile::setPadding(qreal padding)
+     if (isActive()) {
+         for (auto *w : std::as_const(m_windows)) {
+             // Resize only if we are the currently managing tile for that window
+-            w->moveResize(windowGeometry());
++            w->tilingMoveResize(windowGeometry(), m_tiling);
+         }
+     }
+ 
+@@ -254,6 +258,58 @@ void Tile::setPadding(qreal padding)
      Q_EMIT windowGeometryChanged();
  }
  
@@ -129,7 +180,7 @@ index 85cfb97..0e02570 100644
 +    }
 +    if (isActive()) {
 +        for (auto *w : std::as_const(m_windows)) {
-+            w->moveResize(windowGeometry());
++            w->tilingMoveResize(windowGeometry(), m_tiling);
 +        }
 +    }
 +
@@ -155,7 +206,7 @@ index 85cfb97..0e02570 100644
 +    }
 +    if (isActive()) {
 +        for (auto *w : std::as_const(m_windows)) {
-+            w->moveResize(windowGeometry());
++            w->tilingMoveResize(windowGeometry(), m_tiling);
 +        }
 +    }
 +
@@ -690,10 +741,18 @@ index 559a334..00203ed 100644
  
      if (changedGeometries & WaylandGeometryBuffer) {
 diff --git a/src/window.cpp b/src/window.cpp
-index aedd275..f0e1c10 100644
+index aedd275..7c229b4 100644
 --- a/src/window.cpp
 +++ b/src/window.cpp
-@@ -1232,6 +1232,12 @@ void Window::updateInteractiveMoveResize(const QPointF &global, Qt::KeyboardModi
+@@ -32,6 +32,7 @@
+ #if KWIN_BUILD_TABBOX
+ #include "tabbox/tabbox.h"
+ #endif
++#include "tiling/tilingreflow.h"
+ #include "tiles/tilemanager.h"
+ #include "useractions.h"
+ #include "virtualdesktops.h"
+@@ -1232,6 +1233,12 @@ void Window::updateInteractiveMoveResize(const QPointF &global, Qt::KeyboardModi
                  }
              }
  
@@ -706,7 +765,7 @@ index aedd275..f0e1c10 100644
              move(nextMoveResizeGeom.topLeft());
              Q_EMIT interactiveMoveResizeStepped(nextMoveResizeGeom);
          }
-@@ -3353,7 +3359,15 @@ RectF Window::moveResizeGeometry() const
+@@ -3353,7 +3360,15 @@ RectF Window::moveResizeGeometry() const
  void Window::setMoveResizeGeometry(const RectF &geo)
  {
      m_moveResizeGeometry = geo;
@@ -723,7 +782,7 @@ index aedd275..f0e1c10 100644
  }
  
  LogicalOutput *Window::moveResizeOutput() const
-@@ -3818,6 +3832,16 @@ void Window::setTileCompatibility(Tile *tile)
+@@ -3818,6 +3833,34 @@ void Window::setTileCompatibility(Tile *tile)
      }
  }
  
@@ -737,32 +796,54 @@ index aedd275..f0e1c10 100644
 +    return m_tilingState;
 +}
 +
++void Window::tilingMoveResize(const RectF &geom, TileManager *manager)
++{
++    if (geom == frameGeometry()) {
++        return;
++    }
++    ReflowContext &ctx = reflowContextForTile(manager);
++    tilingMoveResize(geom, ReflowHint::build(this, geom, ctx));
++}
++
++void Window::tilingMoveResize(const RectF &geom, const ReflowHint &hint)
++{
++    if (geom == frameGeometry()) {
++        return;
++    }
++    publishTilingReflowHint(this, hint);
++    moveResize(geom);
++}
++
  void Window::doSetQuickTileMode()
  {
  }
 diff --git a/src/window.h b/src/window.h
-index f1a5283..b3f113e 100644
+index f1a5283..2cc4b99 100644
 --- a/src/window.h
 +++ b/src/window.h
-@@ -16,6 +16,7 @@
+@@ -16,6 +16,8 @@
  #include "options.h"
  #include "rules.h"
  #include "scene/borderradius.h"
++#include "tiling/tilingreflow.h"
 +#include "tiling/tilingstate.h"
  #include "utils/common.h"
  #include "utils/gravity.h"
  
-@@ -1157,6 +1158,9 @@ public:
+@@ -1157,6 +1159,12 @@ public:
      void forgetTile(Tile *tile);
      void setTileCompatibility(Tile *tile);
  
 +    TilingState &tilingState();
 +    const TilingState &tilingState() const;
 +
++    void tilingMoveResize(const RectF &geom, TileManager *manager);
++    void tilingMoveResize(const RectF &geom, const ReflowHint &hint);
++
      void handleQuickTileShortcut(QuickTileMode mode);
      void setQuickTileModeAtCurrentPosition(QuickTileMode mode);
      void setQuickTileMode(QuickTileMode mode, const QPointF &tileAtPoint);
-@@ -1878,6 +1882,7 @@ protected:
+@@ -1878,6 +1886,7 @@ protected:
      bool m_delayedRaise = false;
      QPointer<Tile> m_requestedTile;
      QPointer<Tile> m_tile;
@@ -771,18 +852,20 @@ index f1a5283..b3f113e 100644
      // electric border/quick tiling
      std::optional<ElectricBorderMode> m_electricMode = std::nullopt;
 diff --git a/src/workspace.cpp b/src/workspace.cpp
-index 126ae37..c152150 100644
+index 126ae37..19de1fd 100644
 --- a/src/workspace.cpp
 +++ b/src/workspace.cpp
-@@ -54,6 +54,7 @@
+@@ -54,6 +54,9 @@
  #include "scene/workspacescene.h"
  #include "tabletmodemanager.h"
  #include "tiles/tilemanager.h"
 +#include "tiling/tilingcontroller.h"
++#include "tiling/tilingreflow.h"
++#include "tiles/layoutengine.h"
  #include "useractions.h"
  #include "utils/envvar.h"
  #include "utils/kernel.h"
-@@ -307,6 +308,9 @@ void Workspace::init()
+@@ -307,6 +310,9 @@ void Workspace::init()
      slotOutputBackendOutputsQueried();
      connect(kwinApp()->outputBackend(), &OutputBackend::outputsQueried, this, &Workspace::slotOutputBackendOutputsQueried);
  
@@ -792,7 +875,7 @@ index 126ae37..c152150 100644
      reconfigureTimer.setSingleShot(true);
      m_rearrangeTimer.setSingleShot(true);
  
-@@ -854,6 +858,11 @@ void Workspace::addX11Window(X11Window *window)
+@@ -854,6 +860,11 @@ void Workspace::addX11Window(X11Window *window)
      m_focusChain->update(window, FocusChain::Update);
      Q_ASSERT(!m_windows.contains(window));
      m_windows.append(window);
@@ -804,7 +887,7 @@ index 126ae37..c152150 100644
      addToStack(window);
      window->updateLayer();
      window->checkActiveModal();
-@@ -916,14 +925,19 @@ void Workspace::addWaylandWindow(Window *window)
+@@ -916,14 +927,19 @@ void Workspace::addWaylandWindow(Window *window)
      setupWindowConnections(window);
      window->updateLayer();
  
@@ -827,7 +910,7 @@ index 126ae37..c152150 100644
      addToStack(window);
  
      const bool shouldActivate = window->wantsInput() && !window->isPopupWindow()
-@@ -961,6 +975,10 @@ void Workspace::removeWaylandWindow(Window *window)
+@@ -961,6 +977,10 @@ void Workspace::removeWaylandWindow(Window *window)
  
  void Workspace::removeWindow(Window *window)
  {
@@ -838,7 +921,7 @@ index 126ae37..c152150 100644
      if (window == m_activePopupWindow) {
          closeActivePopup();
      }
-@@ -1033,6 +1051,10 @@ void Workspace::slotReconfigure()
+@@ -1033,6 +1053,10 @@ void Workspace::slotReconfigure()
              }
          }
      }
@@ -849,7 +932,23 @@ index 126ae37..c152150 100644
  }
  
  void Workspace::slotCurrentDesktopChanged(VirtualDesktop *oldDesktop, VirtualDesktop *newDesktop, LogicalOutput *output)
-@@ -1109,6 +1131,12 @@ void Workspace::updateWindowVisibilityAndActivateOnDesktopChange(VirtualDesktop
+@@ -1097,6 +1121,15 @@ void Workspace::updateWindowVisibilityAndActivateOnDesktopChange(VirtualDesktop
+     // Restore the focus on this desktop
+     --block_focus;
+ 
++    LayoutEngine::LayoutKind layoutKind = LayoutEngine::LayoutKind::MasterStack;
++    if (TileManager *manager = tileManager(output)) {
++        if (LayoutEngine *engine = manager->layoutEngine(newDesktop)) {
++            layoutKind = engine->layoutKind();
++        }
++    }
++    const ReflowScope desktopReflowScope(m_tilingController.get(), output,
++                                         ReflowContext::Reason::DesktopSwitch, layoutKind);
++
+     for (Window *window : std::as_const(m_windows)) {
+         if (!window->isOnDesktop(newDesktop) || !window->isOnOutput(output)) {
+             continue;
+@@ -1109,6 +1142,12 @@ void Workspace::updateWindowVisibilityAndActivateOnDesktopChange(VirtualDesktop
              }
          }
  
@@ -857,7 +956,7 @@ index 126ae37..c152150 100644
 +        // requested tile hasn't changed, because the tile's geometry may have
 +        // been updated by a reflow (e.g. when another window was removed).
 +        if (tile && window->tilingState().mode == TilingState::Mode::Tiled) {
-+            window->moveResize(tile->windowGeometry());
++            window->tilingMoveResize(tile->windowGeometry(), tileManager(output));
 +        }
          window->requestTile(tile);
      }
