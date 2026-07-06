@@ -10,6 +10,7 @@
 #include "tiling/tilingreflow.h"
 #include "core/rect.h"
 #include "cursor.h"
+#include "osd.h"
 #include "tiles/layoutengine.h"
 #include "tiles/gridlayoutengine.h"
 #include "tiles/masterstacklayoutengine.h"
@@ -22,9 +23,6 @@
 
 #include <KConfigGroup>
 #include <KSharedConfig>
-#include <QDBusConnection>
-#include <QDBusMessage>
-#include <QDBusPendingCall>
 #include <QStandardPaths>
 #include <QtGlobal>
 
@@ -1425,14 +1423,11 @@ void TilingController::showLayoutNotification(LayoutEngine::LayoutKind kind)
     }
 
     const QString text = LayoutEngine::layoutDisplayName(kind);
-    const QString iconName = QStringLiteral("kwin");
+    const QString iconName = QStringLiteral("view-grid");
 
-    QDBusMessage message = QDBusMessage::createMethodCall(QStringLiteral("org.kde.plasmashell"),
-                                                          QStringLiteral("/org/kde/osdService"),
-                                                          QStringLiteral("org.kde.osdService"),
-                                                          QStringLiteral("showText"));
-    message.setArguments({iconName, text});
-    QDBusConnection::sessionBus().asyncCall(message);
+    // Use KWin's on-screen notification so layout switches show an OSD even
+    // without plasmashell (e.g. KWin + Noctalia sessions).
+    OSD::show(text, iconName);
 }
 
 void TilingController::moveWindowToOutput(TilingDirection direction)
