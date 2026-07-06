@@ -344,7 +344,7 @@ KCM.SimpleKCM {
 
             QQC2.Label {
                 Kirigami.FormData.label: i18nc("@info", "How it works:")
-                text: i18nc("@info", "Add custom layout and gaps for a specific monitor. Monitors not listed here follow the defaults above.")
+                text: i18nc("@info", "Add custom layout, gaps, and sizing for a specific monitor. Monitors not listed here follow the defaults above.")
                 wrapMode: Text.WordWrap
                 Layout.fillWidth: true
                 Layout.maximumWidth: Kirigami.Units.gridUnit * 30
@@ -482,6 +482,41 @@ KCM.SimpleKCM {
                                 to: 1000
                                 value: entry ? entry.gapBetween : 0
                                 onValueModified: if (entry) entry.gapBetween = value
+                            }
+
+                            QQC2.Label {
+                                text: i18n("Master / centre width (%):")
+                                Layout.alignment: Qt.AlignRight | Qt.AlignVCenter
+                            }
+                            QQC2.SpinBox {
+                                from: 10
+                                to: 90
+                                stepSize: 5
+                                value: entry ? Math.round(entry.masterRatio * 100) : 50
+                                onValueModified: if (entry) entry.masterRatio = value / 100
+                            }
+
+                            QQC2.Label {
+                                text: i18n("Master count:")
+                                Layout.alignment: Qt.AlignRight | Qt.AlignVCenter
+                            }
+                            QQC2.SpinBox {
+                                from: 1
+                                to: 10
+                                value: entry ? entry.masterCount : 1
+                                onValueModified: if (entry) entry.masterCount = value
+                            }
+
+                            QQC2.Label {
+                                text: i18n("Scrolling column width (%):")
+                                Layout.alignment: Qt.AlignRight | Qt.AlignVCenter
+                            }
+                            QQC2.SpinBox {
+                                from: 10
+                                to: 100
+                                stepSize: 5
+                                value: entry ? Math.round(entry.defaultColumnWidth * 100) : 50
+                                onValueModified: if (entry) entry.defaultColumnWidth = value / 100
                             }
                         }
                     }

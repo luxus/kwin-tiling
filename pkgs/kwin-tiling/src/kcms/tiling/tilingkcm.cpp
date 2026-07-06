@@ -54,6 +54,7 @@ QString screenDescription(const QScreen *screen)
 
 OutputGapOverride::OutputGapOverride(QString name, QString description, int gapLeft, int gapRight,
                                      int gapTop, int gapBottom, int gapBetween, QString defaultLayout,
+                                     qreal masterRatio, int masterCount, qreal defaultColumnWidth,
                                      QObject *parent)
     : QObject(parent)
     , m_name(std::move(name))
@@ -64,6 +65,9 @@ OutputGapOverride::OutputGapOverride(QString name, QString description, int gapL
     , m_gapBottom(gapBottom)
     , m_gapBetween(gapBetween)
     , m_defaultLayout(std::move(defaultLayout))
+    , m_masterRatio(masterRatio)
+    , m_masterCount(masterCount)
+    , m_defaultColumnWidth(defaultColumnWidth)
 {
 }
 
@@ -124,6 +128,36 @@ void OutputGapOverride::setDefaultLayout(const QString &value)
     // resolve to the same string (e.g. they re-selected it).
     m_defaultLayout = value;
     Q_EMIT defaultLayoutChanged();
+    Q_EMIT modified();
+}
+
+void OutputGapOverride::setMasterRatio(qreal value)
+{
+    if (qFuzzyCompare(m_masterRatio, value)) {
+        return;
+    }
+    m_masterRatio = value;
+    Q_EMIT masterRatioChanged();
+    Q_EMIT modified();
+}
+
+void OutputGapOverride::setMasterCount(int value)
+{
+    if (m_masterCount == value) {
+        return;
+    }
+    m_masterCount = value;
+    Q_EMIT masterCountChanged();
+    Q_EMIT modified();
+}
+
+void OutputGapOverride::setDefaultColumnWidth(qreal value)
+{
+    if (qFuzzyCompare(m_defaultColumnWidth, value)) {
+        return;
+    }
+    m_defaultColumnWidth = value;
+    Q_EMIT defaultColumnWidthChanged();
     Q_EMIT modified();
 }
 
@@ -225,9 +259,11 @@ OutputGapOverride *OutputGapOverridesModel::entryForName(const QString &name) co
 }
 
 void OutputGapOverridesModel::addEntry(const QString &name, const QString &description, int left, int right,
-                                       int top, int bottom, int between, const QString &defaultLayout)
+                                       int top, int bottom, int between, const QString &defaultLayout,
+                                       qreal masterRatio, int masterCount, qreal defaultColumnWidth)
 {
-    auto *entry = new OutputGapOverride(name, description, left, right, top, bottom, between, defaultLayout, this);
+    auto *entry = new OutputGapOverride(name, description, left, right, top, bottom, between, defaultLayout,
+                                        masterRatio, masterCount, defaultColumnWidth, this);
     connect(entry, &OutputGapOverride::modified, this, [this, entry]() {
         if (!m_modified) {
             setModified(true);
@@ -255,6 +291,9 @@ void OutputGapOverridesModel::load(KConfigGroup &tilingGroup, const TilingSettin
     const int defaultBottom = settings ? settings->gapBottom() : kDefaultGapBottom;
     const int defaultBetween = settings ? settings->gapBetween() : kDefaultGapBetween;
     const QString defaultLayout = settings ? settings->defaultLayout() : QStringLiteral("MasterStack");
+    const qreal defaultMasterRatio = settings ? settings->masterRatio() : 0.5;
+    const int defaultMasterCount = settings ? settings->masterCount() : 1;
+    const qreal defaultColumnWidth = settings ? settings->defaultColumnWidth() : 0.5;
 
     beginResetModel();
     qDeleteAll(m_entries);
@@ -278,6 +317,9 @@ void OutputGapOverridesModel::load(KConfigGroup &tilingGroup, const TilingSettin
         const int bottom = outputGroup.readEntry("GapBottom", defaultBottom);
         const int between = outputGroup.readEntry("GapBetween", defaultBetween);
         const QString entryLayout = outputGroup.readEntry("DefaultLayout", defaultLayout);
+        const qreal masterRatio = outputGroup.readEntry("MasterRatio", defaultMasterRatio);
+        const int masterCount = outputGroup.readEntry("MasterCount", defaultMasterCount);
+        const qreal columnWidth = outputGroup.readEntry("DefaultColumnWidth", defaultColumnWidth);
 
         // Use the connected screen's label if that monitor is currently attached.
         QString description = name;
@@ -290,7 +332,8 @@ void OutputGapOverridesModel::load(KConfigGroup &tilingGroup, const TilingSettin
             }
         }
 
-        addEntry(name, description, left, right, top, bottom, between, entryLayout);
+        addEntry(name, description, left, right, top, bottom, between, entryLayout,
+                 masterRatio, masterCount, columnWidth);
     }
 
     endResetModel();
@@ -321,6 +364,9 @@ void OutputGapOverridesModel::save(KConfigGroup &tilingGroup, const TilingSettin
         outputGroup.writeEntry("GapBottom", entry->gapBottom());
         outputGroup.writeEntry("GapBetween", entry->gapBetween());
         outputGroup.writeEntry("DefaultLayout", entry->defaultLayout());
+        outputGroup.writeEntry("MasterRatio", entry->masterRatio());
+        outputGroup.writeEntry("MasterCount", entry->masterCount());
+        outputGroup.writeEntry("DefaultColumnWidth", entry->defaultColumnWidth());
     }
 
     setModified(false);
@@ -349,9 +395,13 @@ void OutputGapOverridesModel::addMonitor(const QString &name, TilingSettings *se
     const int bottom = settings ? settings->gapBottom() : kDefaultGapBottom;
     const int between = settings ? settings->gapBetween() : kDefaultGapBetween;
     const QString layout = settings ? settings->defaultLayout() : QStringLiteral("MasterStack");
+    const qreal masterRatio = settings ? settings->masterRatio() : 0.5;
+    const int masterCount = settings ? settings->masterCount() : 1;
+    const qreal columnWidth = settings ? settings->defaultColumnWidth() : 0.5;
 
     beginInsertRows({}, m_entries.size(), m_entries.size());
-    addEntry(name, description, left, right, top, bottom, between, layout);
+    addEntry(name, description, left, right, top, bottom, between, layout,
+             masterRatio, masterCount, columnWidth);
     endInsertRows();
     Q_EMIT countChanged();
     Q_EMIT availableMonitorsChanged();

@@ -177,11 +177,12 @@ private:
     LayoutEngine *layoutEngineForWindow(Window *window, LogicalOutput **output = nullptr, VirtualDesktop **desktop = nullptr) const;
     Window *activeTiledWindow() const;
 
-    void setupLayoutEngine(TileManager *manager, VirtualDesktop *desktop, LayoutEngine::LayoutKind kind);
+    void setupLayoutEngine(LogicalOutput *output, TileManager *manager, VirtualDesktop *desktop,
+                           LayoutEngine::LayoutKind kind);
     // Seed a (new or live) engine's sizing from config: master ratio/count for
-    // MasterStack, default column width for Scrolling. Keeps the MasterRatio
-    // and DefaultColumnWidth settings from clobbering each other.
-    void seedEngineSizing(LayoutEngine *engine, LayoutEngine::LayoutKind kind);
+    // MasterStack, default column width for Scrolling. Per-output overrides
+    // in [Tiling][Output name] win over the global [Tiling] defaults.
+    void seedEngineSizing(LogicalOutput *output, LayoutEngine *engine, LayoutEngine::LayoutKind kind);
     LayoutEngine::LayoutKind resolveLayoutKind(LogicalOutput *output, VirtualDesktop *desktop = nullptr) const;
     // Per-(output, desktop) layout: a remembered manual choice (see
     // persistLayoutChoice) wins over resolveLayoutKind's config default, so a

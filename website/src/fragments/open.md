@@ -1,3 +1,1 @@
-- **More layouts** — spiral and other layout engines beyond Grid
-- **Per-monitor sizing** — independent master width, master count, and scrolling column width (layout and gaps already support per-monitor overrides)
-- **Retile / reset** — one-shot command to rebuild the layout when tiles and windows drift out of sync
+- **Scrolling polish** — basic horizontal-strip layout works, but consume/expel, center column, and column-width cycling still ship unbound and need UX and behavior tightening

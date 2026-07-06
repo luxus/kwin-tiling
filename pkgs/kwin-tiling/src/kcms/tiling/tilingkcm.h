@@ -40,10 +40,14 @@ class OutputGapOverride : public QObject
     Q_PROPERTY(int gapBottom READ gapBottom WRITE setGapBottom NOTIFY gapBottomChanged)
     Q_PROPERTY(int gapBetween READ gapBetween WRITE setGapBetween NOTIFY gapBetweenChanged)
     Q_PROPERTY(QString defaultLayout READ defaultLayout WRITE setDefaultLayout NOTIFY defaultLayoutChanged)
+    Q_PROPERTY(qreal masterRatio READ masterRatio WRITE setMasterRatio NOTIFY masterRatioChanged)
+    Q_PROPERTY(int masterCount READ masterCount WRITE setMasterCount NOTIFY masterCountChanged)
+    Q_PROPERTY(qreal defaultColumnWidth READ defaultColumnWidth WRITE setDefaultColumnWidth NOTIFY defaultColumnWidthChanged)
 
 public:
     explicit OutputGapOverride(QString name, QString description, int gapLeft, int gapRight,
                                int gapTop, int gapBottom, int gapBetween, QString defaultLayout,
+                               qreal masterRatio, int masterCount, qreal defaultColumnWidth,
                                QObject *parent = nullptr);
 
     QString name() const { return m_name; }
@@ -55,6 +59,9 @@ public:
     int gapBottom() const { return m_gapBottom; }
     int gapBetween() const { return m_gapBetween; }
     QString defaultLayout() const { return m_defaultLayout; }
+    qreal masterRatio() const { return m_masterRatio; }
+    int masterCount() const { return m_masterCount; }
+    qreal defaultColumnWidth() const { return m_defaultColumnWidth; }
 
     void setGapLeft(int value);
     void setGapRight(int value);
@@ -62,6 +69,9 @@ public:
     void setGapBottom(int value);
     void setGapBetween(int value);
     void setDefaultLayout(const QString &value);
+    void setMasterRatio(qreal value);
+    void setMasterCount(int value);
+    void setDefaultColumnWidth(qreal value);
 
 Q_SIGNALS:
     void gapLeftChanged();
@@ -70,6 +80,9 @@ Q_SIGNALS:
     void gapBottomChanged();
     void gapBetweenChanged();
     void defaultLayoutChanged();
+    void masterRatioChanged();
+    void masterCountChanged();
+    void defaultColumnWidthChanged();
 
     /**
      * Emitted whenever any of the gap values change. The owning model
@@ -86,6 +99,9 @@ private:
     int m_gapBottom;
     int m_gapBetween;
     QString m_defaultLayout;
+    qreal m_masterRatio;
+    int m_masterCount;
+    qreal m_defaultColumnWidth;
 };
 
 /**
@@ -174,7 +190,8 @@ Q_SIGNALS:
 
 private:
     void addEntry(const QString &name, const QString &description, int left, int right,
-                  int top, int bottom, int between, const QString &defaultLayout);
+                  int top, int bottom, int between, const QString &defaultLayout,
+                  qreal masterRatio, int masterCount, qreal defaultColumnWidth);
     OutputGapOverride *entryForName(const QString &name) const;
     void setModified(bool modified);
 

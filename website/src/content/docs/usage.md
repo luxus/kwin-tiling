@@ -126,7 +126,8 @@ strongly recommended.
 
 ## Current limitations
 
-- Master ratio is one global value, not per-monitor or per-desktop
+- Master ratio, count, and scrolling column width default globally; override per
+  monitor in the KCM (not per virtual desktop)
 - Divider drag gives an approximate ratio when gaps are non-zero
 
 See [Roadmap](roadmap) for planned improvements.

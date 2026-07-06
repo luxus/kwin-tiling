@@ -3,7 +3,7 @@
 - **Window rules** — float or ignore windows by app class or title; utilities, dialogs, and transients auto-float
 - **Keyboard** — focus in four directions, toggle float, promote to master, toggle master pin, focus last window, move within layout, move across monitors, adjust master width/count
 - **Mouse** — drag windows to swap or insert; drag dividers to resize master ratio and per-window heights inside a column
-- **Settings KCM** — enable layouts, gaps, master ratio/count, borderless-when-tiled, and per-monitor overrides in *System Settings → Window Management → Tiling*; changes apply live
+- **Settings KCM** — enable layouts, gaps, master ratio/count, borderless-when-tiled, and per-monitor overrides (layout, gaps, and sizing) in *System Settings → Window Management → Tiling*; changes apply live
 - **Autotile** — new windows tile automatically; moving between desktops or monitors reflows and follows focus
 - **Persistence** — master ratio, master count, and layout choices survive restarts via `kwinrc`
 - **Smart gaps** — gaps collapse to zero when only one window is on screen
@@ -11,4 +11,5 @@
 - **Focus last** — toggle back to the previously active window (`Meta+U`)
 - **Borderless when tiled** — optional setting to hide window decorations while tiled
 - **Resize axis gating** — split updates only apply to the axis actually dragged
+- **Retile** — `Meta+Shift+R` rebuilds the active screen's layout when tiles and windows drift out of sync
 - **Packaging** — vendored source + small hooks patch over stock KWin; ships as a Nix flake module/overlay

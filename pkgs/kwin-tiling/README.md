@@ -111,7 +111,7 @@ Read by the controller on `reconfigure`; also surfaced in the KCM
 | `BorderlessWhenTiled` | bool | `false` | hide window decorations on tiled windows |
 | `GapLeft/Right/Top/Bottom` | int | `0` | outer gaps |
 | `GapBetween` | int | `0` | gap between tiles |
-| `Output <name>` subgroup | — | — | per-monitor `DefaultLayout` + gap overrides |
+| `Output <name>` subgroup | — | — | per-monitor layout, gap, and sizing overrides |
 
 Live changes to master ratio/count (keyboard or divider drag) are written back
 to `[Tiling]` so they persist across restart.
@@ -137,14 +137,14 @@ the new compositor on their next rebuild/switch once they track this flake.
 
 ## Known limitations / backlog
 
-- Master ratio is one global value applied to the active engine (not yet
-  per-output/per-desktop).
+- Master ratio/count and scrolling column width default globally; per-output
+  overrides live in `[Tiling][Output <name>]` (not per-desktop).
 - Divider-drag ratio is approximate when gaps are non-zero.
 - Per-app rules partial (always-tile + layout assign via TilingRules).
 - Directional focus/move continue onto the adjacent monitor at a layout edge.
 - Smart gaps basic (0 when <=1 window); manual on/off toggle available.
 - Configurable new-window placement (postponed).
-- Open features: more layouts (spiral, etc.).
+- Next: scrolling layout polish (unbound shortcuts, consume/expel UX).
 
 ## Planned: kwilt-inspired improvements (mostly shipped — see Features shipped)
 

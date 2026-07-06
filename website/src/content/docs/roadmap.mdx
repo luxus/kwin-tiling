@@ -8,6 +8,13 @@ import Open from '../../fragments/open.md';
 Most of the original plan has shipped. See [Features](features) for the full
 list of what's available today.
 
+## Next up
+
+**Scrolling polish** — the layout engine exists and tiles windows in a
+horizontal strip, but it's a minimal first pass: several scrolling-specific
+actions (center column, cycle width, consume/expel) ship unbound, and the
+viewport/column behavior needs tightening before it feels finished.
+
 ## Still open
 
 <Open />
@@ -16,8 +23,8 @@ list of what's available today.
 
 These are current constraints, not future work items:
 
-- **Master ratio is global** — one value shared across engines, not yet
-  per-monitor or per-desktop
+- **Per-desktop sizing** — master ratio, count, and column width override per
+  monitor; not yet per virtual desktop
 - **Divider drag with gaps** — the ratio you get from dragging the master/stack
   divider is approximate when gaps are non-zero
 - **Per-app rules are partial** — always-tile and per-app layout assignment

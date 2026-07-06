@@ -38,7 +38,9 @@ mostly work in one column.
 
 A horizontal strip of columns — similar to PaperWM or niri's scrolling model. The
 viewport scrolls to show the active column. New windows open in new columns;
-you can resize column widths and move windows between columns.
+you can resize column widths and move windows between columns. This is a
+minimal first implementation: consume/expel, center column, and column-width
+cycling exist but ship unbound — see [Roadmap](roadmap) for planned polish.
 
 ### Centered
 
@@ -46,11 +48,12 @@ The active (master) window sits in the centre. Remaining windows split into left
 and right stack columns. Useful when you want the focused window front and
 centre.
 
-### Per-monitor layout
+### Per-monitor overrides
 
-Each output can use a different default layout and gap settings. The KCM shows
-whether a monitor uses global defaults or has its own overrides, with a button
-to reset per-monitor customisations.
+Each output can use a different default layout, gap values, master width, master
+count, and scrolling column width. The KCM shows whether a monitor uses global
+defaults or has its own overrides, with a button to reset per-monitor
+customisations.
 
 ## Gaps and spacing
 
