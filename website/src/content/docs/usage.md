@@ -27,11 +27,14 @@ All shortcuts are registered as KWin actions. Rebind them in *System Settings
 | Increase / decrease master count | `Meta+Ctrl+.` / `Meta+Ctrl+,` |
 | Retile (rebuild current screen) | `Meta+Shift+R` |
 | Focus last window | `Meta+U` |
-| Cycle layout | *(unbound)* |
+| Cycle layout | `Meta+Shift+T` |
+| Reset sizes | `Meta+Ctrl+0` |
+| Toggle zoom (monocle) | `Meta+Shift+Z` |
+| Flip master side | `Meta+Shift+F` |
+| Toggle gaps | `Meta+Shift+G` |
+| Scrolling: center column / cycle column width | `Meta+Shift+C` / `Meta+Shift+V` |
+| Scrolling: consume / expel window | `Meta+Shift+[` / `Meta+Shift+]` |
 | Switch to MasterStack / Stacked / Scrolling / Centered / Grid | *(unbound)* |
-| Reset sizes | *(unbound)* |
-| Toggle zoom (monocle) | *(unbound)* |
-| Flip master side / Toggle gaps | *(unbound)* |
 
 KGlobalAccel only applies a default when the shortcut is free **and** the
 action is new in your profile. If an action was previously unbound, assign it

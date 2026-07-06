@@ -1,1 +1,1 @@
-- **Scrolling polish** — basic horizontal-strip layout works, but consume/expel, center column, and column-width cycling still ship unbound and need UX and behavior tightening
+- **Scrolling polish** — basic horizontal-strip layout works, but consume/expel UX and behavior still need tightening

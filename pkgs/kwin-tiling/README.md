@@ -73,12 +73,14 @@ in *System Settings → Shortcuts → KWin*.
 | Increase / decrease master count | `Meta+Ctrl+.` / `Meta+Ctrl+,` |
 | Retile (rebuild current screen) | `Meta+Shift+R` |
 | Focus last window | `Meta+U` |
-| Cycle layout / Switch to MasterStack / Stacked / Scrolling / Centered / Grid | unbound |
-| Reset sizes (master ratio + heights / column widths) | unbound |
-| Toggle zoom (monocle: active window full-screen) | unbound |
-| Flip master side / Toggle gaps | unbound |
-| Scrolling: center column / cycle column width | unbound |
-| Scrolling: consume / expel window into-column | unbound |
+| Cycle layout | `Meta+Shift+T` |
+| Reset sizes (master ratio + heights / column widths) | `Meta+Ctrl+0` |
+| Toggle zoom (monocle: active window full-screen) | `Meta+Shift+Z` |
+| Flip master side | `Meta+Shift+F` |
+| Toggle gaps | `Meta+Shift+G` |
+| Scrolling: center column / cycle column width | `Meta+Shift+C` / `Meta+Shift+V` |
+| Scrolling: consume / expel window into-column | `Meta+Shift+[` / `Meta+Shift+]` |
+| Switch to MasterStack / Stacked / Scrolling / Centered / Grid | unbound |
 
 > KGlobalAccel only applies a code default when the combo is free **and** the
 > action is new in `kglobalshortcutsrc`. An action that previously shipped
@@ -145,7 +147,7 @@ the new compositor on their next rebuild/switch once they track this flake.
 - Directional focus/move continue onto the adjacent monitor at a layout edge.
 - Smart gaps basic (0 when <=1 window); manual on/off toggle available.
 - Configurable new-window placement (postponed).
-- Next: scrolling layout polish (unbound shortcuts, consume/expel UX).
+- Next: scrolling layout polish (consume/expel UX).
 
 ## Move/resize robustness
 

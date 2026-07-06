@@ -495,7 +495,7 @@ index a753692..67dc97b 100644
 +            }
 +        }
 +    }, true);
-+    initShortcut("Tiling Cycle Layout", i18n("Tiling Cycle Layout"), QKeySequence(), [this]() {
++    initShortcut("Tiling Cycle Layout", i18n("Tiling Cycle Layout"), Qt::META | Qt::SHIFT | Qt::Key_T, [this]() {
 +        if (m_tilingController) {
 +            m_tilingController->cycleLayout();
 +        }
@@ -566,42 +566,42 @@ index a753692..67dc97b 100644
 +            m_tilingController->setLayout(LayoutEngine::LayoutKind::Centered);
 +        }
 +    }, true);
-+    initShortcut("Tiling Reset Sizes", i18n("Tiling Reset Sizes"), QKeySequence(), [this]() {
++    initShortcut("Tiling Reset Sizes", i18n("Tiling Reset Sizes"), Qt::META | Qt::CTRL | Qt::Key_0, [this]() {
 +        if (m_tilingController) {
 +            m_tilingController->resetSizes();
 +        }
 +    }, true);
-+    initShortcut("Tiling Toggle Zoom", i18n("Tiling Toggle Zoom"), QKeySequence(), [this]() {
++    initShortcut("Tiling Toggle Zoom", i18n("Tiling Toggle Zoom"), Qt::META | Qt::SHIFT | Qt::Key_Z, [this]() {
 +        if (m_tilingController) {
 +            m_tilingController->toggleZoom();
 +        }
 +    }, true);
-+    initShortcut("Tiling Center Column", i18n("Tiling Center Column"), QKeySequence(), [this]() {
++    initShortcut("Tiling Center Column", i18n("Tiling Center Column"), Qt::META | Qt::SHIFT | Qt::Key_C, [this]() {
 +        if (m_tilingController) {
 +            m_tilingController->centerColumn();
 +        }
 +    }, true);
-+    initShortcut("Tiling Cycle Column Width", i18n("Tiling Cycle Column Width"), QKeySequence(), [this]() {
++    initShortcut("Tiling Cycle Column Width", i18n("Tiling Cycle Column Width"), Qt::META | Qt::SHIFT | Qt::Key_V, [this]() {
 +        if (m_tilingController) {
 +            m_tilingController->cycleColumnWidth();
 +        }
 +    }, true);
-+    initShortcut("Tiling Consume Window", i18n("Tiling Consume Window"), QKeySequence(), [this]() {
++    initShortcut("Tiling Consume Window", i18n("Tiling Consume Window"), Qt::META | Qt::SHIFT | Qt::Key_BracketLeft, [this]() {
 +        if (m_tilingController) {
 +            m_tilingController->consumeWindow();
 +        }
 +    }, true);
-+    initShortcut("Tiling Expel Window", i18n("Tiling Expel Window"), QKeySequence(), [this]() {
++    initShortcut("Tiling Expel Window", i18n("Tiling Expel Window"), Qt::META | Qt::SHIFT | Qt::Key_BracketRight, [this]() {
 +        if (m_tilingController) {
 +            m_tilingController->expelWindow();
 +        }
 +    }, true);
-+    initShortcut("Tiling Flip Master", i18n("Tiling Flip Master"), QKeySequence(), [this]() {
++    initShortcut("Tiling Flip Master", i18n("Tiling Flip Master"), Qt::META | Qt::SHIFT | Qt::Key_F, [this]() {
 +        if (m_tilingController) {
 +            m_tilingController->flipMaster();
 +        }
 +    }, true);
-+    initShortcut("Tiling Toggle Gaps", i18n("Tiling Toggle Gaps"), QKeySequence(), [this]() {
++    initShortcut("Tiling Toggle Gaps", i18n("Tiling Toggle Gaps"), Qt::META | Qt::SHIFT | Qt::Key_G, [this]() {
 +        if (m_tilingController) {
 +            m_tilingController->toggleGaps();
 +        }
