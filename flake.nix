@@ -66,6 +66,55 @@
               ./directionmath-test
               touch $out
             '';
+        masterstackmath =
+          pkgs.runCommand "kwin-tiling-masterstackmath-test" { nativeBuildInputs = [ pkgs.gcc ]; }
+            ''
+              g++ -std=c++20 -O2 -Wall -Wextra -o masterstackmath-test \
+                ${./pkgs/kwin-tiling}/tests/masterstackmath_test.cpp
+              ./masterstackmath-test
+              touch $out
+            '';
+        movestate =
+          pkgs.runCommand "kwin-tiling-movestate-test" { nativeBuildInputs = [ pkgs.gcc ]; }
+            ''
+              g++ -std=c++20 -O2 -Wall -Wextra -o movestate-test \
+                ${./pkgs/kwin-tiling}/tests/movestate_test.cpp
+              ./movestate-test
+              touch $out
+            '';
+        classmatch =
+          pkgs.runCommand "kwin-tiling-classmatch-test" { nativeBuildInputs = [ pkgs.gcc ]; }
+            ''
+              g++ -std=c++20 -O2 -Wall -Wextra -o classmatch-test \
+                ${./pkgs/kwin-tiling}/tests/classmatch_test.cpp
+              ./classmatch-test
+              touch $out
+            '';
+        suspendpolicy =
+          pkgs.runCommand "kwin-tiling-suspendpolicy-test" { nativeBuildInputs = [ pkgs.gcc ]; }
+            ''
+              g++ -std=c++20 -O2 -Wall -Wextra -o suspendpolicy-test \
+                ${./pkgs/kwin-tiling}/tests/suspendpolicy_test.cpp
+              ./suspendpolicy-test
+              touch $out
+            '';
+        sizingpolicy =
+          pkgs.runCommand "kwin-tiling-sizingpolicy-test" { nativeBuildInputs = [ pkgs.gcc ]; }
+            ''
+              g++ -std=c++20 -O2 -Wall -Wextra -o sizingpolicy-test \
+                ${./pkgs/kwin-tiling}/tests/sizingpolicy_test.cpp
+              ./sizingpolicy-test
+              touch $out
+            '';
+        # Single entry that runs the whole pure suite (same as tests/run.sh).
+        pure-suite =
+          pkgs.runCommand "kwin-tiling-pure-suite" { nativeBuildInputs = [ pkgs.gcc pkgs.bash ]; }
+            ''
+              cp -r ${./pkgs/kwin-tiling} tree
+              chmod -R u+w tree
+              bash tree/tests/run.sh
+              touch $out
+            '';
       });
 
       formatter = forAllSystems (pkgs: pkgs.nixfmt);

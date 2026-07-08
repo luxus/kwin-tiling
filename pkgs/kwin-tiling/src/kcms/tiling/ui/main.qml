@@ -163,24 +163,16 @@ KCM.SimpleKCM {
 
             Item {
                 Kirigami.FormData.isSection: true
-                Kirigami.FormData.label: i18n("Floating Windows")
+                Kirigami.FormData.label: i18n("Tiled Windows")
             }
 
-            QQC2.CheckBox {
-                id: floatAbove
-                Kirigami.FormData.label: i18n("Floating windows:")
-                text: i18n("Keep above tiled windows")
-                checked: kcm.settings.floatAbove
-                onToggled: kcm.settings.floatAbove = checked
-                KCM.SettingStateBinding {
-                    configObject: kcm.settings
-                    settingName: "floatAbove"
-                }
-            }
+            // FloatAbove checkbox removed: the compositor no longer forces Keep
+            // Above on float (that overwrote user Always-on-Top). kwinrc key
+            // FloatAbove is ignored if present.
 
             QQC2.CheckBox {
                 id: borderlessWhenTiled
-                Kirigami.FormData.label: i18n("Tiled windows:")
+                Kirigami.FormData.label: i18n("Decorations:")
                 text: i18n("Hide window decorations while tiled")
                 checked: kcm.settings.borderlessWhenTiled
                 onToggled: kcm.settings.borderlessWhenTiled = checked

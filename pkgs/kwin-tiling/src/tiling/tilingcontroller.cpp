@@ -10,10 +10,14 @@
 #include "tiling/tilingreflow.h"
 #include "core/rect.h"
 #include "cursor.h"
+#include "tiling/sizingpolicy.h"
+#include "tiling/suspendpolicy.h"
 #include "tiling/tilingosd.h"
+#include "tiles/directionmath.h"
 #include "tiles/layoutengine.h"
 #include "tiles/gridlayoutengine.h"
 #include "tiles/masterstacklayoutengine.h"
+#include "tiles/masterstackmath.h"
 #include "tiles/scrollinglayoutengine.h"
 #include "tiles/stackedlayoutengine.h"
 #include "tiles/tilemanager.h"
@@ -142,6 +146,7 @@ void TilingController::reconfigure()
     KConfigGroup tilingGroup(config, QStringLiteral("Tiling"));
     KConfigGroup rulesGroup(config, QStringLiteral("TilingRules"));
 
+    const bool wasEnabled = m_enabled;
     m_enabled = tilingGroup.readEntry("Enabled", true);
     m_defaultLayout = LayoutEngine::layoutKindFromString(
         tilingGroup.readEntry("DefaultLayout", QStringLiteral("MasterStack")));
@@ -152,10 +157,23 @@ void TilingController::reconfigure()
     m_masterRatio = qBound(0.1, tilingGroup.readEntry("MasterRatio", 0.5), 0.9);
     m_defaultColumnWidth = qBound(0.1, tilingGroup.readEntry("DefaultColumnWidth", 0.5), 1.0);
     m_masterCount = qMax(1, tilingGroup.readEntry("MasterCount", 1));
+    // FloatAbove is ignored: forcing Keep Above clobbered user Always-on-Top.
+    // Key still read for kwinrc compatibility; KCM control is hidden.
     m_floatAbove = tilingGroup.readEntry("FloatAbove", true);
     m_layoutSwitchOsd = tilingGroup.readEntry("LayoutSwitchOsd", true);
     m_borderlessWhenTiled = tilingGroup.readEntry("BorderlessWhenTiled", false);
     m_rules->load(rulesGroup);
+
+    const auto enabledTransition = suspendpolicy::classifyEnabledChange(wasEnabled, m_enabled);
+    if (!m_enabled) {
+        // DisableNow or StayDisabled: detach every tiled window, restore borders.
+        suspendAllTiledWindows();
+        return;
+    }
+    if (enabledTransition == suspendpolicy::EnabledTransition::EnableNow) {
+        // Live re-enable: only windows marked suspendedByDisable (not manual floats).
+        resumeSuspendedWindows();
+    }
 
     // Push master count/ratio to live engines so changes in the KCM (or
     // direct kwinrc edit + reloadConfig) take effect immediately without
@@ -533,10 +551,11 @@ void TilingController::addWindowToLayout(Window *window, LogicalOutput *output, 
         return;
     }
 
-    LayoutEngine::LayoutKind kind = layoutKindFor(output, desktop);
-    if (m_rules && m_rules->prefersStacked(window)) {
-        kind = LayoutEngine::LayoutKind::Stacked;
-    }
+    // StackedClass is not applied here: rewriting the whole (output, desktop)
+    // engine for one window was a silent layout lock-in. Per-window layout
+    // assignment needs a different model; until then StackedClass is loaded for
+    // config compatibility but does not change the active layout kind.
+    const LayoutEngine::LayoutKind kind = layoutKindFor(output, desktop);
     setupLayoutEngine(output, manager, desktop, kind);
 
     LayoutEngine *engine = manager->layoutEngine(desktop);
@@ -764,11 +783,48 @@ Window *TilingController::windowOnAdjacentOutput(LayoutEngine::FocusDirection di
     if (ws.isEmpty()) {
         return nullptr;
     }
-    // Enter from the side we crossed: moving left/up lands on the far window,
-    // moving right/down on the near one.
-    const bool enterNear = (direction == LayoutEngine::FocusDirection::Right
-                            || direction == LayoutEngine::FocusDirection::Down);
-    return enterNear ? ws.first() : ws.last();
+
+    // Prefer the window nearest the shared edge (geometry), not layout-order
+    // first/last — wrong on Grid/Scrolling and after flipMaster.
+    std::vector<masterstackmath::Rect> rects;
+    rects.reserve(static_cast<size_t>(ws.size()));
+    const RectF adjGeom = adjacent->geometryF();
+    for (Window *w : ws) {
+        if (!w) {
+            rects.push_back({0, 0, 0, 0});
+            continue;
+        }
+        const RectF g = w->frameGeometry();
+        // Output-relative 0..1 for pure entry helper.
+        const double rw = adjGeom.width() > 0 ? adjGeom.width() : 1.0;
+        const double rh = adjGeom.height() > 0 ? adjGeom.height() : 1.0;
+        rects.push_back({
+            (g.x() - adjGeom.x()) / rw,
+            (g.y() - adjGeom.y()) / rh,
+            g.width() / rw,
+            g.height() / rh,
+        });
+    }
+    directionmath::Direction entry = directionmath::Direction::Right;
+    switch (direction) {
+    case LayoutEngine::FocusDirection::Left:
+        entry = directionmath::Direction::Left;
+        break;
+    case LayoutEngine::FocusDirection::Right:
+        entry = directionmath::Direction::Right;
+        break;
+    case LayoutEngine::FocusDirection::Up:
+        entry = directionmath::Direction::Up;
+        break;
+    case LayoutEngine::FocusDirection::Down:
+        entry = directionmath::Direction::Down;
+        break;
+    }
+    const int idx = masterstackmath::entryWindowIndex(rects, entry);
+    if (idx < 0 || idx >= ws.size()) {
+        return ws.first();
+    }
+    return ws.at(idx);
 }
 
 void TilingController::toggleFloating()
@@ -907,9 +963,9 @@ void TilingController::onWindowResizeFinished(Window *window, const RectF &start
         return;
     }
 
-    // Persist the resulting split if the engine has one and it actually changed.
     const qreal ratio = engine->primarySplit();
-    if (ratio <= 0.0) {
+    const auto kind = static_cast<sizingpolicy::LayoutKind>(engine->layoutKind());
+    if (!sizingpolicy::shouldWriteMasterRatio(kind, ratio)) {
         return;
     }
     LogicalOutput *output = window->output() ? window->output() : m_workspace->activeOutput();
@@ -1505,19 +1561,25 @@ void TilingController::resizePrimary(qreal delta)
     if (!engine || !output) {
         return;
     }
+    const qreal split = engine->primarySplit();
+    if (!sizingpolicy::canResizePrimary(split)) {
+        return;
+    }
     KSharedConfigPtr config = KSharedConfig::openConfig(KWIN_CONFIG);
     KConfigGroup tilingGroup(config, QStringLiteral("Tiling"));
     OutputSizing sizing = readOutputSizing(tilingGroup, output);
     sizing.masterRatio = qBound(0.1, sizing.masterRatio + delta, 0.9);
     engine->setPrimarySplit(sizing.masterRatio);
 
-    // Persist so the split survives a reconfigure / restart (engines are
-    // recreated from config). Other engines pick it up on their next rebuild.
-    sizingWriteGroup(tilingGroup, output).writeEntry("MasterRatio", sizing.masterRatio);
-    if (!tilingGroup.group(QStringLiteral("Output %1").arg(output->name())).exists()) {
-        m_masterRatio = sizing.masterRatio;
+    // Persist MasterRatio only for master-style layouts (policy unit-tested).
+    const auto kind = static_cast<sizingpolicy::LayoutKind>(engine->layoutKind());
+    if (sizingpolicy::shouldWriteMasterRatio(kind, engine->primarySplit())) {
+        sizingWriteGroup(tilingGroup, output).writeEntry("MasterRatio", sizing.masterRatio);
+        if (!tilingGroup.group(QStringLiteral("Output %1").arg(output->name())).exists()) {
+            m_masterRatio = sizing.masterRatio;
+        }
+        config->sync();
     }
-    config->sync();
 }
 
 void TilingController::adjustMasterCount(int delta)
@@ -1842,11 +1904,10 @@ void TilingController::restoreBorder(Window *window)
 
 void TilingController::applyFloatStacking(Window *window)
 {
-    if (!window || !m_floatAbove) {
-        return;
-    }
-    // Float => keep above tiled windows; tile => release the override.
-    window->setKeepAbove(window->tilingState().mode == TilingState::Mode::Floating);
+    // Intentionally empty: FloatAbove must not call setKeepAbove (clobbers user
+    // Always-on-Top). Setting is ignored; KCM control is hidden.
+    Q_UNUSED(window)
+    Q_UNUSED(m_floatAbove)
 }
 
 void TilingController::setFloating(Window *window, bool floating)
@@ -1860,9 +1921,14 @@ void TilingController::setFloating(Window *window, bool floating)
     }
     if (floating) {
         state.mode = TilingState::Mode::Floating;
+        state.suspendedByDisable = false;
         removeWindowFromLayouts(window);
     } else {
+        if (!m_enabled) {
+            return;
+        }
         state.mode = TilingState::Mode::Tiled;
+        state.suspendedByDisable = false;
         LogicalOutput *output = window->output() ? window->output() : m_workspace->activeOutput();
         VirtualDesktop *desktop = window->desktops().isEmpty()
             ? VirtualDesktopManager::self()->currentDesktop(output)
@@ -1870,6 +1936,73 @@ void TilingController::setFloating(Window *window, bool floating)
         addWindowToLayout(window, output, desktop);
     }
     applyFloatStacking(window);
+}
+
+void TilingController::suspendAllTiledWindows()
+{
+    if (!m_workspace) {
+        return;
+    }
+    for (Window *window : m_workspace->windows()) {
+        if (!window || window->isDeleted()) {
+            continue;
+        }
+        TilingState &state = window->tilingState();
+        suspendpolicy::WindowFlags in{
+            state.mode == TilingState::Mode::Tiled ? suspendpolicy::Mode::Tiled
+                                                   : suspendpolicy::Mode::Floating,
+            state.suspendedByDisable,
+        };
+        const suspendpolicy::SuspendResult r = suspendpolicy::onSuspend(in);
+        if (!r.removeFromLayout && !r.restoreBorder) {
+            continue;
+        }
+        if (r.removeFromLayout) {
+            removeWindowFromLayouts(window);
+        }
+        if (r.restoreBorder) {
+            restoreBorder(window);
+        }
+        state.mode = (r.mode == suspendpolicy::Mode::Tiled) ? TilingState::Mode::Tiled
+                                                            : TilingState::Mode::Floating;
+        state.suspendedByDisable = r.suspendedByDisable;
+    }
+    m_activeMoves.clear();
+    m_activeResizes.clear();
+    m_masterPins.clear();
+}
+
+void TilingController::resumeSuspendedWindows()
+{
+    if (!m_workspace || !m_enabled) {
+        return;
+    }
+    initializeLayouts();
+    for (Window *window : m_workspace->windows()) {
+        if (!window || window->isDeleted()) {
+            continue;
+        }
+        TilingState &state = window->tilingState();
+        suspendpolicy::WindowFlags in{
+            state.mode == TilingState::Mode::Tiled ? suspendpolicy::Mode::Tiled
+                                                   : suspendpolicy::Mode::Floating,
+            state.suspendedByDisable,
+        };
+        const bool rulesWantFloat = m_rules->initialMode(window) == TilingState::Mode::Floating;
+        const suspendpolicy::ResumeResult r = suspendpolicy::onResume(in, rulesWantFloat);
+        state.suspendedByDisable = r.suspendedByDisable;
+        state.mode = (r.mode == suspendpolicy::Mode::Tiled) ? TilingState::Mode::Tiled
+                                                            : TilingState::Mode::Floating;
+        if (!r.addToLayout) {
+            continue;
+        }
+        LogicalOutput *output = window->output() ? window->output() : m_workspace->activeOutput();
+        VirtualDesktop *desktop = window->desktops().isEmpty()
+            ? VirtualDesktopManager::self()->currentDesktop(output)
+            : window->desktops().constFirst();
+        addWindowToLayout(window, output, desktop);
+        applyFloatStacking(window);
+    }
 }
 
 bool TilingController::isFloatAppRule(const Window *window) const

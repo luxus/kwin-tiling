@@ -37,7 +37,11 @@ void StackedLayoutEngine::addWindow(Window *window)
 
 void StackedLayoutEngine::removeWindow(Window *window)
 {
-    m_column.removeWindow(window);
+    // Mid-drag: cancelMove destroys empty source holders (clearMove would leave phantoms).
+    m_column.cancelMove(window);
+    if (m_column.contains(window)) {
+        m_column.removeWindow(window);
+    }
     reflow();
 }
 

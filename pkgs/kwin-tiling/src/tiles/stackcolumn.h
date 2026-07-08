@@ -9,6 +9,7 @@
 #include "columnmath.h"
 #include "core/rect.h"
 #include "customtile.h"
+#include "movestate.h"
 #include "tile.h"
 #include "window.h"
 
@@ -189,6 +190,12 @@ public:
         }
     }
 
+    // True when beginMove recorded a source leaf that is still tracked.
+    bool hasMoveSource() const
+    {
+        return !m_moveSourceLeaf.isNull() && m_leaves.contains(m_moveSourceLeaf);
+    }
+
     // Swap the dragged window with `target` (each keeps the other's leaf/slot),
     // or restore it to its source leaf when there is no target. Returns true if
     // a move was in progress (engine should reflow).
@@ -217,6 +224,8 @@ public:
 
     // The dragged window left this column/output: drop the (possibly emptied)
     // source leaf so no phantom tile is left behind. Returns true if changed.
+    // Destroy decision is movestate::shouldDestroySourceLeaf (same rule as the
+    // pure cancelMoveLeaf tests) so pure tests and this path cannot diverge.
     bool cancelMove(Window *window)
     {
         QPointer<CustomTile> sourceLeaf = m_moveSourceLeaf;
@@ -224,17 +233,19 @@ public:
         if (!sourceLeaf || !m_leaves.contains(sourceLeaf)) {
             return false;
         }
-        if (sourceLeaf->windows().isEmpty() || sourceLeaf->windows().contains(window)) {
-            if (sourceLeaf->windows().contains(window)) {
-                sourceLeaf->unmanage(window);
-            }
-            m_leaves.removeOne(sourceLeaf);
-            if (m_root) {
-                m_root->destroyChild(sourceLeaf);
-            }
-            return true;
+        const bool leafEmpty = sourceLeaf->windows().isEmpty();
+        const bool leafHoldsDragged = window && sourceLeaf->windows().contains(window);
+        if (!movestate::shouldDestroySourceLeaf(leafEmpty, leafHoldsDragged)) {
+            return false;
         }
-        return false;
+        if (leafHoldsDragged) {
+            sourceLeaf->unmanage(window);
+        }
+        m_leaves.removeOne(sourceLeaf);
+        if (m_root) {
+            m_root->destroyChild(sourceLeaf);
+        }
+        return true;
     }
 
     // --- height weights ------------------------------------------------------

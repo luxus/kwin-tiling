@@ -22,6 +22,9 @@ public:
     Mode mode = Mode::Floating;
     bool borderForced = false;
     bool originalNoBorder = false;
+    // Set when [Tiling] Enabled went false while this window was tiled; used so
+    // a live re-enable can re-tile only those windows (not manual floats).
+    bool suspendedByDisable = false;
 };
 
 } // namespace KWin

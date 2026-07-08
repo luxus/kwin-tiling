@@ -208,6 +208,9 @@ private:
     void showLayoutNotification(LayoutEngine::LayoutKind kind);
     LayoutEngine::LayoutKind reflowScopeLayoutKind(LogicalOutput *output,
                                                    VirtualDesktop *desktop = nullptr) const;
+    // Live [Tiling] Enabled=false / re-enable: detach or restore tiled windows.
+    void suspendAllTiledWindows();
+    void resumeSuspendedWindows();
 
     QPointer<Workspace> m_workspace;
     std::unique_ptr<TilingRules> m_rules;

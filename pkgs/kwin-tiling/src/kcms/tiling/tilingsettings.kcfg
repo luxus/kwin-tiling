@@ -36,7 +36,7 @@
       <max>10</max>
     </entry>
     <entry name="floatAbove" key="FloatAbove" type="Bool">
-      <label>Keep floating windows stacked above tiled windows</label>
+      <label>Ignored: former float Keep Above toggle (unsafe; left for kwinrc compat)</label>
       <default>true</default>
     </entry>
     <entry name="layoutSwitchOsd" key="LayoutSwitchOsd" type="Bool">
@@ -98,7 +98,7 @@
       <label>Window classes that should always tile</label>
     </entry>
     <entry name="stackedClasses" key="StackedClass" type="StringList">
-      <label>Window classes that should use stacked layout</label>
+      <label>Reserved: per-app stacked layout (not applied live; would rewrite the desktop layout)</label>
     </entry>
   </group>
 </kcfg>

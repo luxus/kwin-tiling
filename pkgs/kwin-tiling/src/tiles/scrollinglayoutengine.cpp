@@ -6,6 +6,7 @@
 
 #include "scrollinglayoutengine.h"
 #include "customtile.h"
+#include "movestate.h"
 #include "window.h"
 
 #include <algorithm>
@@ -60,18 +61,60 @@ void ScrollingLayoutEngine::removeWindow(Window *window)
 {
     int c = -1;
     int l = -1;
-    if (!findWindow(window, &c, &l)) {
+    const bool found = findWindow(window, &c, &l);
+    const int prevMoveCol = m_moveHasSource ? m_moveSourceColumn : -1;
+    const auto path = movestate::classifyRemove(m_moveHasSource, found, c, prevMoveCol);
+
+    auto clearActiveIf = [this, window]() {
+        if (m_activeWindow == window) {
+            m_activeWindow = nullptr;
+        }
+    };
+
+    if (path == movestate::RemovePath::CancelSource) {
+        // Destroy empty source holder (untile-for-drag or drag window leaving).
+        if (prevMoveCol >= 0 && prevMoveCol < m_columns.count()) {
+            m_columns[prevMoveCol].stack.cancelMove(window);
+            if (m_columns[prevMoveCol].stack.isEmpty()) {
+                m_columns.removeAt(prevMoveCol);
+            }
+        }
+        m_moveHasSource = false;
+        m_moveSourceColumn = -1;
+        if (!findWindow(window, &c, &l)) {
+            clearActiveIf();
+            pruneEmpty();
+            reflow();
+            return;
+        }
+        // Fall through to normal remove if the window is still managed elsewhere.
+    } else if (path == movestate::RemovePath::SiblingOtherColumn) {
+        m_columns[c].stack.removeWindow(window);
+        const bool columnEmptied = m_columns[c].stack.isEmpty();
+        if (columnEmptied) {
+            m_columns.removeAt(c);
+        }
+        m_moveSourceColumn = movestate::afterWindowRemoved(prevMoveCol, c, columnEmptied, false);
+        if (m_moveSourceColumn < 0) {
+            m_moveHasSource = false;
+        }
+        clearActiveIf();
+        reflow();
         return;
     }
 
-    m_columns[c].stack.removeWindow(window); // unhides, unmanages, destroys leaf
+    if (!findWindow(window, &c, &l)) {
+        clearActiveIf();
+        pruneEmpty();
+        reflow();
+        return;
+    }
+
+    m_columns[c].stack.removeWindow(window);
     if (m_columns[c].stack.isEmpty()) {
         m_columns.removeAt(c);
     }
-    if (m_activeWindow == window) {
-        m_activeWindow = nullptr;
-    }
-
+    clearActiveIf();
     reflow();
 }
 

@@ -115,14 +115,32 @@ void MasterStackLayoutEngine::addWindow(Window *window)
 
 void MasterStackLayoutEngine::removeWindow(Window *window)
 {
+    // Mid-drag remove (output leave / close / already-unmanaged empty holder):
+    // cancelMove destroys the empty source leaf. clearMove alone would leave a
+    // phantom. Classic MasterStack also sets m_moveHasSource in beginMove.
     if (isCentered()) {
+        if (m_moveHasSource) {
+            if (StackColumn *col = columnFor(m_moveSourceSide)) {
+                col->cancelMove(window);
+            }
+            m_moveHasSource = false;
+        }
         if (StackColumn *col = findColumn(window)) {
             col->removeWindow(window);
+            reflow();
+        } else {
+            // Window already unmanaged; still reflow if cancel dropped a leaf.
             reflow();
         }
         return;
     }
-    m_column.removeWindow(window);
+
+    // Classic path: always cancel open move on this column (no-op if none).
+    m_column.cancelMove(window);
+    m_moveHasSource = false;
+    if (m_column.contains(window)) {
+        m_column.removeWindow(window);
+    }
     reflow();
 }
 
@@ -151,6 +169,10 @@ void MasterStackLayoutEngine::beginMoveWindow(Window *window)
         return;
     }
     m_column.beginMove(window);
+    // Classic MasterStack: track open move so remove/cancel paths stay consistent
+    // with Centered (and so mid-drag remove always cancels the source leaf).
+    m_moveHasSource = m_column.hasMoveSource();
+    m_moveSourceSide = SideColumn::Center;
 }
 
 bool MasterStackLayoutEngine::endMoveWindow(Window *window, Window *target)
@@ -198,6 +220,7 @@ bool MasterStackLayoutEngine::endMoveWindow(Window *window, Window *target)
         return handled;
     }
 
+    m_moveHasSource = false;
     const bool handled = m_column.endMove(window, target);
     if (handled) {
         reflow();
@@ -219,6 +242,7 @@ void MasterStackLayoutEngine::cancelMoveWindow(Window *window)
         }
         return;
     }
+    m_moveHasSource = false;
     if (m_column.cancelMove(window)) {
         reflow();
     }
@@ -588,40 +612,21 @@ Window *MasterStackLayoutEngine::windowInDirection(Window *from, FocusDirection 
         return windowInDirectionCentered(from, direction);
     }
 
-    const QList<Window *> ws = m_column.windows();
-    if (ws.isEmpty()) {
-        return nullptr;
+    // Geometry-based focus: respects flipMaster (master on right) and multi-master
+    // columns. Index heuristics treated layout index 0 as "left", which broke
+    // after Meta+Shift+F and with masterCount > 1.
+    QList<QPair<Window *, RectF>> entries;
+    for (CustomTile *leaf : m_column.leaves()) {
+        if (!leaf) {
+            continue;
+        }
+        const QList<Window *> ws = leaf->windows();
+        if (ws.isEmpty()) {
+            continue;
+        }
+        entries.append({ws.first(), leaf->relativeGeometry()});
     }
-
-    const int idx = from ? ws.indexOf(from) : -1;
-    if (idx < 0) {
-        return ws.first();
-    }
-
-    switch (direction) {
-    case FocusDirection::Left:
-        if (idx == 0) {
-            return nullptr;
-        }
-        return ws[0];
-    case FocusDirection::Right:
-        if (idx == 0) {
-            return ws.count() > 1 ? ws[1] : nullptr;
-        }
-        return nullptr;
-    case FocusDirection::Up:
-        if (idx > 0) {
-            return ws[idx - 1];
-        }
-        return ws.count() > 1 ? ws[1] : nullptr;
-    case FocusDirection::Down:
-        if (idx < ws.count() - 1) {
-            return ws[idx + 1];
-        }
-        return ws[0];
-    }
-
-    return nullptr;
+    return windowInDirectionFromRects(entries, from, direction);
 }
 
 Window *MasterStackLayoutEngine::windowInDirectionCentered(Window *from, FocusDirection direction) const

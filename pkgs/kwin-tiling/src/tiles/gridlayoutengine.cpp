@@ -37,7 +37,10 @@ void GridLayoutEngine::addWindow(Window *window)
 
 void GridLayoutEngine::removeWindow(Window *window)
 {
-    m_column.removeWindow(window);
+    m_column.cancelMove(window);
+    if (m_column.contains(window)) {
+        m_column.removeWindow(window);
+    }
     reflow();
 }
 

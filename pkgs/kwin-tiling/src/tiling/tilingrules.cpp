@@ -5,9 +5,12 @@
 */
 
 #include "tilingrules.h"
+#include "tiles/classmatch.h"
 #include "window.h"
 
 #include <KConfigGroup>
+
+#include <string_view>
 
 namespace KWin
 {
@@ -101,13 +104,19 @@ TilingState::Mode TilingRules::initialMode(const Window *window) const
 
 bool TilingRules::matchClass(const Window *window, const QStringList &patterns) const
 {
-    if (patterns.isEmpty()) {
+    if (patterns.isEmpty() || !window) {
         return false;
     }
-    const QString resourceClass = window->resourceClass().toLower();
-    const QString resourceName = window->resourceName().toLower();
+    // Exact match (or trailing-* prefix). Substring contains() caused false
+    // positives (pattern "code" matched "encode").
+    const QByteArray resourceClass = window->resourceClass().toLower().toUtf8();
+    const QByteArray resourceName = window->resourceName().toLower().toUtf8();
     for (const QString &pattern : patterns) {
-        if (resourceClass.contains(pattern) || resourceName.contains(pattern)) {
+        const QByteArray p = pattern.toUtf8();
+        if (classmatch::matchToken(std::string_view(resourceClass.constData(), size_t(resourceClass.size())),
+                                   std::string_view(p.constData(), size_t(p.size())))
+            || classmatch::matchToken(std::string_view(resourceName.constData(), size_t(resourceName.size())),
+                                      std::string_view(p.constData(), size_t(p.size())))) {
             return true;
         }
     }
@@ -116,12 +125,14 @@ bool TilingRules::matchClass(const Window *window, const QStringList &patterns) 
 
 bool TilingRules::matchTitle(const Window *window, const QStringList &patterns) const
 {
-    if (patterns.isEmpty()) {
+    if (patterns.isEmpty() || !window) {
         return false;
     }
-    const QString title = window->caption().toLower();
+    const QByteArray title = window->caption().toLower().toUtf8();
     for (const QString &pattern : patterns) {
-        if (title.contains(pattern)) {
+        const QByteArray p = pattern.toUtf8();
+        if (classmatch::matchToken(std::string_view(title.constData(), size_t(title.size())),
+                                   std::string_view(p.constData(), size_t(p.size())))) {
             return true;
         }
     }

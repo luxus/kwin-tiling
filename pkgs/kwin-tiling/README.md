@@ -143,7 +143,19 @@ the new compositor on their next rebuild/switch once they track this flake.
 - Master ratio/count and scrolling column width default globally; per-output
   overrides live in `[Tiling][Output <name>]` (not per-desktop).
 - Divider-drag ratio is approximate when gaps are non-zero.
-- Per-app rules partial (always-tile + layout assign via TilingRules).
+- Per-app rules partial (always-tile + float/ignore via TilingRules). Class
+  match is exact or trailing-`*` prefix (not substring). `StackedClass` is
+  loaded but not applied live (would rewrite the whole desktop layout).
+- `FloatAbove` is ignored (forcing Keep Above clobbered user Always-on-Top);
+  the KCM control is removed. Use the window menu Keep Above if needed.
+- Live `[Tiling] Enabled=false` detaches tiled windows and restores borders.
+
+## Pure tests (no KWin)
+
+```sh
+pkgs/kwin-tiling/tests/run.sh    # all *_test.cpp via g++
+# or: nix flake check
+```
 - Directional focus/move continue onto the adjacent monitor at a layout edge.
 - Smart gaps basic (0 when <=1 window); manual on/off toggle available.
 - Configurable new-window placement (postponed).

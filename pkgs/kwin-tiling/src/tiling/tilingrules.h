@@ -41,6 +41,9 @@ public:
     bool isFloating(const Window *window) const;
 
     bool isAlwaysTiled(const Window *window) const { return matchClass(window, m_alwaysTileClasses); }
+    // Loaded from StackedClass for config compatibility. Not applied to live
+    // layout selection (see TilingController::addWindowToLayout) — per-window
+    // layout needs a different model than rewriting the whole desktop engine.
     bool prefersStacked(const Window *window) const { return matchClass(window, m_stackedClasses); }
 
     /**
