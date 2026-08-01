@@ -27,9 +27,10 @@ rest of Plasma stay as they are.
 **2. KWin + Noctalia (custom session)** — same patched KWin, but in a minimal
 Wayland session with [Noctalia](https://github.com/noctalia-dev/noctalia) as
 the shell instead of plasmashell. Needs extra session wiring (systemd units,
-portals, env). See the docs site page **KWin + Noctalia session** for a
-self-contained NixOS + Home Manager example. Noctalia KWin patches:
-[luxus/noctalia-kwin](https://github.com/luxus/noctalia-kwin).
+portals, env). Docs: **KWin + Noctalia session**. Production packaging lives in
+[luxusAi](https://github.com/luxus/luxusAi)
+(`pkgs/kwin-noctalia-session` + `hjemModules.kwin-noctalia`). Noctalia KWin
+patches: [luxus/noctalia-kwin](https://github.com/luxus/noctalia-kwin).
 
 ## Use it from your flake
 
@@ -69,8 +70,14 @@ Enabled=true
 
 ```sh
 nix build .#kwin-tiling     # the patched compositor (long: compiles KWin)
-nix flake check             # fast: runs the pure column-math self-check, no KWin build
+nix flake check             # fast: pure geometry/move self-checks, no KWin build
+bash pkgs/kwin-tiling/tests/run.sh   # same pure suite via g++
 ```
+
+Tracks stock `kdePackages.kwin` (currently **Plasma/KWin 6.7.x**). After a host
+switch that rebuilds KWin, **relogin** so the running compositor is the new
+binary. Manual session regression:
+`pkgs/kwin-tiling/scripts/session-smoke.md`.
 
 ## Maintenance
 

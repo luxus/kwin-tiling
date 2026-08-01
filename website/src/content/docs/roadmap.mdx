@@ -27,5 +27,10 @@ These are current constraints, not future work items:
   only, not per virtual desktop
 - **Divider drag with gaps** — the ratio you get from dragging the master/stack
   divider is approximate when gaps are non-zero
-- **Per-app rules are partial** — always-tile and per-app layout assignment
-  exist in `TilingRules` but aren't fully exposed in the KCM yet
+- **Per-app rules are partial** — always-tile and float/ignore are in
+  `TilingRules` (class match: exact or trailing `*`); always-tile is not fully
+  exposed in the KCM yet. There is no live per-app layout rewrite (old
+  `StackedClass` was removed — it would have rewritten the whole desktop engine)
+- **Monocle** — temporary zoom (`Meta+Shift+Z`), not a cycleable layout kind
+- **Session packaging** — lives in luxusAi (`kwin-noctalia`), not this flake;
+  after OS switch you must **relogin** to load the new compositor binary

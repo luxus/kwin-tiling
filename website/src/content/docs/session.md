@@ -1,6 +1,6 @@
 ---
 title: KWin + Noctalia session
-description: Minimum KDE services and session wiring for native tiling with Noctalia — without full Plasma.
+description: Minimum KDE services and session wiring for native tiling with Noctalia — without full Plasma. Production reference is luxusAi’s kwin-noctalia package.
 ---
 
 This page is for **way 2** from [Overview → Two ways to start](/):
@@ -10,6 +10,7 @@ This page is for **way 2** from [Overview → Two ways to start](/):
 | Session | Normal Plasma Wayland | Custom `wayland-sessions` entry |
 | Shell | plasmashell | [Noctalia](https://github.com/noctalia-dev/noctalia) |
 | Effort | Flake module + enable tiling | Patched KWin + session plumbing below |
+| Tiling package | This flake only | This flake + session stack |
 
 If you already use Plasma, stop at way 1 — add the flake module, set
 `[Tiling] Enabled=true`, and you are done. You do not need anything on this page.
@@ -19,161 +20,123 @@ run with it, how Noctalia attaches as the shell, and how logout and shortcuts
 behave. Shortcuts and the tiling KCM are the same as way 1 — see
 [Usage & Shortcuts](usage).
 
+**Tested against:** Plasma / KWin **6.7.x** (currently **6.7.3** via nixpkgs
+`kdePackages.kwin`). After a host switch that rebuilds KWin, **relogin** (or
+restart the compositor session) so the running process picks up the new binary.
+
+## Production reference (recommended)
+
+A full, multi-session-safe implementation lives in
+[**luxusAi**](https://github.com/luxus/luxusAi) — not as a second tiling fork,
+but as the session packaging that consumes this flake:
+
+| Piece | Where in luxusAi |
+| --- | --- |
+| Patched KWin input | `inputs.kwin-tiling` → `modules/nixos/kwin-tiling.nix` (overlay) |
+| Session package | `pkgs/kwin-noctalia-session` (`kwin-noctalia.service`, ready oneshot, stop script, scoped KDE units) |
+| User profile | `hjem/profiles/kwin-noctalia.nix` (packages, QML paths, tiling enable, QML cache wipe) |
+| Session registry | `lib/desktop-sessions.nix` — `kwin-noctalia` pulls `nixos.kwin-tiling` + `hjem.shell` + `hjem.kwin-noctalia` |
+| Re-exports for other flakes | `modules/flake/kwin-reexport.nix` → `nixosModules.kwin-tiling`, `hjemModules.kwin-noctalia`, package overlay |
+
+**Compose onto a host (conceptual):** list `kwin-noctalia` in that machine’s
+`sessions` (see `lib/desktops.nix`); the clan registry expands
+`sessionFeatures` automatically. Host-only extras (greeter, remote desktop,
+NVIDIA, …) stay on the machine.
+
+**External flakes (Hjem required)** can re-use luxusAi without copying units:
+
+```nix
+inputs.luxusAi.url = "github:luxus/luxusAi";
+inputs.kwin-tiling.url = "github:luxus/kwin-tiling"; # optional if you only use luxusAi’s pin
+
+# NixOS host — patches kdePackages.kwin
+imports = [ inputs.luxusAi.nixosModules.kwin-tiling ];
+nixpkgs.overlays = [ inputs.luxusAi.overlays.default ]; # pkgs.kwin-noctalia-session, …
+
+# Hjem user — session files + packages
+imports = [ inputs.luxusAi.hjemModules.kwin-noctalia ];
+```
+
+Noctalia KWin-only patches (layer-shell lock, graceful logout) come from
+[luxus/noctalia-kwin](https://github.com/luxus/noctalia-kwin), not from this
+repo.
+
+The rest of this page documents the **contract** that packaging must satisfy —
+useful if you reimplement the session yourself. Prefer luxusAi’s package over
+copy-pasting the old minimal Home Manager sketch.
+
 ## Architecture
 
 ```text
-greetd / SDDM
-    └── wayland session: kwin-noctalia.desktop
-            ├── kwin_wayland (patched — this flake)
-            ├── noctalia (shell: bar, launcher, lock UI, session menu)
-            └── minimal KDE user services (scoped to the compositor unit)
+greetd / greeter (wayland-sessions)
+    └── Exec → kwin-noctalia-session   (session script)
+            ├── marker: $XDG_RUNTIME_DIR/kwin-noctalia-active
+            ├── systemctl --user start kwin-noctalia.service
+            │         └── kwin_wayland_wrapper --xwayland   (patched KWin)
+            ├── kwin-noctalia-session-ready.service
+            │         └── import WAYLAND_DISPLAY + env; start noctalia
+            ├── scoped KDE user units (PartOf=kwin-noctalia.service)
+            └── on exit: stop noctalia first, then kwin (no SIGHUP restart)
 ```
 
-Noctalia replaces **plasmashell** (panel, launcher, notifications chrome). KWin
-still owns the compositor, window management, and native tiling.
+Noctalia replaces **plasmashell**. KWin still owns the compositor, window
+management, and native tiling from this flake.
+
+**Multi-session hosts:** every daemon scopes to `kwin-noctalia.service` (or
+that session’s ready target), never bare `graphical-session.target`. Upstream
+Plasma units are re-scoped with drop-ins (`PartOf=` / `WantedBy=` the compositor
+unit). A runtime marker (`kwin-noctalia-active`) plus
+`ConditionPathExists=` prevents orphan compositors after logout (black screen /
+DRM busy on next login).
 
 ## Minimum KDE services
 
 | Component | Package (KDE 6) | Why it is needed |
 | --- | --- | --- |
-| **KWin** | `kdePackages.kwin` (patched) | Compositor, tiling engine, global shortcuts backend |
-| **Noctalia** | `noctalia` | Shell UI — bar, launcher, lock, session menu |
-| **kded6** | `kdePackages.kded` | KDE daemon framework; global shortcut registration, some integrations |
+| **KWin** | `kdePackages.kwin` (patched via this flake) | Compositor, tiling engine, global shortcuts backend |
+| **Noctalia** | `noctalia` (prefer noctalia-kwin build) | Shell UI — bar, launcher, lock, session menu |
+| **kded6** | `kdePackages.kded` | KDE daemon framework; global shortcut registration |
 | **xdg-desktop-portal-kde** | `kdePackages.xdg-desktop-portal-kde` | Screen capture, file picker, remote desktop portal APIs |
 | **powerdevil** | `kdePackages.powerdevil` | Suspend, lid close, idle — KWin does not handle power policy |
-| **KWallet / ksecretd** | wallet init at session start | Credential storage for apps that expect KDE secrets |
-| **kbuildsycoca6** | from `kdePackages.kservice` | Rebuild app/service DB so `.desktop` entries appear in launchers and shortcut pickers |
-| **Union QQC style** | `kdePackages.union` | Plasma 6.7+ QtQuick apps expect Union, not legacy Breeze controls |
+| **KWallet** | wallet init oneshot | Credential storage for apps that expect KDE secrets |
+| **kbuildsycoca6** | `kdePackages.kservice` | Rebuild app/service DB so `.desktop` entries appear |
+| **Union QQC style** | `kdePackages.union` | Plasma 6.7+ QtQuick apps expect Union, not legacy Breeze |
 
-Optional: **krdp** if you want KDE remote desktop from the session.
+Optional: **krdp** (remote desktop), **kde-rounded-corners** effect (separate
+plugin — not compositor borders).
 
 ### Deliberately omitted (vs full Plasma)
 
 | Not started | Why |
 | --- | --- |
 | **plasmashell** | Noctalia is the shell |
-| **ksmserver** | Session manager + save-on-logout prompts; omitted for fast greetd logout (falls back to `loginctl`) |
+| **ksmserver** | Save-on-logout prompts; omitted for fast greetd logout (`loginctl` fallback) |
 | **plasma-workspace.target** | Full Plasma session target — conflicts with kwin-only model |
 
-If you need save prompts on logout, add a scoped **ksmserver** stack — KWin alone
-is not a session manager.
+## Systemd user model (production shape)
 
-## Session environment
-
-Set these before starting KWin and import them into `systemd --user` once the
-Wayland socket exists:
-
-```ini
-KDE_FULL_SESSION=true
-KDE_SESSION_VERSION=6
-XDG_CURRENT_DESKTOP=KDE
-XDG_SESSION_DESKTOP=KDE
-XDG_SESSION_TYPE=wayland
-QT_QUICK_CONTROLS_STYLE=org.kde.union
-```
-
-**`XDG_DATA_DIRS`** must include paths where your `.desktop` files live. If it is
-wrong, Noctalia's binding menus and KDE's app picker look empty even though
-packages are installed. A typical Nix user session prepends:
+luxusAi’s `kwin-noctalia-session` installs roughly:
 
 ```text
-$XDG_DATA_HOME:$HOME/.nix-profile/share:/etc/profiles/per-user/$USER/share:/run/current-system/sw/share
-```
-
-For the tiling **settings KCM** on Nix, set `QML2_IMPORT_PATH` and
-`NIXPKGS_QT6_QML_IMPORT_PATH` to a colon-separated list of KCM plugin paths.
-At minimum include the patched KWin package and Union:
-
-```nix
-let
-  kde = pkgs.kdePackages;
-  kcmQmlPath = lib.concatStringsSep ":" (map (p: "${p}/lib/qt-6/qml") [
-    kde.union
-    kde.kwin
-    kde.plasma-desktop
-    kde.systemsettings
-  ]);
-in
-{
-  environment.sessionVariables = {
-    QML2_IMPORT_PATH = kcmQmlPath;
-    NIXPKGS_QT6_QML_IMPORT_PATH = kcmQmlPath;
-  };
-}
-```
-
-Without this, *System Settings → Window Management → Tiling* may not load the
-panel.
-
-## Enable native tiling
-
-Patching KWin is not enough — tiling must be switched on at runtime:
-
-```ini
-# ~/.config/kwinrc
-[Tiling]
-Enabled=true
-```
-
-Or use *System Settings → Window Management → Tiling*. On Nix, ensure `kwinrc`
-is writable (not a read-only store symlink) so KWin and the KCM can persist
-changes.
-
-A small oneshot at session start avoids forgetting:
-
-```bash
-kwriteconfig6 --file kwinrc --group Tiling --key Enabled --type bool true
-```
-
-**Nix-specific:** Qt caches compiled KCM QML under `~/.cache/systemsettings/qmlcache`
-with store-pinned mtimes, so new KCM options can fail to appear until that cache
-is cleared at session start (`rm -rf ~/.cache/systemsettings/qmlcache`).
-
-## Noctalia on KWin
-
-Upstream Noctalia supports KWin as a compositor backend. For a **kwin-only**
-session you typically need two small Noctalia patches:
-
-1. **Layer-shell lock** — KWin 6.7 has no `ext-session-lock-v1`; when the
-   session-lock protocol is missing but layer-shell is available, show the lock
-   UI as an overlay instead of failing silently.
-2. **Graceful logout** — on KWin, try `org.kde.Shutdown` / `org.kde.LogoutPrompt`
-   when Plasma session D-Bus is present; otherwise fall back to
-   `loginctl terminate-session` (normal for kwin-only + greetd).
-
-Use the packaged build from [luxus/noctalia-kwin](https://github.com/luxus/noctalia-kwin)
-instead of hand-applying patches:
-
-```nix
-inputs.noctalia-kwin.url = "github:luxus/noctalia-kwin";
-inputs.noctalia-kwin.inputs.noctalia.follows = "noctalia";
-
-noctaliaPkg = inputs.noctalia-kwin.packages.${system}.default;
-```
-
-Ship a `.desktop` file with **Desktop Actions** (launcher, lock, session menu,
-etc.) and register it at session start via `org.kde.kglobalaccel` / `doRegister`
-so bindings appear in *System Settings → Shortcuts*.
-
-## Systemd user model
-
-Scope every session daemon to the compositor unit (e.g. `kwin-noctalia.service`),
-not bare `graphical-session.target`.
-
-```text
-kwin-noctalia.service
-├── kwin-noctalia-session-ready.service   (Wayland socket + import-environment)
-├── noctalia.service                        (after session-ready)
-├── plasma-kded6.service                    (re-scoped PartOf/WantedBy)
+kwin-noctalia.service                    # kwin_wayland_wrapper --xwayland
+├── kwin-noctalia-session-ready.service  # Wayland socket + import-environment + noctalia
+├── plasma-kded6.service                 # re-scoped PartOf/WantedBy compositor
 ├── plasma-xdg-desktop-portal-kde.service
 ├── plasma-powerdevil.service
 ├── kwallet-kwin-noctalia.service
 ├── noctalia-kglobalaccel-register.service
-└── kwin-tiling-config.service              (kwriteconfig6: [Tiling] Enabled=true)
+├── (optional) krdp portal-auth + krdpserver
+kwin-noctalia-shutdown.target            # Conflicts= compositor (clean stop)
 ```
 
-Upstream Plasma units default to `PartOf=graphical-session.target`. Re-scope them
-with a drop-in:
+Profile extras (Hjem):
+
+```text
+kwin-tiling-config.service    # kwriteconfig6 [Tiling] Enabled=true; drop store symlink on kwinrc
+kcm-qmlcache-reset.service    # wipe ~/.cache/systemsettings|kcmshell6/qmlcache (Nix mtimes)
+```
+
+Drop-in pattern for upstream Plasma units:
 
 ```ini
 # plasma-kded6.service.d/kwin-noctalia.conf
@@ -185,243 +148,110 @@ After=kwin-noctalia.service kwin-noctalia-session-ready.service
 Requires=kwin-noctalia-session-ready.service
 BindsTo=kwin-noctalia.service
 
+[Service]
+TimeoutStopSec=5
+KillMode=control-group
+
 [Install]
 WantedBy=kwin-noctalia.service
 ```
 
-**greetd lifecycle:** the session script must not restart the compositor on
-SIGHUP. Start `kwin-noctalia.service`, wait for the Wayland socket, then block
-until the display manager ends the session. On exit, stop Noctalia and KWin
-explicitly — otherwise the next login can hit DRM denied / black screen.
+**Logout order matters:** stop **Noctalia first**, then KWin. If KWin dies
+first, Noctalia can hang in stop. Session script trap + shutdown target +
+explicit `pkill` fallbacks handle greetd teardown. **Do not** restart the
+compositor on SIGHUP from greetd.
 
-## Minimal NixOS example
+## Session environment
 
-Below is a self-contained starting point: flake inputs, a greetd session entry,
-Home Manager packages/env, and the critical session script + compositor unit.
-Extend with krdp, rounded corners, or a greeter picker as needed.
+Set before starting KWin and import into `systemd --user` once the Wayland
+socket exists:
 
-### Flake inputs
+```ini
+KDE_FULL_SESSION=true
+KDE_SESSION_VERSION=6
+XDG_CURRENT_DESKTOP=KDE
+XDG_SESSION_DESKTOP=KDE
+XDG_SESSION_TYPE=wayland
+QT_QUICK_CONTROLS_STYLE=org.kde.union
+```
+
+**`XDG_DATA_DIRS`** must include Nix profile paths or Noctalia bindings and KDE
+app pickers look empty:
+
+```text
+$XDG_DATA_HOME:$HOME/.nix-profile/share:/etc/profiles/per-user/$USER/share:/run/current-system/sw/share
+```
+
+For the tiling **settings KCM** on Nix, set `QML2_IMPORT_PATH` and
+`NIXPKGS_QT6_QML_IMPORT_PATH` to include at least patched `kwin`, `union`,
+`plasma-desktop`, and `systemsettings` QML plugin dirs. Without this, *System
+Settings → Window Management → Tiling* may not load.
+
+Qt’s QML cache under `~/.cache/systemsettings/qmlcache` uses store-pinned
+mtimes — **wipe it at session start** after KCM updates or new options never
+appear.
+
+## Enable native tiling
+
+Patching KWin is not enough — turn tiling on at runtime:
+
+```ini
+# ~/.config/kwinrc
+[Tiling]
+Enabled=true
+```
+
+Or *System Settings → Window Management → Tiling*. Keep `kwinrc` **writable**
+(not a read-only store symlink) so KWin and the KCM can persist changes.
+luxusAi’s oneshot removes a symlink and runs:
+
+```bash
+kwriteconfig6 --file kwinrc --group Tiling --key Enabled --type bool true
+```
+
+## Noctalia on KWin
+
+Upstream Noctalia supports KWin as a backend. For **kwin-only** sessions you
+typically need:
+
+1. **Layer-shell lock** — when `ext-session-lock-v1` is missing, show lock UI
+   via layer-shell instead of failing silently.
+2. **Graceful logout** — prefer `org.kde.Shutdown` / `org.kde.LogoutPrompt` when
+   present; otherwise `loginctl terminate-session`.
+
+Use [luxus/noctalia-kwin](https://github.com/luxus/noctalia-kwin):
+
+```nix
+inputs.noctalia-kwin.url = "github:luxus/noctalia-kwin";
+inputs.noctalia-kwin.inputs.noctalia.follows = "noctalia";
+# package = inputs.noctalia-kwin.packages.${system}.default;
+```
+
+Register a `.desktop` with Desktop Actions and `org.kde.kglobalaccel` /
+`doRegister` so bindings appear under *System Settings → Shortcuts*.
+
+## Minimal standalone sketch
+
+If you are **not** using luxusAi, you still need the same pieces: session
+script, compositor unit, ready oneshot, re-scoped KDE units, marker file, clean
+stop order. A complete maintained package is
+`pkgs/kwin-noctalia-session` in luxusAi — copy or depend on it rather than
+reimplementing from a blog-sized HM snippet.
+
+Bare minimum flake surface for **tiling only** (Plasma session, way 1):
 
 ```nix
 {
-  inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
-    kwin-tiling.url = "github:luxus/kwin-tiling";
-    noctalia.url = "github:noctalia-dev/noctalia";
-    noctalia-kwin.url = "github:luxus/noctalia-kwin";
-    noctalia-kwin.inputs.noctalia.follows = "noctalia";
-    home-manager.url = "github:nix-community/home-manager";
-    home-manager.inputs.nixpkgs.follows = "nixpkgs";
-  };
+  inputs.kwin-tiling.url = "github:luxus/kwin-tiling";
+  # host:
+  imports = [ inputs.kwin-tiling.nixosModules.kwin-tiling ];
 }
 ```
 
-### Host configuration
-
-```nix
-{ inputs, pkgs, ... }:
-{
-  imports = [
-    inputs.kwin-tiling.nixosModules.kwin-tiling
-    inputs.home-manager.nixosModules.home-manager
-  ];
-
-  # Patched KWin + portals + audio for the compositor unit.
-  services.pipewire.enable = true;
-  xdg.portal = {
-    enable = true;
-    extraPortals = [ pkgs.kdePackages.xdg-desktop-portal-kde ];
-  };
-
-  services.greetd = {
-    enable = true;
-    settings = {
-      initial_session = {
-        # Home Manager installs kwin-noctalia-session into the user profile.
-        command = "${config.users.users.YOURUSER.home}/.nix-profile/bin/kwin-noctalia-session";
-        user = "YOURUSER";
-      };
-      # Or use a greeter (noctalia-greeter, regreet, …) that lists wayland-sessions.
-    };
-  };
-
-  home-manager.users.YOURUSER = import ./home-kwin-noctalia.nix;
-}
-```
-
-**greetd runs the session script; the script starts systemd user units** — not
-raw `kwin_wayland` from the greeter.
-
-### Home Manager module (`home-kwin-noctalia.nix`)
-
-```nix
-{ config, inputs, pkgs, lib, ... }:
-let
-  system = pkgs.stdenv.hostPlatform.system;
-  kde = pkgs.kdePackages;
-
-  noctaliaPkg = inputs.noctalia-kwin.packages.${system}.default;
-  noctaliaBin = lib.getExe noctaliaPkg;
-
-  kcmQmlPath = lib.concatStringsSep ":" (map (p: "${p}/lib/qt-6/qml") [
-    kde.union kde.kwin kde.plasma-desktop kde.systemsettings
-  ]);
-
-  kwinWrap = lib.getExe' kde.kwin "kwin_wayland_wrapper";
-  kbuildsycoca6 = lib.getExe' kde.kservice "kbuildsycoca6";
-  kwriteconfig6 = lib.getExe' kde.kconfig "kwriteconfig6";
-
-  compositorUnit = "kwin-noctalia.service";
-  sessionMarker = "kwin-noctalia-active";
-
-  scopeDropIn = ''
-    [Unit]
-    PartOf=
-    After=
-    PartOf=${compositorUnit}
-    After=${compositorUnit} kwin-noctalia-session-ready.service
-    Requires=kwin-noctalia-session-ready.service
-    BindsTo=${compositorUnit}
-    [Install]
-    WantedBy=${compositorUnit}
-  '';
-
-  sessionScript = pkgs.writeShellScriptBin "kwin-noctalia-session" ''
-    set -euo pipefail
-    runtime="''${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
-
-    cleanup() {
-      rm -f "$runtime/${sessionMarker}"
-      systemctl --user stop --no-block noctalia.service ${compositorUnit} 2>/dev/null || true
-      pkill -TERM -x noctalia 2>/dev/null || true
-      pkill -TERM -x kwin_wayland 2>/dev/null || true
-    }
-    trap cleanup EXIT INT TERM HUP
-
-    export KDE_FULL_SESSION=true KDE_SESSION_VERSION=6
-    export XDG_CURRENT_DESKTOP=KDE XDG_SESSION_DESKTOP=KDE XDG_SESSION_TYPE=wayland
-    export QT_QUICK_CONTROLS_STYLE=org.kde.union
-    export QML2_IMPORT_PATH=${kcmQmlPath} NIXPKGS_QT6_QML_IMPORT_PATH=${kcmQmlPath}
-    xdgData="$HOME/.local/share:$HOME/.nix-profile/share:/etc/profiles/per-user/$USER/share:/run/current-system/sw/share"
-    export XDG_DATA_DIRS="''${XDG_DATA_DIRS:+$xdgData:}$xdgData"
-
-    rm -f "$runtime/${sessionMarker}"
-    touch "$runtime/${sessionMarker}"
-
-    systemctl --user import-environment \
-      KDE_FULL_SESSION KDE_SESSION_VERSION \
-      XDG_CURRENT_DESKTOP XDG_SESSION_DESKTOP XDG_SESSION_TYPE \
-      XDG_DATA_DIRS QML2_IMPORT_PATH NIXPKGS_QT6_QML_IMPORT_PATH
-    dbus-update-activation-environment --systemd -- \
-      KDE_FULL_SESSION XDG_CURRENT_DESKTOP XDG_SESSION_TYPE XDG_DATA_DIRS 2>/dev/null || true
-
-    ${kbuildsycoca6} --noincremental >/dev/null 2>&1 || true
-    ${kwriteconfig6} --file kwinrc --group Tiling --key Enabled --type bool true
-
-    systemctl --user start --no-block ${compositorUnit}
-    for _ in $(seq 1 150); do
-      systemctl --user -q is-active ${compositorUnit} && break
-      sleep 0.1
-    done
-    systemctl --user -q is-active ${compositorUnit} || { echo "kwin failed to start" >&2; exit 1; }
-
-    # greetd owns session lifetime — wait for teardown, do not restart kwin on SIGHUP
-    sleep infinity
-  '';
-
-in
-{
-  home.packages = [
-    sessionScript
-    noctaliaPkg
-    kde.powerdevil
-    kde.kded
-    kde.union
-    kde.xdg-desktop-portal-kde
-    kde.systemsettings
-  ];
-
-  programs.noctalia = {
-    enable = true;
-    package = noctaliaPkg;
-    systemd.enable = true;
-    systemd.target = compositorUnit;
-  };
-
-  xdg.data.files."applications/noctalia.desktop".text = ''
-    [Desktop Entry]
-    Type=Application
-    Name=Noctalia
-    Exec=${noctaliaBin}
-    Icon=noctalia
-    Actions=ToggleLauncher;LockSession
-    [Desktop Action ToggleLauncher]
-    Name=Toggle Launcher
-    Exec=${noctaliaBin} msg panel-toggle launcher
-    [Desktop Action LockSession]
-    Name=Lock Screen
-    Exec=${noctaliaBin} msg session lock
-  '';
-
-  # Compositor + session-ready oneshot (install under ~/.config/systemd/user/)
-  systemd.user.services.${compositorUnit} = {
-    Unit = {
-      Description = "KWin Wayland (Noctalia session)";
-      After = [ "pipewire.service" "pipewire-pulse.service" ];
-      ConditionPathExists = "%t/${sessionMarker}";
-    };
-    Service = {
-      Type = "simple";
-      Environment = [
-        "KDE_FULL_SESSION=true"
-        "KDE_SESSION_VERSION=6"
-        "XDG_CURRENT_DESKTOP=KDE"
-        "XDG_SESSION_TYPE=wayland"
-        "QML2_IMPORT_PATH=${kcmQmlPath}"
-      ];
-      PassEnvironment = "XDG_DATA_DIRS";
-      ExecStart = "${kwinWrap} --xwayland";
-      Restart = "no";
-      TimeoutStopSec = 5;
-    };
-  };
-
-  systemd.user.services."kwin-noctalia-session-ready" = {
-    Unit = {
-      Description = "Import Wayland env after KWin starts";
-      PartOf = [ compositorUnit ];
-      After = [ compositorUnit ];
-    };
-    Service = {
-      Type = "oneshot";
-      RemainAfterExit = true;
-      ExecStart = pkgs.writeShellScript "import-env" ''
-        set -euo pipefail
-        runtime="''${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
-        for _ in $(seq 1 150); do
-          for s in "$runtime"/wayland-[0-9]*; do
-            [ -S "$s" ] && export WAYLAND_DISPLAY="''${s##*/}" && break 2
-          done
-          sleep 0.1
-        done
-        systemctl --user import-environment WAYLAND_DISPLAY XDG_DATA_DIRS
-        dbus-update-activation-environment --systemd WAYLAND_DISPLAY 2>/dev/null || true
-        ${kbuildsycoca6} --noincremental >/dev/null 2>&1 || true
-        systemctl --user start --no-block noctalia.service
-      '';
-    };
-    Install.WantedBy = [ compositorUnit ];
-  };
-
-  # Re-scope KDE portal/kded/powerdevil to the compositor unit (copy units from
-  # kde packages, add .service.d/kwin-noctalia.conf with scopeDropIn above).
-  # See systemd.user.services / systemd.user.startServices in your setup.
-}
-```
+Bare minimum for **session + tiling** (way 2) via luxusAi re-exports — see
+[Production reference](#production-reference-recommended) above.
 
 ### Wayland session desktop entry
-
-Install so greetd / SDDM can list the session (path depends on your DM):
 
 ```ini
 # share/wayland-sessions/kwin-noctalia.desktop
@@ -434,31 +264,43 @@ TryExec=/etc/profiles/per-user/YOURUSER/bin/kwin-noctalia-session
 DesktopNames=KDE
 ```
 
-Point greetd at the same `Exec=` path, or use a greeter that reads
-`wayland-sessions` and lets the user pick.
+Point greetd at the same `Exec=` path, or use a greeter that lists
+`wayland-sessions`.
 
 ### Checklist after first login
 
 1. Noctalia bar visible after a few seconds (waits on `session-ready`).
-2. *System Settings → Window Management → Tiling* opens and shows layouts.
+2. *System Settings → Window Management → Tiling* opens and shows layouts
+   (including any newly shipped options after QML cache wipe).
 3. `Meta+Left` / `Meta+Right` focus tiled windows ([shortcuts](usage)).
-4. Lock and session menu work (layer-shell patch applied).
-5. Logout returns to greeter without a black screen on next login.
+4. Lock and session menu work (layer-shell patch).
+5. Logout returns to greeter; next login has no black screen / DRM denied.
+6. Optional: full regression — `pkgs/kwin-tiling/scripts/session-smoke.md` in
+   this repo.
 
 ## Common pitfalls
 
 | Symptom | Likely cause |
 | --- | --- |
 | Empty shortcut / app binding menus | `XDG_DATA_DIRS` missing Nix profile paths; run `kbuildsycoca6 --noincremental` |
-| Tiling KCM missing or stale options | `QML2_IMPORT_PATH` not set; clear `~/.cache/systemsettings/qmlcache` on Nix |
-| Lock screen does nothing on KWin | Noctalia layer-shell patch not applied |
-| Logout hangs (greetd) | Session script waiting on compositor restart; stop units explicitly on exit |
-| Next login black screen / DRM busy | Previous kwin/noctalia process still holding the GPU |
-| Decoration / theme changes do not persist | `kwinrc` symlinked read-only from the store — use a writable config file |
+| Tiling KCM missing or stale options | `QML2_IMPORT_PATH` unset; clear `~/.cache/systemsettings/qmlcache` and `kcmshell6/qmlcache` |
+| Lock screen does nothing on KWin | noctalia-kwin layer-shell patch not applied |
+| Logout hangs (greetd) | Session script waiting on compositor restart; stop noctalia then kwin explicitly |
+| Next login black screen / DRM busy | Previous kwin/noctalia still holding GPU; marker + ConditionPathExists + stop script |
+| Config changes do not persist | `kwinrc` store symlink — make it a writable file |
+| Host switched but behavior unchanged | Still running old `kwin_wayland` process — **relogin** |
+
+## After `nh os switch` / rebuild
+
+1. Confirm generation: `readlink /run/current-system`
+2. Confirm binary: `readlink -f /run/current-system/sw/bin/kwin_wayland` (expect
+   `…-kwin-6.7.x…` with your pin)
+3. **Relogin** into KWin+Noctalia (or Plasma)
+4. Run [session-smoke.md](https://github.com/luxus/kwin-tiling/blob/main/pkgs/kwin-tiling/scripts/session-smoke.md)
 
 ## Next steps
 
-Session packaging as a dedicated flake module (like `kwin-tiling.nixosModules`) is
-planned for this repo. Until then, use the example above as a template. Tiling
-bugs belong here; session wiring feedback is welcome via GitHub issues on this
-repository.
+Session packaging stays in **luxusAi** (`kwin-noctalia-session` + Hjem profile).
+This repo owns the **compositor patch** only. Tiling bugs → issues on
+[luxus/kwin-tiling](https://github.com/luxus/kwin-tiling). Session wiring →
+luxusAi / noctalia-kwin.

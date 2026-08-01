@@ -71,8 +71,14 @@ lock/logout on kwin-only.
 
 Best for a minimal KDE stack, greetd, or when you do not want full Plasma.
 
-See [KWin + Noctalia session](session) for the full checklist. Shortcuts and
-the tiling KCM work the same in both paths — [Usage & Shortcuts](usage).
+See [KWin + Noctalia session](session) for the service contract and checklist.
+A maintained production stack is packaged in
+[luxusAi](https://github.com/luxus/luxusAi) (`kwin-noctalia-session` +
+`hjemModules.kwin-noctalia`). Shortcuts and the tiling KCM work the same in both
+paths — [Usage & Shortcuts](usage).
+
+After any host rebuild that replaces KWin, **relogin** and optionally run
+`pkgs/kwin-tiling/scripts/session-smoke.md`.
 
 For packaging details and source layout, see `pkgs/kwin-tiling/README.md` in the
-repository.
+repository. Tracked against stock **KWin 6.7.x** (e.g. 6.7.3).

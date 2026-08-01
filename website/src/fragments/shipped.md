@@ -12,4 +12,6 @@
 - **Borderless when tiled** — optional setting to hide window decorations while tiled
 - **Resize axis gating** — split updates only apply to the axis actually dragged
 - **Retile** — `Meta+Shift+R` rebuilds the active screen's layout when tiles and windows drift out of sync
-- **Packaging** — vendored source + small hooks patch over stock KWin; ships as a Nix flake module/overlay
+- **Packaging** — vendored source + small hooks patch over stock KWin (6.7.x); ships as a Nix flake module/overlay
+- **Testable pure core** — column/grid/master-stack math, move FSM, leaf cancel rules without linking KWin
+- **Session smoke** — `pkgs/kwin-tiling/scripts/session-smoke.md` for post-relogin checks

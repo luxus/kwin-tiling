@@ -143,9 +143,12 @@ git diff <baseline> HEAD -- <modified existing files> > pkgs/kwin-tiling/hooks.p
 applies, fix the rejected hunks (the vendored `src/` files are additive and rarely
 conflict; the hooks into `window/workspace/useractions/input` are the risk).
 
-**Build / verify:** `nix build .#kwin-tiling` (compiles KWin). Consumers pick up
-the new compositor on their next rebuild/switch once they track this flake.
-`nix flake check` runs the fast column-math self-check without building KWin.
+**Build / verify:** `nix build .#kwin-tiling` (compiles KWin; tracks
+`kdePackages.kwin`, currently **6.7.x**). Consumers pick up the new compositor
+on their next rebuild/switch once they track this flake — then **relogin**.
+`nix flake check` / `tests/run.sh` run pure suites without building KWin.
+Session regression: `scripts/session-smoke.md`. Production KWin+Noctalia session
+packaging: [luxusAi](https://github.com/luxus/luxusAi) `kwin-noctalia-session`.
 
 ## Known limitations / backlog
 

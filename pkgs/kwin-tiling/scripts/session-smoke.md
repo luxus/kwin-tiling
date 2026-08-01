@@ -1,51 +1,91 @@
-# Session smoke checklist (~15 min)
+# Session smoke checklist (~15–20 min)
 
-Run after installing a fresh `kwin-tiling` build (e.g. `nix build .#kwin-tiling`
-and switch the host module). Tick each item.
+Run after a fresh `kwin-tiling` build is **active in the running session**
+(not only after `nix build` / `nh os switch` — the compositor process must be
+restarted, usually by **relogin**).
+
+**Current train:** KWin / Plasma **6.7.x** (e.g. 6.7.3).  
+**Sessions:** Plasma Wayland **or** KWin + Noctalia (`kwin-noctalia`).
+
+```sh
+# Quick sanity (on NixOS after switch)
+readlink -f /run/current-system/sw/bin/kwin_wayland   # expect …-kwin-6.7.…
+# Pure suite (no session needed)
+bash pkgs/kwin-tiling/tests/run.sh
+# or: nix flake check
+```
 
 ## Setup
 
-- [ ] Log into Plasma Wayland (or KWin+Noctalia) with tiling enabled
-- [ ] Open 3+ normal windows on one monitor (MasterStack layout)
-- [ ] Note: Keep Above via window menu should still work for any window
+- [ ] Relogin into Plasma Wayland **or** KWin+Noctalia after the host switch
+- [ ] Tiling enabled (`[Tiling] Enabled=true` or KCM; luxusAi oneshot does this)
+- [ ] Open **3+** normal windows on one monitor in **MasterStack**
+- [ ] Note: window menu **Keep Above** still works independently of float
 
 ## 1. Flip master + directional focus
 
 - [ ] `Meta+Shift+F` (flip master) — master column moves to the other side
 - [ ] `Meta+Left/Right/Up/Down` focus follows **geometry** (after flip, Left from
-      stack does not jump to a master that is visually on the right)
+      the stack does not jump to a master that is visually on the right)
 - [ ] With 2+ masters (`Meta+Ctrl+.`), Up/Down move within the master column
 
-## 2. Cross-monitor drag
+## 2. Cross-monitor drag (move FSM)
 
 - [ ] Drag a tiled window to another monitor and release
 - [ ] Source monitor reflows with **no empty/phantom slot**
-- [ ] Window is tiled on the destination (not floating unless rules say so)
+- [ ] Window is tiled on the destination (unless float rules say otherwise)
 - [ ] Drop on another tiled window swaps/inserts reasonably
+- [ ] Same-monitor drop on empty space inserts (no ghost empty tile)
 
 ## 3. Toggle tiling off/on (KCM or kwinrc)
 
 - [ ] Disable tiling (*System Settings → Window Management → Tiling* or
-      `[Tiling] Enabled=false` + reload)
+      `[Tiling] Enabled=false` + reconfigure)
 - [ ] Windows leave the tile grid; decorations return if borderless-when-tiled
       was on
-- [ ] Re-enable tiling — previously tiled windows return; **manual** Meta+W
+- [ ] Re-enable tiling — previously tiled windows return; **manual** `Meta+W`
       floats stay floating
 
 ## 4. Float + Keep Above
 
 - [ ] `Meta+W` float a tiled window — sizes under cursor, not stuck fullscreen
-- [ ] Window menu **Keep Above** still toggles independently (not forced by float)
+- [ ] Window menu **Keep Above** still toggles independently (float does **not**
+      force Keep Above)
 - [ ] `Meta+W` again re-tiles
 
-## 5. Quick regression
+## 5. Layout cycle + zoom
+
+- [ ] `Meta+Shift+T` cycles enabled layouts without crash
+- [ ] `Meta+Shift+Z` zoom/monocle expands active window; again restores layout
+- [ ] Switch to **Grid** (if enabled in KCM) places windows in a grid
+
+## 6. Scrolling (if exercised)
+
+- [ ] Switch to Scrolling; open several windows
+- [ ] Focus moves columns without permanently losing windows (off-viewport hide OK)
+- [ ] `Meta+Shift+C` / `Meta+Shift+V` center / cycle column width
+- [ ] `Meta+Shift+[` / `Meta+Shift+]` consume / expel (UX may still be rough)
+
+## 7. Quick regression
 
 - [ ] `Meta+Shift+R` retile recovers a weird layout without crash
-- [ ] Scrolling layout: open several windows, focus moves columns without
-      disappearing windows (hidden off-viewport is OK)
+- [ ] KCM opens and shows current options (after Nix rebuild: if stale, wipe
+      `~/.cache/systemsettings/qmlcache` and `~/.cache/kcmshell6/qmlcache`)
+
+## KWin + Noctalia extras (way 2 only)
+
+- [ ] Noctalia bar appears after session-ready
+- [ ] Lock + session menu work
+- [ ] Logout returns to greeter; next login has no black screen / DRM denied
 
 ## Result
 
-| Date | Build/commit | Pass? | Notes |
-|------|--------------|-------|-------|
-|      |              |       |       |
+| Date | Build/commit / kwin path | Session | Pass? | Notes |
+|------|--------------------------|---------|-------|-------|
+|      |                          |         |       |       |
+
+## Links
+
+- Docs: [KWin + Noctalia session](../../../website/src/content/docs/session.md)
+- Package notes: `pkgs/kwin-tiling/README.md`
+- Production session packaging: [luxusAi `kwin-noctalia-session`](https://github.com/luxus/luxusAi/tree/main/pkgs/kwin-noctalia-session)
