@@ -26,7 +26,6 @@ void TilingRules::load(const KConfigGroup &group)
     m_floatingClasses = group.readEntry("FloatingClass", QStringList());
     m_floatingTitles = group.readEntry("FloatingTitle", QStringList());
     m_alwaysTileClasses = group.readEntry("AlwaysTileClass", QStringList());
-    m_stackedClasses = group.readEntry("StackedClass", QStringList());
     m_floatUtility = group.readEntry("FloatUtility", true);
     m_floatDialog = group.readEntry("FloatDialog", true);
     m_floatTransient = group.readEntry("FloatTransient", true);
@@ -42,7 +41,6 @@ void TilingRules::load(const KConfigGroup &group)
     normalize(m_floatingClasses);
     normalize(m_floatingTitles);
     normalize(m_alwaysTileClasses);
-    normalize(m_stackedClasses);
 }
 
 bool TilingRules::isIgnored(const Window *window) const

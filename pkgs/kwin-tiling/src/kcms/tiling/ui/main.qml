@@ -166,10 +166,6 @@ KCM.SimpleKCM {
                 Kirigami.FormData.label: i18n("Tiled Windows")
             }
 
-            // FloatAbove checkbox removed: the compositor no longer forces Keep
-            // Above on float (that overwrote user Always-on-Top). kwinrc key
-            // FloatAbove is ignored if present.
-
             QQC2.CheckBox {
                 id: borderlessWhenTiled
                 Kirigami.FormData.label: i18n("Decorations:")

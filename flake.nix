@@ -106,6 +106,22 @@
               ./sizingpolicy-test
               touch $out
             '';
+        leafcolumn =
+          pkgs.runCommand "kwin-tiling-leafcolumn-test" { nativeBuildInputs = [ pkgs.gcc ]; }
+            ''
+              g++ -std=c++20 -O2 -Wall -Wextra -o leafcolumn-test \
+                ${./pkgs/kwin-tiling}/tests/leafcolumn_test.cpp
+              ./leafcolumn-test
+              touch $out
+            '';
+        movefsm =
+          pkgs.runCommand "kwin-tiling-movefsm-test" { nativeBuildInputs = [ pkgs.gcc ]; }
+            ''
+              g++ -std=c++20 -O2 -Wall -Wextra -o movefsm-test \
+                ${./pkgs/kwin-tiling}/tests/movefsm_test.cpp
+              ./movefsm-test
+              touch $out
+            '';
         # Single entry that runs the whole pure suite (same as tests/run.sh).
         pure-suite =
           pkgs.runCommand "kwin-tiling-pure-suite" { nativeBuildInputs = [ pkgs.gcc pkgs.bash ]; }

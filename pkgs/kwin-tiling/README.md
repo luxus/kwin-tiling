@@ -34,25 +34,35 @@ small. Compose the module only onto hosts that want tiling: replacing
 ```
 TilingController (src/tiling/tilingcontroller.cpp)   — singleton on Workspace
   ├─ owns TilingRules (float/ignore by class, utility/dialog/transient)
-  ├─ per (output, desktop): a LayoutEngine, held by KWin's TileManager
-  └─ reacts to window add/remove, desktop/output move, interactive move/resize
+  ├─ pure helpers: movefsm (move finish), sizingpolicy, suspendpolicy
+  ├─ per (output, desktop): one LayoutEngine on KWin's TileManager
+  └─ window add/remove, desktop/output move, interactive move/resize
 
 LayoutEngine (src/tiles/layoutengine.h)              — abstract base
-  ├─ MasterStackLayoutEngine  (master column + vertical stack)
-  └─ StackedLayoutEngine      (all windows full-area, stacked)
+  │   shared: takeOwnershipOfRoot, endResize gate, reflowZoomed (monocle)
+  ├─ MasterStackLayoutEngine  (MasterStack + Centered kinds)
+  ├─ StackedLayoutEngine      (single full-area StackColumn)
+  ├─ GridLayoutEngine         (StackColumn + gridmath slot order)
+  └─ ScrollingLayoutEngine    (many StackColumns + viewport; isolated)
+
+StackColumn (src/tiles/stackcolumn.h)                — shared vertical primitive
+  └─ height weights via columnmath; move cancel via movestate
 ```
 
-- The engine only sets **relative** tile geometry (`CustomTile::setRelativeGeometry`);
-  KWin's existing `Tile`/`TileManager` drives the actual window geometry, gaps,
-  and quick-tile machinery.
-- The controller talks to engines through the base interface; layout-specific
-  knobs go through generic virtuals (`setPrimarySplit`/`setPrimaryCount`/
-  `primarySplit`, `adjustWindowHeight`, `endResizeWindow`, `dropWindow`,
-  `pruneEmpty`) so non-master layouts simply no-op.
-- Robustness: `Window::outputChanged` purges a window from the old output's
-  engines and `pruneEmpty()` drops windowless leaves, so moving a window across
-  monitors never leaves a phantom tile. Floating windows are kept above tiled
-  ones (`FloatAbove`).
+**Composition rule (new layouts):** compose `StackColumn` + pure math headers.
+Do **not** fork vertical leaf lifecycle into each engine. Cross-layout quirks
+(zoom, resize gating) live on `LayoutEngine`. Scrolling keeps viewport state
+(`scrollOffset`, column widths, consume/expel) private — never leak into
+MasterStack/Stacked/Grid. Absolute geometry, gaps, and quick-tile stay on
+KWin's `Tile`/`TileManager`; engines only set relative geometry.
+
+- Pure, KWin-free arithmetic (unit-tested): `columnmath`, `masterstackmath`,
+  `gridmath`, `directionmath`, `movestate`, `leafcolumn`, `movefsm`,
+  `sizingpolicy`, `suspendpolicy`.
+- Kind switch **replaces** the engine and re-adds windows; durable layout
+  memory is keyed by output/desktop id, not engine pointer.
+- Cross-monitor moves: cancel source leaf, drop on destination — no phantoms.
+  Floating never forces Keep Above.
 
 ## Shortcuts
 
@@ -110,7 +120,6 @@ Read by the controller on `reconfigure`; also surfaced in the KCM
 | `MasterRatio` | double | `0.5` | master column width fraction (0.1–0.9) |
 | `MasterCount` | int | `1` | windows in the master area |
 | `DefaultColumnWidth` | double | `0.5` | Scrolling: new column width fraction (0.1–1.0) |
-| `FloatAbove` | bool | `true` | keep floating windows stacked above tiled ones |
 | `BorderlessWhenTiled` | bool | `false` | hide window decorations on tiled windows |
 | `GapLeft/Right/Top/Bottom` | int | `0` | outer gaps |
 | `GapBetween` | int | `0` | gap between tiles |
@@ -143,12 +152,14 @@ the new compositor on their next rebuild/switch once they track this flake.
 - Master ratio/count and scrolling column width default globally; per-output
   overrides live in `[Tiling][Output <name>]` (not per-desktop).
 - Divider-drag ratio is approximate when gaps are non-zero.
-- Per-app rules partial (always-tile + float/ignore via TilingRules). Class
-  match is exact or trailing-`*` prefix (not substring). `StackedClass` is
-  loaded but not applied live (would rewrite the whole desktop layout).
-- `FloatAbove` is ignored (forcing Keep Above clobbered user Always-on-Top);
-  the KCM control is removed. Use the window menu Keep Above if needed.
+- Per-app rules: always-tile + float/ignore via TilingRules. Class match is
+  exact or trailing-`*` prefix (not substring).
 - Live `[Tiling] Enabled=false` detaches tiled windows and restores borders.
+- Directional focus/move continue onto the adjacent monitor at a layout edge.
+- Smart gaps basic (0 when ≤1 window); manual on/off toggle available.
+- Configurable new-window placement (postponed).
+- Next: scrolling layout polish (consume/expel UX).
+- Session smoke checklist: `pkgs/kwin-tiling/scripts/session-smoke.md`
 
 ## Pure tests (no KWin)
 
@@ -156,10 +167,6 @@ the new compositor on their next rebuild/switch once they track this flake.
 pkgs/kwin-tiling/tests/run.sh    # all *_test.cpp via g++
 # or: nix flake check
 ```
-- Directional focus/move continue onto the adjacent monitor at a layout edge.
-- Smart gaps basic (0 when <=1 window); manual on/off toggle available.
-- Configurable new-window placement (postponed).
-- Next: scrolling layout polish (consume/expel UX).
 
 ## Move/resize robustness
 

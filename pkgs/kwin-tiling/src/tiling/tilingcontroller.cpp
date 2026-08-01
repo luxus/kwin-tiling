@@ -10,6 +10,7 @@
 #include "tiling/tilingreflow.h"
 #include "core/rect.h"
 #include "cursor.h"
+#include "tiling/movefsm.h"
 #include "tiling/sizingpolicy.h"
 #include "tiling/suspendpolicy.h"
 #include "tiling/tilingosd.h"
@@ -157,9 +158,6 @@ void TilingController::reconfigure()
     m_masterRatio = qBound(0.1, tilingGroup.readEntry("MasterRatio", 0.5), 0.9);
     m_defaultColumnWidth = qBound(0.1, tilingGroup.readEntry("DefaultColumnWidth", 0.5), 1.0);
     m_masterCount = qMax(1, tilingGroup.readEntry("MasterCount", 1));
-    // FloatAbove is ignored: forcing Keep Above clobbered user Always-on-Top.
-    // Key still read for kwinrc compatibility; KCM control is hidden.
-    m_floatAbove = tilingGroup.readEntry("FloatAbove", true);
     m_layoutSwitchOsd = tilingGroup.readEntry("LayoutSwitchOsd", true);
     m_borderlessWhenTiled = tilingGroup.readEntry("BorderlessWhenTiled", false);
     m_rules->load(rulesGroup);
@@ -510,7 +508,6 @@ void TilingController::onWindowAdded(Window *window)
             applyGapSettingsToOutput(output);
         }
     }
-    applyFloatStacking(window);
 }
 
 void TilingController::onWindowRemoved(Window *window)
@@ -551,10 +548,6 @@ void TilingController::addWindowToLayout(Window *window, LogicalOutput *output, 
         return;
     }
 
-    // StackedClass is not applied here: rewriting the whole (output, desktop)
-    // engine for one window was a silent layout lock-in. Per-window layout
-    // assignment needs a different model; until then StackedClass is loaded for
-    // config compatibility but does not change the active layout kind.
     const LayoutEngine::LayoutKind kind = layoutKindFor(output, desktop);
     setupLayoutEngine(output, manager, desktop, kind);
 
@@ -873,7 +866,6 @@ void TilingController::toggleFloating()
             : window->desktops().constFirst();
         addWindowToLayout(window, output, desktop);
     }
-    applyFloatStacking(window);
 }
 
 void TilingController::onInteractiveMoveResizeStarted()
@@ -987,28 +979,34 @@ void TilingController::onWindowMoveFinished(Window *window)
     if (!window || !m_workspace) {
         return;
     }
-    // If the user explicitly floated the window, discard any move context.
-    if (window->tilingState().mode != TilingState::Mode::Tiled) {
+
+    auto it = m_activeMoves.find(window);
+    const bool hasContext = it != m_activeMoves.end();
+    LogicalOutput *currentOutput = window->output() ? window->output() : m_workspace->activeOutput();
+    const bool outputChanged = hasContext && it.value().output && currentOutput
+        && it.value().output != currentOutput;
+    const movefsm::FinishKind finish = movefsm::classifyFinish({
+        hasContext,
+        window->tilingState().mode == TilingState::Mode::Tiled,
+        outputChanged,
+    });
+
+    // Branching is pure (movefsm); only Workspace/engine effects live here.
+    if (finish == movefsm::FinishKind::FloatedAway) {
         m_activeMoves.remove(window);
         return;
     }
 
-    auto it = m_activeMoves.find(window);
-    if (it != m_activeMoves.end()) {
+    if (finish == movefsm::FinishKind::CrossOutputDrop || finish == movefsm::FinishKind::SameOutputDrop) {
         MoveContext context = it.value();
         m_activeMoves.erase(it);
-
-        LogicalOutput *currentOutput = window->output() ? window->output() : m_workspace->activeOutput();
-        const bool movedToOtherOutput = context.output && currentOutput && context.output != currentOutput;
 
         const QPointF cursorPos = Cursors::self()->mouse()->pos();
         const RectF area = m_workspace->clientArea(PlacementArea, window);
 
-        if (movedToOtherOutput && context.engine) {
-            // The window left its original output: clean up the empty source
-            // tile, then insert it into the destination at the drop position
-            // (next to the window under the cursor, else by column) instead of
-            // blindly appending.
+        if (finish == movefsm::FinishKind::CrossOutputDrop && context.engine) {
+            // Left original output: destroy empty source leaf, drop on destination
+            // at cursor (not always append).
             context.engine->cancelMoveWindow(window);
             VirtualDesktop *desktop = window->desktops().isEmpty()
                 ? VirtualDesktopManager::self()->currentDesktop(currentOutput)
@@ -1024,9 +1022,7 @@ void TilingController::onWindowMoveFinished(Window *window)
                     destEngine->pruneEmpty();
                 }
             }
-            // Defensive: if dropWindow did not result in the window being
-            // managed (e.g. manage() rejected), fall back to plain add so the
-            // destination layout always incorporates the moved window.
+            // If manage() rejected the drop, still place the window.
             if (!layoutEngineForWindow(window)) {
                 addWindowToLayout(window, currentOutput, desktop);
             }
@@ -1041,19 +1037,14 @@ void TilingController::onWindowMoveFinished(Window *window)
                 target = nullptr;
             }
             if (target) {
-                // Dropped onto another tiled window: swap places.
                 if (context.engine->endMoveWindow(window, target)) {
                     context.engine->pruneEmpty();
                     window->setGeometryRestore(context.originalGeometryRestore);
                     return;
                 }
             } else {
-                // Dropped on empty space (including "same spot" releases where
-                // the cursor is still over the preview or no other managed
-                // window is hit): clean the recorded source slot via
-                // cancelMoveWindow (handles the case where KWin untiled the
-                // window from its leaf at drag start, leaving an empty holder
-                // behind) then insert at the cursor position.
+                // Empty-space drop (or same-spot release): cancelMove clears the
+                // ghost source leaf KWin left after untile-for-drag, then insert.
                 context.engine->cancelMoveWindow(window);
                 context.engine->dropWindow(window, nullptr, cursorPos, area);
                 context.engine->pruneEmpty();
@@ -1061,10 +1052,10 @@ void TilingController::onWindowMoveFinished(Window *window)
                 return;
             }
         }
-        // Engine couldn't handle it (e.g. source tile destroyed); fall through.
+        // Engine could not finish the move; fall through to snap-back.
     }
 
-    // No move context or engine couldn't handle it: fall back to legacy snap-back.
+    // NotOurs, or engine fallthrough: re-tile only if unmanaged but still Tiled.
     if (layoutEngineForWindow(window)) {
         return;
     }
@@ -1736,7 +1727,8 @@ void TilingController::onWindowOutputChanged(Window *window, LogicalOutput *oldO
     // sendToOutput, or other actions), place the window into the destination
     // layout if it is tiled. Interactive drags are handled at move-finish with
     // dropWindow for insertion position.
-    if (m_activeMoves.contains(window)) {
+    if (movefsm::deferMigrateOnOutputChange(m_activeMoves.contains(window),
+                                            m_activeResizes.contains(window))) {
         return;
     }
     if (window->tilingState().mode != TilingState::Mode::Tiled) {
@@ -1902,14 +1894,6 @@ void TilingController::restoreBorder(Window *window)
     state.borderForced = false;
 }
 
-void TilingController::applyFloatStacking(Window *window)
-{
-    // Intentionally empty: FloatAbove must not call setKeepAbove (clobbers user
-    // Always-on-Top). Setting is ignored; KCM control is hidden.
-    Q_UNUSED(window)
-    Q_UNUSED(m_floatAbove)
-}
-
 void TilingController::setFloating(Window *window, bool floating)
 {
     if (!window || !m_workspace) {
@@ -1935,7 +1919,6 @@ void TilingController::setFloating(Window *window, bool floating)
             : window->desktops().constFirst();
         addWindowToLayout(window, output, desktop);
     }
-    applyFloatStacking(window);
 }
 
 void TilingController::suspendAllTiledWindows()
@@ -2001,7 +1984,6 @@ void TilingController::resumeSuspendedWindows()
             ? VirtualDesktopManager::self()->currentDesktop(output)
             : window->desktops().constFirst();
         addWindowToLayout(window, output, desktop);
-        applyFloatStacking(window);
     }
 }
 

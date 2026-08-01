@@ -24,6 +24,24 @@ Layout engines set relative geometry on KWin's `CustomTile` tree. KWin's own
 `Tile` / `TileManager` machinery handles gaps, window geometry, and rendering —
 we add layout logic on top of infrastructure that already exists.
 
+### Shared layout foundation (not a mega-engine)
+
+Layouts are **thin arrangement engines** over one vertical primitive:
+
+- **`StackColumn`** — ordered, weighted vertical stack (insert, drag/swap,
+  height fill). Used by every kind.
+- **Pure math / policy headers** — `columnmath`, `masterstackmath`, `gridmath`,
+  `directionmath`, `movestate`, `leafcolumn`, `movefsm`, `sizingpolicy` — tested
+  without linking KWin (`nix flake check` / `tests/run.sh`).
+- **`LayoutEngine` base** — zoom/monocle reflow, resize gate, no-op knobs for
+  layout-specific actions.
+- **Scrolling** is deliberately separate (viewport, column widths, consume/expel)
+  so those quirks never branch into master/stack/grid paths.
+
+New layouts (e.g. Columns) should compose `StackColumn` + pure policy, not
+copy-paste height or cancel-move logic. See `pkgs/kwin-tiling/README.md`
+Architecture.
+
 For rounded corners and focus outlines on frameless windows, use the separate
 [`kde-rounded-corners`](https://github.com/matinlotfali/KDE-Rounded-Corners)
 effect — a normal KWin plugin, not baked into the compositor.
@@ -96,8 +114,9 @@ What we're not taking: kwilt's bounded-visible-window model (`dual` and
 window on screen — importing a minimize-on-overflow mode would fight the
 smart-gaps logic and change what "tiled" means here.
 
-See `pkgs/kwin-tiling/README.md`'s "Planned: kwilt-inspired improvements" for
-the implementation plan.
+Kwilt-inspired items that shipped (sticky master pin, focus-last, borderless
+when tiled, AutoGrid-as-Grid) live under Features; remaining polish is on the
+roadmap (scrolling UX, placement policy).
 
 For packaging details and source layout, see `pkgs/kwin-tiling/README.md` in the
 repository.

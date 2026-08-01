@@ -174,8 +174,6 @@ private:
     Window *windowUnderCursorInEngine(LayoutEngine *engine) const;
     void addWindowToLayout(Window *window, LogicalOutput *output, VirtualDesktop *desktop);
     void removeWindowFromLayouts(Window *window);
-    // Keep floating windows stacked above tiled ones (when FloatAbove is set).
-    void applyFloatStacking(Window *window);
     void forceNoBorder(Window *window);
     void restoreBorder(Window *window);
     void migrateWindow(Window *window, LogicalOutput *newOutput, VirtualDesktop *newDesktop);
@@ -220,7 +218,6 @@ private:
     qreal m_masterRatio = 0.5;
     qreal m_defaultColumnWidth = 0.5;
     int m_masterCount = 1;
-    bool m_floatAbove = true;
     bool m_layoutSwitchOsd = true;
     bool m_borderlessWhenTiled = false;
     // Live "gaps off" toggle (toggleGaps); transient, resets on restart.
