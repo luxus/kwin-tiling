@@ -8,10 +8,12 @@
 # long, on-demand build left to the developer via `nix build .#kwin-tiling`).
 set -euo pipefail
 
-NIX_PROFILE_SCRIPT="/nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=/dev/null
+. "$SCRIPT_DIR/nix-daemon.sh"
 
 install_nix() {
-  if [ -e /nix/var/nix/profiles/default/bin/nix ]; then
+  if [ -e "$NIX_DAEMON_BIN" ]; then
     echo "[install] Nix already present; skipping installation."
     return
   fi
@@ -20,26 +22,8 @@ install_nix() {
     | sudo sh -s -- install linux --init none --no-confirm
 }
 
-start_daemon() {
-  if [ -S /nix/var/nix/daemon-socket/socket ]; then
-    echo "[install] Nix daemon socket already present."
-    return
-  fi
-  echo "[install] Starting nix-daemon..."
-  sudo nohup /nix/var/nix/profiles/default/bin/nix-daemon >/tmp/nix-daemon.log 2>&1 &
-  for _ in $(seq 1 30); do
-    [ -S /nix/var/nix/daemon-socket/socket ] && break
-    sleep 1
-  done
-  [ -S /nix/var/nix/daemon-socket/socket ] || { echo "[install] daemon socket not ready" >&2; exit 1; }
-}
-
 install_nix
-start_daemon
-
-# shellcheck disable=SC1090
-[ -f "$NIX_PROFILE_SCRIPT" ] && . "$NIX_PROFILE_SCRIPT"
-export NIX_CONFIG="experimental-features = nix-command flakes"
+nix_ensure_daemon
 
 echo "[install] Warming the Nix store with the fast pure self-check (nix flake check)..."
 nix flake check --print-build-logs
