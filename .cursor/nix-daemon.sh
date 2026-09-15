@@ -27,18 +27,26 @@ nix_daemon_alive() {
   return 1
 }
 
-# (Re)start the daemon if it is not answering; clears a stale socket first.
+# Clear a stale socket (left behind by a snapshot) when no daemon is answering.
+nix_clear_stale_socket() {
+  if ! nix_daemon_alive && [ -e "$NIX_DAEMON_SOCKET" ]; then
+    echo "[nix] clearing stale daemon socket."
+    sudo rm -f "$NIX_DAEMON_SOCKET"
+  fi
+}
+
+# Start the daemon in the BACKGROUND for the lifetime of the calling script and
+# block until it answers. Used by `install`, which only needs the daemon while
+# it warms the store. Do NOT use this for the `start` phase: that phase is run
+# detached, so a backgrounded child is reaped when the script returns.
 nix_ensure_daemon() {
   nix_load_profile
   if nix_daemon_alive; then
     echo "[nix] daemon already running."
     return 0
   fi
-  if [ -e "$NIX_DAEMON_SOCKET" ]; then
-    echo "[nix] clearing stale daemon socket."
-    sudo rm -f "$NIX_DAEMON_SOCKET"
-  fi
-  echo "[nix] starting nix-daemon..."
+  nix_clear_stale_socket
+  echo "[nix] starting nix-daemon (background)..."
   sudo nohup "$NIX_DAEMON_BIN" >/tmp/nix-daemon.log 2>&1 &
   for _ in $(seq 1 30); do
     nix_daemon_alive && break
@@ -50,4 +58,18 @@ nix_ensure_daemon() {
     echo "[nix] daemon failed to start; see /tmp/nix-daemon.log" >&2
     return 1
   fi
+}
+
+# Run the daemon in the FOREGROUND (replacing the current process) so the
+# detached `start` phase keeps it supervised for the whole boot. If a daemon is
+# already answering, stay resident without launching a duplicate.
+nix_run_daemon_foreground() {
+  nix_load_profile
+  if nix_daemon_alive; then
+    echo "[nix] daemon already running; staying resident."
+    exec tail -f /dev/null
+  fi
+  nix_clear_stale_socket
+  echo "[nix] starting nix-daemon (foreground)..."
+  exec sudo "$NIX_DAEMON_BIN"
 }
