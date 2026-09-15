@@ -74,9 +74,12 @@ nix flake check             # fast: pure geometry/move self-checks, no KWin buil
 bash pkgs/kwin-tiling/tests/run.sh   # same pure suite via g++
 ```
 
-Tracks stock `kdePackages.kwin` (currently **Plasma/KWin 6.7.x**). After a host
-switch that rebuilds KWin, **relogin** so the running compositor is the new
-binary. Manual session regression:
+Tracks **KWin 6.8 beta (6.7.90)** — `pkgs/kwin-tiling/default.nix` overrides
+`kdePackages.kwin` (and its matching Plasma-versioned deps) to the beta from
+KDE's `unstable/` tree. It needs KDE Frameworks ≥ 6.30, so the flake temporarily
+tracks nixpkgs `master`; revert to `nixos-unstable` once Frameworks 6.30 lands
+there. After a host switch that rebuilds KWin, **relogin** so the running
+compositor is the new binary. Manual session regression:
 `pkgs/kwin-tiling/scripts/session-smoke.md`.
 
 ## Maintenance
