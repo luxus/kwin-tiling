@@ -34,7 +34,7 @@ QObject *tilingOsdDialog()
     }
 
     const QString qmlPath = QStandardPaths::locate(QStandardPaths::GenericDataLocation,
-                                                   QStringLiteral("kwin-wayland/onscreennotification/tiling/layoutswitch.qml"));
+                                                   QStringLiteral("kwin/onscreennotification/tiling/layoutswitch.qml"));
     if (qmlPath.isEmpty()) {
         return nullptr;
     }

@@ -1,7 +1,10 @@
 {
   description = "Native dynamic tiling patched into KWin — package, overlay, and NixOS module";
 
-  inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+  # Temporarily tracks nixpkgs master for KDE Frameworks >= 6.30, which KWin 6.8
+  # beta (6.7.90) requires and which nixos-unstable has not yet promoted. Revert
+  # to nixos-unstable once it ships Frameworks 6.30 (imminent in the 6.8 cycle).
+  inputs.nixpkgs.url = "github:NixOS/nixpkgs/master";
 
   outputs =
     { self, nixpkgs }:
@@ -26,7 +29,7 @@
       # final.kdePackages.kwin (which would recurse).
       overlays.default = _final: prev: {
         kdePackages = prev.kdePackages // {
-          kwin = import ./pkgs/kwin-tiling { inherit (prev) kdePackages; };
+          kwin = import ./pkgs/kwin-tiling { inherit (prev) kdePackages fetchurl libcap; };
         };
       };
 
