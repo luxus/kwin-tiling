@@ -1,0 +1,55 @@
+diff --git a/src/nixos_utils.h b/src/nixos_utils.h
+new file mode 100644
+index 0000000..bc75e70
+--- /dev/null
++++ b/src/nixos_utils.h
+@@ -0,0 +1,26 @@
++#ifndef NIXOS_UTILS_H
++#define NIXOS_UTILS_H
++
++namespace KWin
++{
++
++static QString unwrapExecutablePath(const QString &in_executablePath)
++{
++    // NixOS wraps many programs in wrapper scripts. kwin resolves a client's
++    // /proc/.../exe to identify its .desktop file, but on NixOS that resolves to
++    // e.g. /nix/store/.../bin/.foo-wrapped rather than the /nix/store/.../bin/foo
++    // that the .desktop file references. Nixpkgs wrappers always prepend a dot
++    // and append -wrapped, so strip those layers back to the expected name.
++    QString executablePath(in_executablePath);
++
++    while (executablePath.endsWith("-wrapped") && executablePath[executablePath.lastIndexOf("/") + 1] == QChar('.')) {
++        executablePath.remove(executablePath.length() - 8, 8);
++        executablePath.remove(executablePath.lastIndexOf("/") + 1, 1);
++    }
++
++    return executablePath;
++}
++
++} // namespace KWin
++
++#endif // NIXOS_UTILS_H
+diff --git a/src/waylandwindow.cpp b/src/waylandwindow.cpp
+index 559a334..1683f9c 100644
+--- a/src/waylandwindow.cpp
++++ b/src/waylandwindow.cpp
+@@ -15,6 +15,8 @@
+ #include "wayland_server.h"
+ #include "workspace.h"
+ 
++#include "nixos_utils.h"
++
+ #include <QFileInfo>
+ 
+ #include <csignal>
+@@ -161,7 +163,8 @@ void WaylandWindow::updateClientOutputs()
+ 
+ void WaylandWindow::updateResourceName()
+ {
+-    const QFileInfo fileInfo(surface()->client()->executablePath());
++    const QString path = unwrapExecutablePath(surface()->client()->executablePath());
++    const QFileInfo fileInfo(path);
+     if (fileInfo.exists()) {
+         const QByteArray executableFileName = fileInfo.fileName().toUtf8();
+         setResourceClass(executableFileName, executableFileName);

@@ -29,7 +29,7 @@
       # final.kdePackages.kwin (which would recurse).
       overlays.default = _final: prev: {
         kdePackages = prev.kdePackages // {
-          kwin = import ./pkgs/kwin-tiling { inherit (prev) kdePackages fetchurl libcap; };
+          kwin = import ./pkgs/kwin-tiling { inherit (prev) lib kdePackages fetchurl libcap; };
         };
       };
 
