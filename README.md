@@ -81,13 +81,14 @@ so it can read `WindowTilingReflowRole` when the patched compositor publishes
 it. Off by default; enable *Tiling Reflow* in Desktop Effects. See
 `pkgs/kwin-effects-tiling-reflow/README.md`.
 
-Tracks **KWin 6.8 beta (6.7.90)** — `pkgs/kwin-tiling/default.nix` overrides
-`kdePackages.kwin` (and its matching Plasma-versioned deps) to the beta from
-KDE's `unstable/` tree. It needs KDE Frameworks ≥ 6.30, so the flake temporarily
-tracks nixpkgs `master`; revert to `nixos-unstable` once Frameworks 6.30 lands
-there. After a host switch that rebuilds KWin, **relogin** so the running
-compositor is the new binary. Manual session regression:
-`pkgs/kwin-tiling/scripts/session-smoke.md`.
+Tracks **KWin 6.8 beta (6.7.90)** — the overlay overrides `kdePackages.sources`
+for the whole Plasma tarball set (`pkgs/kwin-tiling/plasma-6.7.90-sources.json`)
+and patches `kdePackages.kwin` with tiling. Runtime daemons (plasma-workspace,
+kglobalacceld, xdg-desktop-portal-kde, kscreen, …) stay on the same beta as
+KWin; Gear/Frameworks stay on nixpkgs. Needs KDE Frameworks ≥ 6.30, so the
+flake temporarily tracks nixpkgs `master`; revert to `nixos-unstable` once
+Frameworks 6.30 lands there. After a host switch, **relogin**. Manual session
+regression: `pkgs/kwin-tiling/scripts/session-smoke.md`.
 
 ## Maintenance
 

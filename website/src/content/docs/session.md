@@ -20,10 +20,10 @@ run with it, how Noctalia attaches as the shell, and how logout and shortcuts
 behave. Shortcuts and the tiling KCM are the same as way 1 — see
 [Usage & Shortcuts](usage).
 
-**Tested against:** Plasma / KWin **6.8 beta (6.7.90)** (this flake overrides
-nixpkgs' stable 6.7.x `kdePackages.kwin`). After a host switch that rebuilds
-KWin, **relogin** (or restart the compositor session) so the running process
-picks up the new binary.
+**Tested against:** Plasma / KWin **6.8 beta (6.7.90)** (this flake overlays
+nixpkgs' stable 6.7.x Plasma `sources` plus patched `kdePackages.kwin`). After
+a host switch that rebuilds KWin, **relogin** (or restart the compositor
+session) so the running process picks up the new binary.
 
 ## Production reference (recommended)
 

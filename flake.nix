@@ -28,15 +28,76 @@
         default = kwin-tiling;
       });
 
-      # Drop-in replacement of kdePackages.kwin with the patched build. The patch
-      # is built from the pristine prev.kdePackages so it never self-references
-      # final.kdePackages.kwin (which would recurse).
-      overlays.default = _final: prev: {
-        kdePackages = prev.kdePackages // {
-          kwin = import ./pkgs/kwin-tiling { inherit (prev) lib kdePackages fetchurl libcap; };
+      # Drop-in replacement of kdePackages.kwin with the patched build, and bump
+      # the rest of the Plasma set to the matching 6.7.90 beta. nixpkgs still
+      # ships Plasma 6.7.5; KWin 6.8 talks to kglobalacceld / libkscreen /
+      # xdg-desktop-portal-kde / plasma-workspace over D-Bus and will hang or
+      # mis-handshake (Xwayland listenfds) against the stable daemons.
+      # mkKdeDerivation reads src from kdePackages.sources.<pname>, so overlaying
+      # that map rebuilds every Plasma package in the host closure. Gear/KF stay
+      # on nixpkgs. kwin is still the tiling overrideAttrs, fed kprev.kwin so
+      # the import cannot recurse through kfinal.kwin.
+      overlays.default =
+        _final: prev:
+        let
+          inherit (prev) lib fetchurl;
+          plasmaVersion = "6.7.90";
+          plasmaHashes = lib.importJSON ./pkgs/kwin-tiling/plasma-6.7.90-sources.json;
+          plasmaSources = lib.mapAttrs (
+            name: hash:
+            (fetchurl {
+              url = "mirror://kde/unstable/plasma/${plasmaVersion}/${name}-${plasmaVersion}.tar.xz";
+              inherit hash;
+            })
+            // {
+              version = plasmaVersion;
+            }
+          ) plasmaHashes;
+        in
+        {
+          kdePackages = prev.kdePackages.overrideScope (
+            kfinal: kprev: {
+              sources = kprev.sources // plasmaSources;
+              plasma-wayland-protocols = kprev.plasma-wayland-protocols.overrideAttrs (_: {
+                version = "1.22.0";
+                src = fetchurl {
+                  url = "mirror://kde/stable/plasma-wayland-protocols/plasma-wayland-protocols-1.22.0.tar.xz";
+                  hash = "sha256-9ihYXEwtXjqfRHpidOL1nXgRJy2lV+dTQeNpSKo/nUM=";
+                };
+              });
+              # nixpkgs' plasma-workspace patches target 6.7.5 paths (krdb.cpp,
+              # fontinit.cpp, kcminit unit) that 6.8 beta moved or dropped.
+              plasma-workspace = kprev.plasma-workspace.overrideAttrs (old: {
+                patches =
+                  (builtins.filter (
+                    p:
+                    let
+                      n = baseNameOf (toString p);
+                    in
+                    n != "dependency-paths.patch" && n != "fontconfig.patch"
+                  ) (old.patches or [ ]))
+                  ++ [
+                    (prev.replaceVars ./pkgs/kwin-tiling/patches/plasma-workspace-6.8-dependency-paths.patch {
+                      fcMatch = lib.getExe' prev.fontconfig "fc-match";
+                      lsof = lib.getExe prev.lsof;
+                      qdbus = lib.getExe' prev.kdePackages.qttools "qdbus";
+                      xmessage = lib.getExe prev.xmessage;
+                      xrdb = lib.getExe prev.xrdb;
+                      QtBinariesDir = null;
+                    })
+                    ./pkgs/kwin-tiling/patches/plasma-workspace-6.8-fontconfig.patch
+                  ];
+              });
+              kwin = import ./pkgs/kwin-tiling {
+                inherit (prev) lib fetchurl libcap;
+                kdePackages = kfinal // {
+                  kwin = kprev.kwin;
+                };
+              };
+            }
+          );
+          kwin-effects-tiling-reflow = prev.callPackage ./pkgs/kwin-effects-tiling-reflow { };
         };
-        kwin-effects-tiling-reflow = prev.callPackage ./pkgs/kwin-effects-tiling-reflow { };
-      };
 
       # Compose onto a host to give it native KWin tiling. Patching kwin rebuilds
       # the compositor and its reverse-deps, so apply it only where you want it
@@ -60,22 +121,18 @@
       # Fast, KWin-free self-check of the pure column arithmetic (the part that is
       # easy to get subtly wrong). `nix flake check` runs it without building kwin.
       checks = forAllSystems (pkgs: {
-        columnmath =
-          pkgs.runCommand "kwin-tiling-columnmath-test" { nativeBuildInputs = [ pkgs.gcc ]; }
-            ''
-              g++ -std=c++20 -O2 -Wall -Wextra -o columnmath-test \
-                ${./pkgs/kwin-tiling}/tests/columnmath_test.cpp
-              ./columnmath-test
-              touch $out
-            '';
-        gridmath =
-          pkgs.runCommand "kwin-tiling-gridmath-test" { nativeBuildInputs = [ pkgs.gcc ]; }
-            ''
-              g++ -std=c++20 -O2 -Wall -Wextra -o gridmath-test \
-                ${./pkgs/kwin-tiling}/tests/gridmath_test.cpp
-              ./gridmath-test
-              touch $out
-            '';
+        columnmath = pkgs.runCommand "kwin-tiling-columnmath-test" { nativeBuildInputs = [ pkgs.gcc ]; } ''
+          g++ -std=c++20 -O2 -Wall -Wextra -o columnmath-test \
+            ${./pkgs/kwin-tiling}/tests/columnmath_test.cpp
+          ./columnmath-test
+          touch $out
+        '';
+        gridmath = pkgs.runCommand "kwin-tiling-gridmath-test" { nativeBuildInputs = [ pkgs.gcc ]; } ''
+          g++ -std=c++20 -O2 -Wall -Wextra -o gridmath-test \
+            ${./pkgs/kwin-tiling}/tests/gridmath_test.cpp
+          ./gridmath-test
+          touch $out
+        '';
         columnlayoutmath =
           pkgs.runCommand "kwin-tiling-columnlayoutmath-test" { nativeBuildInputs = [ pkgs.gcc ]; }
             ''
@@ -108,22 +165,18 @@
               ./masterstackmath-test
               touch $out
             '';
-        movestate =
-          pkgs.runCommand "kwin-tiling-movestate-test" { nativeBuildInputs = [ pkgs.gcc ]; }
-            ''
-              g++ -std=c++20 -O2 -Wall -Wextra -o movestate-test \
-                ${./pkgs/kwin-tiling}/tests/movestate_test.cpp
-              ./movestate-test
-              touch $out
-            '';
-        classmatch =
-          pkgs.runCommand "kwin-tiling-classmatch-test" { nativeBuildInputs = [ pkgs.gcc ]; }
-            ''
-              g++ -std=c++20 -O2 -Wall -Wextra -o classmatch-test \
-                ${./pkgs/kwin-tiling}/tests/classmatch_test.cpp
-              ./classmatch-test
-              touch $out
-            '';
+        movestate = pkgs.runCommand "kwin-tiling-movestate-test" { nativeBuildInputs = [ pkgs.gcc ]; } ''
+          g++ -std=c++20 -O2 -Wall -Wextra -o movestate-test \
+            ${./pkgs/kwin-tiling}/tests/movestate_test.cpp
+          ./movestate-test
+          touch $out
+        '';
+        classmatch = pkgs.runCommand "kwin-tiling-classmatch-test" { nativeBuildInputs = [ pkgs.gcc ]; } ''
+          g++ -std=c++20 -O2 -Wall -Wextra -o classmatch-test \
+            ${./pkgs/kwin-tiling}/tests/classmatch_test.cpp
+          ./classmatch-test
+          touch $out
+        '';
         suspendpolicy =
           pkgs.runCommand "kwin-tiling-suspendpolicy-test" { nativeBuildInputs = [ pkgs.gcc ]; }
             ''
@@ -140,14 +193,12 @@
               ./sizingpolicy-test
               touch $out
             '';
-        leafcolumn =
-          pkgs.runCommand "kwin-tiling-leafcolumn-test" { nativeBuildInputs = [ pkgs.gcc ]; }
-            ''
-              g++ -std=c++20 -O2 -Wall -Wextra -o leafcolumn-test \
-                ${./pkgs/kwin-tiling}/tests/leafcolumn_test.cpp
-              ./leafcolumn-test
-              touch $out
-            '';
+        leafcolumn = pkgs.runCommand "kwin-tiling-leafcolumn-test" { nativeBuildInputs = [ pkgs.gcc ]; } ''
+          g++ -std=c++20 -O2 -Wall -Wextra -o leafcolumn-test \
+            ${./pkgs/kwin-tiling}/tests/leafcolumn_test.cpp
+          ./leafcolumn-test
+          touch $out
+        '';
         columnwidthpresets =
           pkgs.runCommand "kwin-tiling-columnwidthpresets-test" { nativeBuildInputs = [ pkgs.gcc ]; }
             ''
@@ -156,14 +207,12 @@
               ./columnwidthpresets-test
               touch $out
             '';
-        movefsm =
-          pkgs.runCommand "kwin-tiling-movefsm-test" { nativeBuildInputs = [ pkgs.gcc ]; }
-            ''
-              g++ -std=c++20 -O2 -Wall -Wextra -o movefsm-test \
-                ${./pkgs/kwin-tiling}/tests/movefsm_test.cpp
-              ./movefsm-test
-              touch $out
-            '';
+        movefsm = pkgs.runCommand "kwin-tiling-movefsm-test" { nativeBuildInputs = [ pkgs.gcc ]; } ''
+          g++ -std=c++20 -O2 -Wall -Wextra -o movefsm-test \
+            ${./pkgs/kwin-tiling}/tests/movefsm_test.cpp
+          ./movefsm-test
+          touch $out
+        '';
         scrollingmath =
           pkgs.runCommand "kwin-tiling-scrollingmath-test" { nativeBuildInputs = [ pkgs.gcc ]; }
             ''
@@ -180,14 +229,12 @@
               ./tilingconfig-test
               touch $out
             '';
-        slotlist =
-          pkgs.runCommand "kwin-tiling-slotlist-test" { nativeBuildInputs = [ pkgs.gcc ]; }
-            ''
-              g++ -std=c++20 -O2 -Wall -Wextra -o slotlist-test \
-                ${./pkgs/kwin-tiling}/tests/slotlist_test.cpp
-              ./slotlist-test
-              touch $out
-            '';
+        slotlist = pkgs.runCommand "kwin-tiling-slotlist-test" { nativeBuildInputs = [ pkgs.gcc ]; } ''
+          g++ -std=c++20 -O2 -Wall -Wextra -o slotlist-test \
+            ${./pkgs/kwin-tiling}/tests/slotlist_test.cpp
+          ./slotlist-test
+          touch $out
+        '';
         scrollingmove =
           pkgs.runCommand "kwin-tiling-scrollingmove-test" { nativeBuildInputs = [ pkgs.gcc ]; }
             ''
@@ -251,17 +298,21 @@
               ./tilingdbuspolicy-test
               touch $out
             '';
-        ghosttile =
-          pkgs.runCommand "kwin-tiling-ghosttile-test" { nativeBuildInputs = [ pkgs.gcc ]; }
-            ''
-              g++ -std=c++20 -O2 -Wall -Wextra -o ghosttile-test \
-                ${./pkgs/kwin-tiling}/tests/ghosttile_test.cpp
-              ./ghosttile-test
-              touch $out
-            '';
+        ghosttile = pkgs.runCommand "kwin-tiling-ghosttile-test" { nativeBuildInputs = [ pkgs.gcc ]; } ''
+          g++ -std=c++20 -O2 -Wall -Wextra -o ghosttile-test \
+            ${./pkgs/kwin-tiling}/tests/ghosttile_test.cpp
+          ./ghosttile-test
+          touch $out
+        '';
         # Single entry that runs the whole pure suite (same as tests/run.sh).
         pure-suite =
-          pkgs.runCommand "kwin-tiling-pure-suite" { nativeBuildInputs = [ pkgs.gcc pkgs.bash ]; }
+          pkgs.runCommand "kwin-tiling-pure-suite"
+            {
+              nativeBuildInputs = [
+                pkgs.gcc
+                pkgs.bash
+              ];
+            }
             ''
               cp -r ${./pkgs/kwin-tiling} tree
               chmod -R u+w tree
