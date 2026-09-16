@@ -66,7 +66,8 @@ KWin's `Tile`/`TileManager`; engines only set relative geometry.
 - Pure, KWin-free arithmetic (unit-tested): `columnmath`, `masterstackmath`,
   `gridmath`, `directionmath`, `slotlist`, `movestate`, `leafcolumn`, `movefsm`,
   `sizingpolicy`, `suspendpolicy`, `tilingconfig`, `scrollingmove`, `viewportmath`,
-  `engineindex`, `columnwidthpresets`, `scrollingcolumn`, `overflowmath`.
+  `engineindex`, `columnwidthpresets`, `scrollingcolumn`, `overflowmath`,
+  `scrollingmath`.
 - Kind switch **replaces** the engine and re-adds windows; durable layout
   memory is keyed by output/desktop id, not engine pointer.
 - Cross-monitor moves: cancel source leaf, drop on destination — no phantoms.
@@ -112,11 +113,14 @@ Consume/expel stays `Meta+Shift+[` / `]` and is a different action.
 > delete its stale `kglobalshortcutsrc` line). Fresh profiles get the defaults.
 
 Mouse: drag the **master/stack divider** to set the master ratio; **drop** a
-window onto another to swap or onto empty space to insert there (master column
-left of the divider, stack to the right); drag **horizontal borders within a
-column** to adjust per-window heights (MasterStack, Stacked, and Scrolling);
-drag **vertical borders** in Scrolling to resize the active column width; other
-edges snap.
+window onto another to swap, or onto empty space to insert there (master column
+left of the divider, stack to the right). In **Scrolling**, drop on the
+top/bottom half of a window in another column consumes into that column at that
+index (same-column drop still swaps); empty-space drop uses cursor X to pick
+the strip index (a gap between columns inserts a new column there). Drag
+**horizontal borders within a column** to adjust per-window heights (MasterStack,
+Stacked, and Scrolling); drag **vertical borders** in Scrolling to resize the
+active column width; other edges snap.
 Window context menu: **Float (Tiling)** (this window) and **Always Float This
 App (Tiling)** (class rule).
 
@@ -206,10 +210,12 @@ pkgs/kwin-tiling/tests/run.sh    # all *_test.cpp via g++
 
 Covers geometry (`columnmath`, `gridmath`, `masterstackmath`, `directionmath`,
 `overflowmath`), StackColumn order/weight (`slotlist`), layout + sizing precedence
-(`tilingconfig`), Scrolling viewport modes (`viewportmath`), in-column move
-(`scrollingmove`), Window→engine reverse index (`engineindex`), move cancel
-(`movestate`, `leafcolumn`), and controller policy (`movefsm`, `sizingpolicy`,
-`suspendpolicy`, `classmatch`). No compositor link.
+(`tilingconfig`), Scrolling viewport modes (`viewportmath`), drop-insert
+(`scrollingmath`), in-column move (`scrollingmove`), Window→engine reverse index
+(`engineindex`), column-width presets (`columnwidthpresets`), consume-into-column
+(`scrollingcolumn`), move cancel (`movestate`, `leafcolumn`), and controller
+policy (`movefsm`, `sizingpolicy`, `suspendpolicy`, `classmatch`). No compositor
+link.
 
 ### KWin integration (Part B, follow-up)
 

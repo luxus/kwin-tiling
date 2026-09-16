@@ -148,6 +148,14 @@
               ./movefsm-test
               touch $out
             '';
+        scrollingmath =
+          pkgs.runCommand "kwin-tiling-scrollingmath-test" { nativeBuildInputs = [ pkgs.gcc ]; }
+            ''
+              g++ -std=c++20 -O2 -Wall -Wextra -o scrollingmath-test \
+                ${./pkgs/kwin-tiling}/tests/scrollingmath_test.cpp
+              ./scrollingmath-test
+              touch $out
+            '';
         tilingconfig =
           pkgs.runCommand "kwin-tiling-tilingconfig-test" { nativeBuildInputs = [ pkgs.gcc ]; }
             ''

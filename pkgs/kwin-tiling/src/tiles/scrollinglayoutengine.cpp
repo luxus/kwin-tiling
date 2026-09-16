@@ -9,6 +9,7 @@
 #include "customtile.h"
 #include "movestate.h"
 #include "scrollingcolumn.h"
+#include "scrollingmath.h"
 #include "scrollingmove.h"
 #include "viewportmath.h"
 #include "window.h"
@@ -208,6 +209,70 @@ bool ScrollingLayoutEngine::endMoveWindow(Window *window, Window *target)
         reflow();
     }
     return handled;
+}
+
+bool ScrollingLayoutEngine::dropConsumesIntoTarget(Window *window, Window *target) const
+{
+    Q_UNUSED(window)
+    if (!target) {
+        return false;
+    }
+    int tc = -1;
+    int tl = -1;
+    if (!findWindow(target, &tc, &tl)) {
+        return false;
+    }
+    // Same-column drop keeps swap-on-drop (endMoveWindow). Cross-column
+    // (or a drop with no recorded source) consumes into the target column.
+    if (m_moveHasSource && m_moveSourceColumn == tc) {
+        return false;
+    }
+    return true;
+}
+
+void ScrollingLayoutEngine::dropWindow(Window *window, Window *target, const QPointF &pos, const RectF &area)
+{
+    if (!window || !m_root) {
+        return;
+    }
+
+    // Drop on a window: consume into that column at the Y-half index.
+    // Caller already destroyed the empty source leaf (cancelMove / pruneEmpty).
+    if (target && target != window) {
+        int tc = -1;
+        int tl = -1;
+        if (findWindow(target, &tc, &tl)) {
+            const auto geom = target->frameGeometry();
+            const bool lower = scrollingmath::isLowerHalf(pos.y(), geom.y(), geom.height());
+            const int at = scrollingmath::consumeInsertIndex(tl, lower);
+            if (m_columns[tc].stack.insertWindow(window, at)) {
+                m_activeWindow = window;
+                reflow();
+            }
+            return;
+        }
+    }
+
+    // Empty-space / gap between columns: new column at the strip index under
+    // the cursor, not always active+1 (base dropWindow → addWindow).
+    std::vector<double> widths;
+    widths.reserve(static_cast<size_t>(m_columns.count()));
+    for (const Column &col : m_columns) {
+        widths.push_back(col.width);
+    }
+    const double relX = (area.width() > 0) ? (pos.x() - area.x()) / area.width() : 1.0;
+    int colIdx = scrollingmath::stripInsertIndex(relX, widths, m_scrollOffset);
+    colIdx = std::clamp(colIdx, 0, int(m_columns.count()));
+
+    Column col;
+    col.width = m_defaultColWidth;
+    col.stack.setRoot(m_root);
+    if (!col.stack.insertWindow(window)) {
+        return;
+    }
+    m_columns.insert(colIdx, col);
+    m_activeWindow = window;
+    reflow();
 }
 
 void ScrollingLayoutEngine::cancelMoveWindow(Window *window)
