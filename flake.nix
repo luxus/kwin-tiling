@@ -76,6 +76,22 @@
               ./gridmath-test
               touch $out
             '';
+        columnlayoutmath =
+          pkgs.runCommand "kwin-tiling-columnlayoutmath-test" { nativeBuildInputs = [ pkgs.gcc ]; }
+            ''
+              g++ -std=c++20 -O2 -Wall -Wextra -o columnlayoutmath-test \
+                ${./pkgs/kwin-tiling}/tests/columnlayoutmath_test.cpp
+              ./columnlayoutmath-test
+              touch $out
+            '';
+        insertpolicy =
+          pkgs.runCommand "kwin-tiling-insertpolicy-test" { nativeBuildInputs = [ pkgs.gcc ]; }
+            ''
+              g++ -std=c++20 -O2 -Wall -Wextra -o insertpolicy-test \
+                ${./pkgs/kwin-tiling}/tests/insertpolicy_test.cpp
+              ./insertpolicy-test
+              touch $out
+            '';
         directionmath =
           pkgs.runCommand "kwin-tiling-directionmath-test" { nativeBuildInputs = [ pkgs.gcc ]; }
             ''
