@@ -164,6 +164,9 @@ packaging: [luxusAi](https://github.com/luxus/luxusAi) `kwin-noctalia-session`.
   pins a class to a monitor, e.g.
   `AssignOutput=firefox:DP-2,org.kde.konsole:HDMI-A-1` (applied to new windows;
   falls back to normal placement when the output is disconnected).
+  `xwaylandvideobridge` / `org.kde.xwaylandvideobridge` are always ignored
+  (built-in; NixOS Plasma ships the bridge). Late `windowClassChanged` untiles
+  if the class arrives after map.
 - Live `[Tiling] Enabled=false` detaches tiled windows and restores borders.
 - Directional focus/move continue onto the adjacent monitor at a layout edge.
 - Smart gaps basic (0 when ≤1 window); manual on/off toggle available.
@@ -201,7 +204,9 @@ actions). Design choices documented here so they survive the next rebase:
   windows on that output. Tiled windows still get an explicit
   `moveResize(tile->windowGeometry())` when their desktop becomes active, so
   background reflows stay correct without widening the loop to every window on
-  every monitor.
+  every monitor. Fullscreen windows are skipped (`!isFullScreen()`): they keep
+  tile membership so they restore on exit, and force-resizing them on desktop
+  return would destile the fullscreen geometry.
 - **`Tile::setRelativeGeometry`** — keeps upstream's `isActive()` guard so
   geometry changes on invisible desktops do not push Wayland configure round-trips
   to hidden windows (and quick-tile users are unaffected). The desktop-activation

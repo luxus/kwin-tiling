@@ -81,6 +81,33 @@ bash pkgs/kwin-tiling/tests/run.sh
 - [ ] KCM opens and shows current options (after Nix rebuild: if stale, wipe
       `~/.cache/systemsettings/qmlcache` and `~/.cache/kcmshell6/qmlcache`)
 
+## 9. xwaylandvideobridge (#29)
+
+NixOS Plasma autostarts `xwaylandvideobridge`. Without the built-in ignore it
+tiles as a black box covering a monitor.
+
+- [ ] After login, no black fullscreen tile on any output
+- [ ] `xwaylandvideobridge` is not in the tiling layout (ignore, not float)
+- [ ] Screen sharing into an X11 capture app still works (bridge is not
+      Hidden=true — we ignore tiling, we do not kill the process)
+- [ ] If WM_CLASS arrives late, the window is untilled once the class/role is
+      known (no leftover stretched box)
+
+## 10. Maximize leave/rejoin (#30)
+
+- [ ] Open 3+ tiled windows on one monitor in MasterStack
+- [ ] Maximize one (`double-click title` or maximize shortcut) — siblings reflow
+      to fill; **no empty/ghost slot**
+- [ ] Unmaximize — window re-joins the layout (appended; no crash)
+- [ ] Minimize/restore still vacates and re-joins (no regression)
+
+## 11. Fullscreen desktop-switch (#31)
+
+- [ ] Fullscreen a tiled window (app F11 or KWin fullscreen)
+- [ ] Switch to another desktop and back
+- [ ] Window stays fullscreen (not force-resized back onto its tile)
+- [ ] Exit fullscreen — window restores to its tile
+
 ## KWin + Noctalia extras (way 2 only)
 
 - [ ] Noctalia bar appears after session-ready

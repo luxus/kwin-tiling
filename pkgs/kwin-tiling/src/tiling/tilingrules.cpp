@@ -6,6 +6,7 @@
 
 #include "tilingrules.h"
 #include "tiles/classmatch.h"
+#include "tiles/videobridge.h"
 #include "window.h"
 
 #include <KConfigGroup>
@@ -29,6 +30,17 @@ void TilingRules::load(const KConfigGroup &group)
     m_floatUtility = group.readEntry("FloatUtility", true);
     m_floatDialog = group.readEntry("FloatDialog", true);
     m_floatTransient = group.readEntry("FloatTransient", true);
+
+    // Windows that must never be tiled, regardless of user IgnoreClass:
+    // system surfaces that present as NORMAL-type resizable windows.
+    //
+    // xwaylandvideobridge: ContentsWindow is a borderless, input-transparent,
+    // opacity-0 capture surface sized to the union of all screens. Tiling it
+    // moves/resizes/decorates that surface and shows it as a black box.
+    // Exact match (not substring): both the short class and the desktop-file
+    // class, because classmatch is exact-or-trailing-* rather than contains().
+    m_ignoreClasses.append(QStringLiteral("xwaylandvideobridge"));
+    m_ignoreClasses.append(QStringLiteral("org.kde.xwaylandvideobridge"));
 
     // AssignOutput: list of "classPattern:outputName" entries pinning a window
     // class to a specific monitor (e.g. "firefox:DP-2"). The class pattern is
@@ -72,7 +84,26 @@ bool TilingRules::isIgnored(const Window *window) const
     if (matchTitle(window, m_ignoreTitles)) {
         return true;
     }
+    // Role is set even when WM_CLASS arrives late. Exact "contentswindow"
+    // (not substring) so other roles are not swept in.
+    if (isVideoBridgeSurface(window)) {
+        return true;
+    }
     return false;
+}
+
+bool TilingRules::isVideoBridgeSurface(const Window *window) const
+{
+    if (!window || !window->isClient()) {
+        return false;
+    }
+    const QByteArray resourceClass = window->resourceClass().toLower().toUtf8();
+    const QByteArray resourceName = window->resourceName().toLower().toUtf8();
+    const QByteArray role = QString(window->windowRole()).toLower().toUtf8();
+    return videobridge::isVideoBridge(
+        std::string_view(resourceClass.constData(), size_t(resourceClass.size())),
+        std::string_view(resourceName.constData(), size_t(resourceName.size())),
+        std::string_view(role.constData(), size_t(role.size())));
 }
 
 bool TilingRules::isFloating(const Window *window) const

@@ -591,6 +591,32 @@ void TilingController::onWindowAdded(Window *window)
     connect(window, &Window::minimizedChanged, this,
             [this, window]() { onWindowMinimizedChanged(window); });
 
+    // Maximizing a tiled window must drop it from its layout (ghost-tile),
+    // mirroring minimize. Maximize goes through Window::exitQuickTileMode(),
+    // which detaches the leaf via Tile::forget(); vacateLayout then
+    // pruneEmpty()s only the home engine (shouldHandleRemove is false after
+    // forget, so we must not walk every engine). Mode stays Tiled so
+    // unmaximize re-joins. Fullscreen is NOT handled here: it keeps tile
+    // membership so geometry restores on exit.
+    connect(window, &Window::maximizedChanged, this,
+            [this, window]() {
+                onWindowMaximizedChanged(window);
+                sanitizeVideoBridgeSurface(window);
+            });
+
+    // XWayland clients set WM_CLASS asynchronously after map. initialMode()
+    // below can miss IgnoreClass (e.g. xwaylandvideobridge) and tile anyway.
+    // Re-evaluate when the class arrives.
+    connect(window, &Window::windowClassChanged, this,
+            [this, window]() { onWindowClassChanged(window); });
+
+    // The bridge capture surface is documented transparent; a boot-time
+    // _NET_WM_WINDOW_OPACITY race can leave Window::opacity() at 1.0 (black
+    // box). Re-sanitize on opacity changes. isVideoBridgeSurface() is
+    // evaluated at signal time so a late WM_CLASS is still honored.
+    connect(window, &Window::opacityChanged, this,
+            [this, window]() { sanitizeVideoBridgeSurface(window); });
+
     // Defensive: if a window is ever torn down without routing through
     // Workspace::removeWindow -> onWindowRemoved, still scrub the per-window
     // state maps keyed by its (now-dangling) pointer. The pointer is only used
@@ -598,6 +624,7 @@ void TilingController::onWindowAdded(Window *window)
     connect(window, &QObject::destroyed, this, [this, window]() {
         m_activeMoves.remove(window);
         m_activeResizes.remove(window);
+        m_preTileGeometry.remove(window);
     });
 
     // Don't touch already-managed windows (e.g. on-all-desktops already handled).
@@ -629,6 +656,11 @@ void TilingController::onWindowAdded(Window *window)
         }
 
         window->tilingState().mode = TilingState::Mode::Tiled;
+        // Created already minimized or maximized must not take a tile: that
+        // would leave a ghost slot. Re-join on unminimize/unmaximize.
+        if (window->isMinimized() || window->maximizeMode() != MaximizeRestore) {
+            return;
+        }
         VirtualDesktop *desktop = window->desktops().isEmpty()
             ? VirtualDesktopManager::self()->currentDesktop(output)
             : window->desktops().constFirst();
@@ -649,6 +681,9 @@ void TilingController::onWindowAdded(Window *window)
         }
     } else {
         window->tilingState().mode = mode;
+        // Floated at map time (ignore/float rule, including the video
+        // bridge): still pin opacity if this is the capture surface.
+        sanitizeVideoBridgeSurface(window);
     }
 }
 
@@ -662,6 +697,7 @@ void TilingController::onWindowRemoved(Window *window)
     // entry keyed by a dangling pointer).
     m_activeMoves.remove(window);
     m_activeResizes.remove(window);
+    m_preTileGeometry.remove(window);
     for (auto it = m_masterPins.begin(); it != m_masterPins.end();) {
         if (it.value().isNull() || it.value() == window) {
             it = m_masterPins.erase(it);
@@ -703,6 +739,10 @@ void TilingController::addWindowToLayout(Window *window, LogicalOutput *output, 
     }
 
     const ReflowScope scope(this, output, ReflowContext::Reason::Add, kind);
+    // Remember geometry before the engine snaps it to a tile. If we later
+    // bail an ignored system surface (xwaylandvideobridge) after WM_CLASS
+    // arrives, restore this instead of leaving it stretched as a black box.
+    m_preTileGeometry.insert(window, window->moveResizeGeometry());
     engine->addWindow(window);
 
     // If the window did not end up managed, surface it in logs but do NOT flip
@@ -789,7 +829,7 @@ void TilingController::removeWindowFromLayouts(Window *window)
         }
         // contains() alone misses mid-drag ghost leaves (KWin untiles the
         // window). Only engines that still hold the window or own its ghost
-        // leaf should remove + reflow; others stay untouched.
+        // leaf should remove + reflow; others stay untouched (#11).
         QList<LayoutEngine *> engines;
         for (VirtualDesktop *desktop : VirtualDesktopManager::self()->desktops()) {
             if (LayoutEngine *engine = manager->layoutEngine(desktop)) {
@@ -805,6 +845,10 @@ void TilingController::removeWindowFromLayouts(Window *window)
                                 reflowScopeLayoutKind(output));
         for (LayoutEngine *engine : engines) {
             engine->removeWindow(window);
+            // Maximize forget() (and similar) can leave an empty leaf that
+            // removeWindow cannot see. pruneEmpty on this owning engine only
+            // — not on foreign engines (#11 + #30).
+            engine->pruneEmpty();
         }
     }
 }
@@ -1295,29 +1339,141 @@ void TilingController::onWindowMinimizedChanged(Window *window)
     }
 
     if (window->isMinimized()) {
-        // Drop it from whatever engine holds it; the siblings reflow to fill
-        // the freed slot (same path as closing the window). Capture the output
-        // first so the smart-gaps update targets the right monitor.
-        LogicalOutput *out = window->output();
-        VirtualDesktop *desktop = nullptr;
-        layoutEngineForWindow(window, nullptr, &desktop);
-        removeWindowFromLayouts(window);
-        if (out) {
-            applyGapSettingsToOutput(out, desktop);
+        vacateLayout(window);
+    } else {
+        rejoinLayout(window);
+    }
+}
+
+void TilingController::onWindowMaximizedChanged(Window *window)
+{
+    if (!m_enabled || !m_workspace || !window) {
+        return;
+    }
+
+    // Only tiled windows belong to a layout; floating ones are never in an
+    // engine, so maximizing them is none of our business.
+    if (window->tilingState().mode != TilingState::Mode::Tiled) {
+        return;
+    }
+
+    if (window->maximizeMode() != MaximizeRestore) {
+        // Leave the layout (ghost-tile) like minimize. Mode stays Tiled so
+        // unmaximize re-joins. Always vacate: maximize already forgot the
+        // leaf, so layoutEngineForWindow / shouldHandleRemove may already be
+        // false; vacateLayout pruneEmpty()s the home engine in that case.
+        vacateLayout(window);
+    } else {
+        rejoinLayout(window);
+    }
+}
+
+void TilingController::onWindowClassChanged(Window *window)
+{
+    if (!m_enabled || !m_workspace || !window) {
+        return;
+    }
+
+    // Only windows tiled before their class was known need a correction.
+    if (window->tilingState().mode != TilingState::Mode::Tiled) {
+        return;
+    }
+
+    if (!m_rules->isIgnored(window)) {
+        return;
+    }
+
+    LogicalOutput *out = window->output();
+    VirtualDesktop *desktop = nullptr;
+    layoutEngineForWindow(window, nullptr, &desktop);
+    removeWindowFromLayouts(window);
+    window->tilingState().mode = TilingState::Mode::Floating;
+    if (out) {
+        applyGapSettingsToOutput(out, desktop);
+    }
+
+    // Unmaximize + opacity 0 before restoring pre-snap geometry:
+    // setMaximize(false, false) applies the geometry-restore rect itself.
+    sanitizeVideoBridgeSurface(window);
+
+    auto it = m_preTileGeometry.find(window);
+    if (it != m_preTileGeometry.end()) {
+        const RectF preTileGeometry = it.value();
+        m_preTileGeometry.erase(it);
+        if (!preTileGeometry.isEmpty()) {
+            window->moveResize(preTileGeometry);
         }
-    } else if (!layoutEngineForWindow(window)) {
-        // Restored and not already tiled: re-tile it on its own output/desktop,
-        // resolved exactly like onWindowAdded. Re-appends at the end of the
-        // layout order (same as the close/reopen path), not its pre-minimize
-        // slot. Add slot memory only if users actually miss it.
-        LogicalOutput *output = window->output() ? window->output() : m_workspace->activeOutput();
-        VirtualDesktop *desktop = window->desktops().isEmpty()
-            ? VirtualDesktopManager::self()->currentDesktop(output)
-            : window->desktops().constFirst();
-        addWindowToLayout(window, output, desktop);
-        if (output) {
-            applyGapSettingsToOutput(output, desktop);
+    }
+}
+
+void TilingController::sanitizeVideoBridgeSurface(Window *window)
+{
+    if (!window || !m_rules || !m_rules->isVideoBridgeSurface(window)) {
+        return;
+    }
+
+    // Maximized windows are direct-scanout candidates; scanout bypasses
+    // opacity blending, so even opacity 0 would show as opaque black.
+    if (window->maximizeMode() != MaximizeRestore) {
+        window->setMaximize(false, false);
+    }
+
+    // KWin reads _NET_WM_WINDOW_OPACITY once at map time. If the bridge set
+    // the property after that, Window::opacity() stays at 1.0. Idempotent:
+    // setOpacity early-returns on no change, so opacityChanged cannot recurse.
+    if (window->opacity() != 0.0) {
+        window->setOpacity(0.0);
+    }
+}
+
+void TilingController::vacateLayout(Window *window)
+{
+    LogicalOutput *out = window ? window->output() : nullptr;
+    VirtualDesktop *desktop = nullptr;
+    LayoutEngine *home = layoutEngineForWindow(window, &out, &desktop);
+
+    removeWindowFromLayouts(window);
+
+    // Maximize already forgot the leaf (exitQuickTileMode), so the window is
+    // neither in windows() nor a drag ghost — shouldHandleRemove is false and
+    // removeWindowFromLayouts skipped every engine. Prune only the home
+    // (output, desktop) engine so that orphaned empty leaf is destroyed
+    // without reflowing foreign engines (#11 + #30).
+    if (!home) {
+        if (!out && window) {
+            out = window->output();
         }
+        if (!desktop && window && out) {
+            desktop = window->desktops().isEmpty()
+                ? VirtualDesktopManager::self()->currentDesktop(out)
+                : window->desktops().constFirst();
+        }
+        if (out && desktop && m_workspace) {
+            if (TileManager *manager = m_workspace->tileManager(out)) {
+                home = manager->layoutEngine(desktop);
+            }
+        }
+    }
+    if (home) {
+        home->pruneEmpty();
+    }
+    if (out) {
+        applyGapSettingsToOutput(out, desktop);
+    }
+}
+
+void TilingController::rejoinLayout(Window *window)
+{
+    if (!shouldTile(window) || layoutEngineForWindow(window)) {
+        return;
+    }
+    LogicalOutput *output = window->output() ? window->output() : m_workspace->activeOutput();
+    VirtualDesktop *desktop = window->desktops().isEmpty()
+        ? VirtualDesktopManager::self()->currentDesktop(output)
+        : window->desktops().constFirst();
+    addWindowToLayout(window, output, desktop);
+    if (output) {
+        applyGapSettingsToOutput(output, desktop);
     }
 }
 
@@ -1984,6 +2140,11 @@ void TilingController::retile()
         if (!w->isOnAllDesktops() && !w->desktops().contains(desktop)) {
             continue;
         }
+        // Do not give minimized/maximized windows a slot (ghost tile). They
+        // re-join via onWindowMinimizedChanged / onWindowMaximizedChanged.
+        if (w->isMinimized() || w->maximizeMode() != MaximizeRestore) {
+            continue;
+        }
         fresh->addWindow(w);
     }
 }
@@ -2165,6 +2326,9 @@ void TilingController::resumeSuspendedWindows()
         state.mode = (r.mode == suspendpolicy::Mode::Tiled) ? TilingState::Mode::Tiled
                                                             : TilingState::Mode::Floating;
         if (!r.addToLayout) {
+            continue;
+        }
+        if (window->isMinimized() || window->maximizeMode() != MaximizeRestore) {
             continue;
         }
         LogicalOutput *output = window->output() ? window->output() : m_workspace->activeOutput();
