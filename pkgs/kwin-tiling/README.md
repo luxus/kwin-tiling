@@ -121,6 +121,7 @@ Read by the controller on `reconfigure`; also surfaced in the KCM
 | `MasterCount` | int | `1` | windows in the master area |
 | `DefaultColumnWidth` | double | `0.5` | Scrolling: new column width fraction (0.1–1.0) |
 | `BorderlessWhenTiled` | bool | `false` | hide window decorations on tiled windows |
+| `NewWindowPlacement` | string | `end` | `master` promotes new windows to master; `end` appends them |
 | `GapLeft/Right/Top/Bottom` | int | `0` | outer gaps |
 | `GapBetween` | int | `0` | gap between tiles |
 | `Output <name>` subgroup | — | — | per-monitor layout, gap, and sizing overrides |

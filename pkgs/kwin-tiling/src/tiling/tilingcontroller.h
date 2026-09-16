@@ -232,6 +232,9 @@ private:
     int m_masterCount = 1;
     bool m_layoutSwitchOsd = true;
     bool m_borderlessWhenTiled = false;
+    // [Tiling] NewWindowPlacement: when true ("master"), a newly tiled window is
+    // promoted to master on open; default false ("end") appends it (unchanged).
+    bool m_newWindowMaster = false;
     // Live "gaps off" toggle (toggleGaps); transient, resets on restart.
     bool m_gapsSuppressed = false;
 

@@ -172,6 +172,10 @@ void TilingController::reconfigure()
     m_masterCount = qMax(1, tilingGroup.readEntry("MasterCount", 1));
     m_layoutSwitchOsd = tilingGroup.readEntry("LayoutSwitchOsd", true);
     m_borderlessWhenTiled = tilingGroup.readEntry("BorderlessWhenTiled", false);
+    // "master" promotes new windows to master; anything else (default "end")
+    // keeps the historical append-at-tail behaviour.
+    m_newWindowMaster = tilingGroup.readEntry("NewWindowPlacement", QStringLiteral("end"))
+                            .compare(QLatin1String("master"), Qt::CaseInsensitive) == 0;
     m_rules->load(rulesGroup);
 
     const auto enabledTransition = suspendpolicy::classifyEnabledChange(wasEnabled, m_enabled);
@@ -573,6 +577,11 @@ void TilingController::onWindowAdded(Window *window)
             ? VirtualDesktopManager::self()->currentDesktop(output)
             : window->desktops().constFirst();
         addWindowToLayout(window, output, desktop);
+        // Opt-in ([Tiling] NewWindowPlacement=master): make the freshly opened
+        // window the master instead of appending it at the tail.
+        if (m_newWindowMaster) {
+            promoteToMaster(window);
+        }
         if (output) {
             applyGapSettingsToOutput(output);
         }
