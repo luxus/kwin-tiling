@@ -40,6 +40,7 @@ public:
     void cancelMoveWindow(Window *window) override;
     void reflow() override;
     void pruneEmpty() override;
+    bool ownsGhostLeaf(Window *window) const override { return m_column.ownsGhostLeaf(window); }
 
     QList<Window *> windows() const override;
     Window *windowInDirection(Window *from, FocusDirection direction) const override;

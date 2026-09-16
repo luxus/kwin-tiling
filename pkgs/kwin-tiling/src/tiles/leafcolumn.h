@@ -69,6 +69,32 @@ public:
 
     bool hasMoveSource() const { return m_moveSourceLeafId >= 0; }
     int moveSourceLeafId() const { return m_moveSourceLeafId; }
+    int moveWindowId() const { return m_moveWindowId; }
+
+    /**
+     * True when this column's open move source is @p windowId's leaf — empty
+     * after untile-for-drag, or still holding that window. A contains() check
+     * misses the empty-ghost case.
+     */
+    bool ownsGhostLeaf(int windowId) const
+    {
+        if (windowId < 0 || m_moveSourceLeafId < 0) {
+            return false;
+        }
+        const bool moveWindowMatches = (m_moveWindowId < 0 || m_moveWindowId == windowId);
+        for (const Leaf &l : m_leaves) {
+            if (l.id != m_moveSourceLeafId) {
+                continue;
+            }
+            return movestate::ownsGhostLeaf(true, moveWindowMatches, l.windowId < 0, l.windowId == windowId);
+        }
+        return false;
+    }
+
+    bool shouldHandleRemove(int windowId) const
+    {
+        return movestate::shouldHandleRemove(containsWindow(windowId), ownsGhostLeaf(windowId));
+    }
 
     void beginMove(int windowId)
     {
@@ -77,6 +103,7 @@ public:
             return;
         }
         m_moveSourceLeafId = m_leaves[size_t(idx)].id;
+        m_moveWindowId = windowId;
     }
 
     /**
@@ -106,8 +133,13 @@ public:
         if (m_moveSourceLeafId < 0) {
             return false;
         }
+        // Sibling / unrelated remove must not steal this window's drag ghost.
+        if (m_moveWindowId >= 0 && windowId >= 0 && m_moveWindowId != windowId) {
+            return false;
+        }
         const int src = m_moveSourceLeafId;
         m_moveSourceLeafId = -1;
+        m_moveWindowId = -1;
 
         for (auto it = m_leaves.begin(); it != m_leaves.end(); ++it) {
             if (it->id != src) {
@@ -140,6 +172,7 @@ public:
         }
         if (m_leaves[size_t(idx)].id == m_moveSourceLeafId) {
             m_moveSourceLeafId = -1;
+            m_moveWindowId = -1;
         }
         m_leaves.erase(m_leaves.begin() + idx);
         ++m_destroyCount;
@@ -166,6 +199,7 @@ private:
     std::vector<Leaf> m_leaves;
     int m_nextLeafId = 1;
     int m_moveSourceLeafId = -1;
+    int m_moveWindowId = -1;
     int m_destroyCount = 0;
 };
 

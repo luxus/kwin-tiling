@@ -34,6 +34,11 @@ int main()
     assert(classifyRemove(true, false, -1, 2) == RemovePath::CancelSource);
     assert(classifyRemove(true, true, 2, 2) == RemovePath::CancelSource);
     assert(classifyRemove(true, true, 0, 2) == RemovePath::SiblingOtherColumn);
+    // Sibling/unrelated window must not cancel this drag's ghost (the
+    // contains()-only guard's failure mode, inverted).
+    assert(classifyRemove(true, false, -1, 2, false) == RemovePath::NoMoveNormal);
+    assert(classifyRemove(true, true, 2, 2, false) == RemovePath::SiblingOtherColumn);
+    assert(classifyRemove(true, true, 0, 2, false) == RemovePath::SiblingOtherColumn);
 
     // shouldCancelMoveOnRemove aligns with CancelSource classification.
     assert(shouldCancelMoveOnRemove(true, false, -1, 2, true));
@@ -46,6 +51,19 @@ int main()
     assert(shouldDestroySourceLeaf(false, true)); // still holds drag
     assert(shouldDestroySourceLeaf(true, true));
     assert(!shouldDestroySourceLeaf(false, false)); // unrelated leaf content
+
+    // --- ownsGhostLeaf / shouldHandleRemove (issue #11) ---
+    // Empty ghost for this window: contains() is false, but we must still remove.
+    assert(ownsGhostLeaf(true, true, true, false));
+    assert(ownsGhostLeaf(true, true, false, true)); // not yet untiled
+    assert(!ownsGhostLeaf(false, true, true, false)); // no open move
+    assert(!ownsGhostLeaf(true, false, true, false)); // ghost belongs to another window
+    assert(shouldHandleRemove(true, false));  // still in layout
+    assert(shouldHandleRemove(false, true));  // ghost only — the contains() miss
+    assert(!shouldHandleRemove(false, false)); // foreign engine: skip, no reflow
+    assert(shouldReflowAfterRemove(true, false));
+    assert(shouldReflowAfterRemove(false, true));
+    assert(!shouldReflowAfterRemove(false, false));
 
     // --- pure cancelMoveLeaf uses the same destroy rule ---
     {

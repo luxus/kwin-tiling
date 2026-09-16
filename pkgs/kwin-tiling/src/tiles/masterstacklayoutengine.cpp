@@ -6,6 +6,7 @@
 
 #include "masterstacklayoutengine.h"
 #include "customtile.h"
+#include "movestate.h"
 #include "window.h"
 
 #include <algorithm>
@@ -118,30 +119,56 @@ void MasterStackLayoutEngine::removeWindow(Window *window)
     // Mid-drag remove (output leave / close / already-unmanaged empty holder):
     // cancelMove destroys the empty source leaf. clearMove alone would leave a
     // phantom. Classic MasterStack also sets m_moveHasSource in beginMove.
+    // contains()-only would skip the ghost and leak it; skip only when this
+    // engine neither holds the window nor its drag ghost.
+    if (!shouldHandleRemove(window)) {
+        return;
+    }
+
     if (isCentered()) {
+        bool cancelled = false;
         if (m_moveHasSource) {
             if (StackColumn *col = columnFor(m_moveSourceSide)) {
-                col->cancelMove(window);
+                if (col->ownsGhostLeaf(window)) {
+                    cancelled = col->cancelMove(window);
+                    m_moveHasSource = false;
+                }
             }
-            m_moveHasSource = false;
         }
+        bool removed = false;
         if (StackColumn *col = findColumn(window)) {
             col->removeWindow(window);
-            reflow();
-        } else {
-            // Window already unmanaged; still reflow if cancel dropped a leaf.
+            removed = true;
+        }
+        if (movestate::shouldReflowAfterRemove(cancelled, removed)) {
             reflow();
         }
         return;
     }
 
-    // Classic path: always cancel open move on this column (no-op if none).
-    m_column.cancelMove(window);
-    m_moveHasSource = false;
-    if (m_column.contains(window)) {
+    const bool cancelled = m_column.ownsGhostLeaf(window) && m_column.cancelMove(window);
+    if (cancelled) {
+        m_moveHasSource = false;
+    }
+    const bool contained = m_column.contains(window);
+    if (contained) {
         m_column.removeWindow(window);
     }
-    reflow();
+    if (movestate::shouldReflowAfterRemove(cancelled, contained)) {
+        reflow();
+    }
+}
+
+bool MasterStackLayoutEngine::ownsGhostLeaf(Window *window) const
+{
+    if (!window || !m_moveHasSource) {
+        return false;
+    }
+    if (isCentered()) {
+        const StackColumn *col = columnFor(m_moveSourceSide);
+        return col && col->ownsGhostLeaf(window);
+    }
+    return m_column.ownsGhostLeaf(window);
 }
 
 void MasterStackLayoutEngine::moveWindow(Window *window, int delta)

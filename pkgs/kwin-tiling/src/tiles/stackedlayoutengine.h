@@ -44,6 +44,7 @@ public:
     void cancelMoveWindow(Window *window) override;
     void reflow() override;
     void pruneEmpty() override;
+    bool ownsGhostLeaf(Window *window) const override { return m_column.ownsGhostLeaf(window); }
 
     void adjustWindowHeight(Window *window, qreal delta) override;
 
