@@ -93,6 +93,24 @@
             kfinal: kprev:
             {
               sources = kprev.sources // plasmaSources;
+              # Union 6.7.90 requires cxx-rust-cssparser 1.1.0; nixpkgs still ships 1.0.0.
+              cxx-rust-cssparser = kprev.cxx-rust-cssparser.overrideAttrs (old: rec {
+                version = "1.1.0";
+                src = prev.fetchFromGitLab {
+                  domain = "invent.kde.org";
+                  owner = "libraries";
+                  repo = "cxx-rust-cssparser";
+                  tag = "v${version}";
+                  hash = "sha256-0GO299lTzKh6YwNytuDHu+JlBT+d9E4R1VDWrXueVlM=";
+                };
+                cargoDeps = prev.rustPlatform.fetchCargoVendor {
+                  inherit src;
+                  pname = old.pname;
+                  inherit version;
+                  cargoRoot = "rust";
+                  hash = "sha256-Ukb/LbMMHfeazHiTpwKKAZV2nx5tXZZxJYbLGe9RaVM=";
+                };
+              });
               plasma-wayland-protocols = kprev.plasma-wayland-protocols.overrideAttrs (_: {
                 version = "1.22.0";
                 src = fetchurl {
