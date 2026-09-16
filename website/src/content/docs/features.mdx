@@ -48,10 +48,19 @@ Path A + [#41](https://github.com/luxus/kwin-tiling/issues/41)); fully
 off-viewport columns stay hidden. Column-width cycle (`Meta+Shift+V`) and
 reverse cycle (`Meta+Ctrl+Shift+V`) visit only the presets configured in the KCM
 (default `1/3`, `1/2`, `2/3`, `1`; full width is a preset). Consume-into-column /
-expel-from-column (niri `Mod+,/.`, aliased to `Meta+Shift+[` / `]`) has
-keyboard defaults. Drag onto the top or bottom half of a window in another
-column consumes into that column; drop on empty space (including the gap
-between columns) inserts a new column at the cursor — see
+expel-from-column (niri `Mod+,/.`, aliased to `Meta+Shift+[` / `]`) stay
+**Tiling Consume/Expel**. niri **consume-or-expel** (`Meta+[` / `]`) depends
+on whether the active column is solo or stacked:
+
+| | Left (`Meta+[`) | Right (`Meta+]`) |
+| --- | --- | --- |
+| **Solo** window in column | merge into left neighbour | merge into right neighbour |
+| **Stacked** (2+ tiles) | expel into a new column on the left | expel into a new column on the right |
+
+First/last column: the merge side is a no-op (no crash). Drag onto the top or
+bottom half of a window in another column consumes into that column; drop on
+empty space (including the gap between columns) inserts a new column at the
+cursor. See
 [Usage & Shortcuts](usage) and [Scrolling vs niri](scrolling-vs-niri) for
 remaining polish.
 
@@ -118,9 +127,10 @@ Shortcuts → KWin*. Defaults:
 | Increase / decrease master count | `Meta+Ctrl+.` / `Meta+Ctrl+,` |
 
 Cycle layout, zoom, flip master, gaps, reset sizes, and scrolling column actions
-have defaults (`Meta+Shift+…` and `Meta+Ctrl+0`). Direct layout switches
-(MasterStack, Stacked, etc.) stay unbound — use cycle or bind them in Settings.
-See [Usage & Shortcuts](usage) for the full table and mouse interactions.
+have defaults (`Meta+Shift+…`, `Meta+[` / `Meta+]`, and `Meta+Ctrl+0`). Direct
+layout switches (MasterStack, Stacked, etc.) stay unbound — use cycle or bind
+them in Settings. See [Usage & Shortcuts](usage) for the full table, the
+consume-or-expel matrix, and mouse interactions.
 
 ## Mouse control
 
@@ -172,7 +182,9 @@ When tiling is enabled:
 - **Cross-monitor robustness** — moving windows between outputs no longer leaves
   phantom tiles; empty leaves are pruned after structural changes
 - **Shared layout foundation** — `StackColumn` + pure math (`columnmath`,
-  `masterstackmath`, `gridmath`, `slotlist`, `scrollingmath`, `scrollingmove`, `viewportmath`, `engineindex`, `columnwidthpresets`, `scrollingcolumn`, `overflowmath`, `movestate`, `movefsm`, …) so vertical stacking
+  `masterstackmath`, `gridmath`, `slotlist`, `scrollingmath`, `scrollingmove`,
+  `viewportmath`, `engineindex`, `columnwidthpresets`, `scrollingcolumn`,
+  `overflowmath`, `consumeexpelmath`, `movestate`, `movefsm`, …) so vertical stacking
   and move rules are not copy-pasted per engine; pure suite via `nix flake check`
 - **Clean packaging** — vendored source plus a small patch over stock KWin,
   shipped as a Nix flake module (currently tracks **KWin 6.8 beta / 6.7.90**)

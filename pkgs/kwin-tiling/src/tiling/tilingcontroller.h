@@ -123,6 +123,9 @@ public:
     void expelWindow();
     void consumeIntoColumn();
     void expelFromColumn();
+    // Scrolling niri consume-or-expel left/right (solo merge / stacked expel).
+    void consumeOrExpelWindowLeft();
+    void consumeOrExpelWindowRight();
     // MasterStack: swap the master column side. All layouts: toggle gaps on/off.
     void flipMaster();
     void toggleGaps();

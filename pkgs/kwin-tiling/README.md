@@ -47,7 +47,8 @@ LayoutEngine (src/tiles/layoutengine.h)              — abstract base
   └─ ScrollingLayoutEngine    (many StackColumns + viewport; isolated)
 
 StackColumn (src/tiles/stackcolumn.h)                — shared vertical primitive
-  └─ height weights via columnmath; order/weight via slotlist; move cancel via movestate
+  └─ height weights via columnmath; order/weight via slotlist; move cancel via movestate;
+     scrolling consume-or-expel via consumeexpelmath
 ```
 
 **Composition rule (new layouts):** compose `StackColumn` + pure math headers.
@@ -67,7 +68,7 @@ KWin's `Tile`/`TileManager`; engines only set relative geometry.
   `gridmath`, `directionmath`, `slotlist`, `movestate`, `leafcolumn`, `movefsm`,
   `sizingpolicy`, `suspendpolicy`, `tilingconfig`, `scrollingmove`, `viewportmath`,
   `engineindex`, `columnwidthpresets`, `scrollingcolumn`, `overflowmath`,
-  `scrollingmath`.
+  `scrollingmath`, `consumeexpelmath`.
 - Kind switch **replaces** the engine and re-adds windows; durable layout
   memory is keyed by output/desktop id, not engine pointer.
 - Cross-monitor moves: cancel source leaf, drop on destination — no phantoms.
@@ -101,6 +102,7 @@ in *System Settings → Shortcuts → KWin*.
 | Scrolling: reverse cycle column width | `Meta+Ctrl+Shift+V` |
 | Scrolling: expand column to available width | `Meta+Ctrl+F` |
 | Scrolling: consume into column / expel from column | `Meta+Shift+[` / `Meta+Shift+]` |
+| Scrolling: consume-or-expel left / right | `Meta+[` / `Meta+]` |
 | Switch to MasterStack / Stacked / Scrolling / Centered / Grid | unbound |
 
 In **Scrolling**, `Meta+Alt+Up/Down` reorders the window **inside its column**
@@ -112,6 +114,9 @@ Consume/expel stays `Meta+Shift+[` / `]` and is a different action.
 > action is new in `kglobalshortcutsrc`. An action that previously shipped
 > unbound stays unbound on an existing profile — rebind it once in Settings (or
 > delete its stale `kglobalshortcutsrc` line). Fresh profiles get the defaults.
+> Consume (`Meta+Shift+[`) and expel (`Meta+Shift+]`) keep their original action
+> ids so existing profiles are not silently remapped; consume-or-expel is a
+> **new** pair (`Tiling Consume Or Expel Left/Right`, default `Meta+[` / `Meta+]`).
 
 Mouse: drag the **master/stack divider** to set the master ratio; **drop** a
 window onto another to swap, or onto empty space to insert there (master column
@@ -192,10 +197,10 @@ KWin+Noctalia session packaging: [luxusAi](https://github.com/luxus/luxusAi)
 - Live `[Tiling] Enabled=false` detaches tiled windows and restores borders.
 - Directional focus/move continue onto the adjacent monitor at a layout edge.
 - Smart gaps basic (0 when ≤1 window); manual on/off toggle available.
-- Next: scrolling layout polish (consume/expel UX). Path A overflow (#40) and
-  W0-2 (#41) are in: peeking columns keep full width without migrating;
-  fully off-viewport columns stay hidden. `center-focused-column`
-  never/always/on-overflow is in kcfg/KCM.
+- Next: scrolling layout polish. Path A overflow (#40) and W0-2 (#41) are in:
+  peeking columns keep full width without migrating; fully off-viewport columns
+  stay hidden. niri consume-or-expel left/right (`Meta+[` / `Meta+]`) is shipped.
+  `center-focused-column` never/always/on-overflow is in kcfg/KCM.
 - Session smoke checklist: `pkgs/kwin-tiling/scripts/session-smoke.md`
 
 ## Tests
@@ -214,9 +219,9 @@ Covers geometry (`columnmath`, `gridmath`, `masterstackmath`, `directionmath`,
 (`tilingconfig`), Scrolling viewport modes (`viewportmath`), drop-insert
 (`scrollingmath`), in-column move (`scrollingmove`), Window→engine reverse index
 (`engineindex`), column-width presets (`columnwidthpresets`), consume-into-column
-(`scrollingcolumn`), move cancel (`movestate`, `leafcolumn`), and controller
-policy (`movefsm`, `sizingpolicy`, `suspendpolicy`, `classmatch`). No compositor
-link.
+(`scrollingcolumn`), consume-or-expel (`consumeexpelmath`), move cancel
+(`movestate`, `leafcolumn`), and controller policy (`movefsm`, `sizingpolicy`,
+`suspendpolicy`, `classmatch`). No compositor link.
 
 ### KWin integration (Part B, follow-up)
 

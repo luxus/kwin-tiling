@@ -1,7 +1,7 @@
 - **Layouts** — MasterStack, Stacked, Scrolling, Centered, and Grid; pick a default per monitor, cycle at runtime
 - **Gaps** — adjustable space between tiles and around screen edges; per-monitor overrides with reset
 - **Window rules** — float or ignore windows by app class or title; utilities, dialogs, and transients auto-float
-- **Keyboard** — focus in four directions, toggle float, promote to master, toggle master pin, focus last window, move within layout, move across monitors, adjust master width/count
+- **Keyboard** — focus in four directions, toggle float, promote to master, toggle master pin, focus last window, move within layout, move across monitors, adjust master width/count; scrolling consume/expel and niri consume-or-expel left/right
 - **Mouse** — drag windows to swap or insert; drag dividers to resize master ratio and per-window heights inside a column
 - **Settings KCM** — enable layouts, gaps, master ratio/count, scrolling column width, center-focused-column mode, column-width presets, borderless-when-tiled, per-monitor overrides, and per-desktop layout/sizing in *System Settings → Window Management → Tiling*; changes apply live
 - **Autotile** — new windows tile automatically; moving between desktops or monitors reflows and follows focus
@@ -16,5 +16,6 @@
 - **Tiling Reflow effect** — optional `kwin-effects-tiling-reflow` plugin; reads `WindowTilingReflowRole` when present
 - **Testable pure core** — column/grid/master-stack/scrolling math, slotlist, overflow Path A, layout/sizing
   precedence, scrolling drop-insert, scrollingmove, viewportmath, engineindex,
-  columnwidthpresets, scrollingcolumn, move FSM, leaf cancel rules without linking KWin
+  columnwidthpresets, scrollingcolumn, consume-or-expel matrix, move FSM, leaf
+  cancel rules without linking KWin
 - **Session smoke** — `pkgs/kwin-tiling/scripts/session-smoke.md` for post-relogin checks

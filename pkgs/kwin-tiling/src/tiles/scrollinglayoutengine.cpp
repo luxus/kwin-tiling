@@ -6,6 +6,7 @@
 
 #include "scrollinglayoutengine.h"
 #include "columnwidthpresets.h"
+#include "consumeexpelmath.h"
 #include "customtile.h"
 #include "movestate.h"
 #include "scrollingcolumn.h"
@@ -657,6 +658,62 @@ void ScrollingLayoutEngine::expelFromColumn()
     col.stack.setRoot(m_root);
     col.stack.attachLeaf(detached);
     m_columns.insert(op.sourceCol + 1, col);
+    reflow();
+}
+
+void ScrollingLayoutEngine::consumeOrExpelWindowLeft()
+{
+    consumeOrExpelWindow(true);
+}
+
+void ScrollingLayoutEngine::consumeOrExpelWindowRight()
+{
+    consumeOrExpelWindow(false);
+}
+
+void ScrollingLayoutEngine::consumeOrExpelWindow(bool left)
+{
+    int c = -1;
+    int l = -1;
+    if (!m_activeWindow || !findWindow(m_activeWindow, &c, &l)) {
+        return;
+    }
+    const auto direction = left ? consumeexpelmath::Direction::Left : consumeexpelmath::Direction::Right;
+    const consumeexpelmath::Plan p = consumeexpelmath::plan(m_columns.count(), c, m_columns[c].stack.count(), direction);
+    if (p.kind == consumeexpelmath::Kind::NoOp) {
+        return;
+    }
+
+    StackColumn::Detached detached = m_columns[c].stack.detachWindow(m_activeWindow);
+    if (!detached.isValid()) {
+        return;
+    }
+
+    if (p.kind == consumeexpelmath::Kind::Merge) {
+        if (m_columns[c].stack.isEmpty()) {
+            m_columns.removeAt(c);
+        }
+        const int dest = consumeexpelmath::mergeDestAfterRemove(c, p.targetColumn);
+        if (dest < 0 || dest >= m_columns.count()) {
+            // Unreachable if plan() is honest; restore rather than drop the leaf.
+            Column col;
+            col.width = m_defaultColWidth;
+            col.stack.setRoot(m_root);
+            col.stack.attachLeaf(detached);
+            m_columns.insert(std::clamp(c, 0, int(m_columns.count())), col);
+            reflow();
+            return;
+        }
+        m_columns[dest].stack.attachLeaf(detached);
+        reflow();
+        return;
+    }
+
+    Column col;
+    col.width = m_columns[c].width;
+    col.stack.setRoot(m_root);
+    col.stack.attachLeaf(detached);
+    m_columns.insert(p.targetColumn, col);
     reflow();
 }
 

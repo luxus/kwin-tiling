@@ -79,6 +79,16 @@ bash pkgs/kwin-tiling/tests/run.sh
 - [ ] `Meta+Shift+]` expel-from-column pushes the bottom tile out to the right; remaining widths unchanged
 - [ ] `Meta+Ctrl+F` expand column to available width (two 1/3 columns: focused
       fills remainder, neighbour width unchanged; alone toggles full width)
+- [ ] `Meta+Shift+[` / `Meta+Shift+]` keep **Tiling Consume/Expel** action ids
+      (now consume-into-column / expel-from-column aliases); do **not** treat a
+      missing binding as a consume-or-expel remap
+- [ ] `Meta+[` / `Meta+]` niri consume-or-expel. First/last column: merge
+      side is a no-op (no crash). Matrix:
+
+      | | Left | Right |
+      | --- | --- | --- |
+      | Solo window in column | merge into left neighbour | merge into right neighbour |
+      | Stacked (2+ in column) | expel to a new column on the left | expel to a new column on the right |
 
 ### 6a. Directional move (issue #42)
 
