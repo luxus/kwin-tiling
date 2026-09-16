@@ -1,9 +1,9 @@
 # kwin-tiling
 
 Native dynamic tiling built **into** KWin — master-stack, stacked, scrolling,
-centred, and grid layouts, gaps, float/ignore window rules, and a settings KCM —
-packaged as a small `overrideAttrs` + `hooks.patch` over stock `kdePackages.kwin`
-(not a compositor fork).
+centred, grid, and columns layouts, gaps, float/ignore window rules, and a
+settings KCM — packaged as a small `overrideAttrs` + `hooks.patch` over stock
+`kdePackages.kwin` (not a compositor fork).
 
 It is **not** a fork: the bulk of the feature is vendored as normal source under
 `pkgs/kwin-tiling/src/` (mirroring KWin's own layout) and copied into the build
@@ -108,8 +108,8 @@ Early inspiration came from
 [theblackdon/kineticwe](https://gitlab.com/theblackdon/kineticwe), a fork that
 showed native tiling could live in the compositor. We ported ideas and features,
 not the fork — little of that code remains. Compared to carrying the full fork
-(~3,300 tracked files, 123 diverging `src/` files today), we touch **62** files
-(**44** vendored under `src/` including KCM glue + **18** hooked, +552/−33 lines
+(~3,300 tracked files, 123 diverging `src/` files today), we touch **66** files
+(**48** vendored under `src/` including KCM glue + **18** hooked, +558/−33 lines
 in `hooks.patch`) and skip its
 QPainter backend, hand-rolled borders, install scripts, and binary rename. For
 rounded corners use the separate

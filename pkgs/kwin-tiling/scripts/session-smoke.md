@@ -58,6 +58,9 @@ bash pkgs/kwin-tiling/tests/run.sh
 - [ ] `Meta+Shift+T` cycles enabled layouts without crash
 - [ ] `Meta+Shift+Z` zoom/monocle expands active window; again restores layout
 - [ ] Switch to **Grid** (if enabled in KCM) places windows in a grid
+- [ ] Switch to **Columns** (if enabled in KCM): 1–3 windows are side-by-side;
+      a 4th stacks in the focused column; drop on the top/bottom of a window
+      inserts above/below instead of swapping
 
 ## 6. Scrolling (if exercised)
 
