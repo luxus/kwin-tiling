@@ -80,6 +80,7 @@ App (Tiling)** (permanent class rule).
 | Master width | Master column as a fraction of screen width (0.1–0.9) |
 | Master count | How many windows sit in the master area |
 | Default column width | Scrolling layout: width of new columns |
+| Center focused column | Scrolling: `never` (default, scroll to fit), `always` (center on focus; wide columns left-align), or `on-overflow` (center when the focused column and its neighbour do not both fit). `Meta+Shift+C` remains a one-shot center. Off-screen columns stay hidden until overflow tiles ([#40](https://github.com/luxus/kwin-tiling/issues/40) Path A). |
 | Gap margins | Left, right, top, bottom screen margins |
 | Gap between | Space between adjacent tiles |
 | Per-output overrides | Different layout, gaps, or sizing per monitor |
@@ -98,6 +99,8 @@ DefaultLayout=MasterStack
 EnabledLayouts=MasterStack,Stacked,Scrolling,Centered
 MasterRatio=0.5
 MasterCount=1
+DefaultColumnWidth=0.5
+CenterFocusedColumn=never
 GapBetween=4
 GapLeft=8
 ```
@@ -112,7 +115,11 @@ layout and sizing live under `[Tiling][DesktopOutput <n>:<output>]`.
 - **Stacked** — single column, full width, windows stacked vertically.
 - **Scrolling** — horizontal strip of columns; viewport scrolls to the active one.
   `Meta+Alt+Up/Down` moves the window inside the column; `Meta+Alt+Left/Right`
-  slides the column. Consume/expel is `Meta+Shift+[` / `]`.
+  slides the column. Consume/expel is `Meta+Shift+[` / `]`. Optional
+  `CenterFocusedColumn` (`never` / `always` / `on-overflow`) recenters on focus;
+  `Meta+Shift+C` is still a one-shot center. Without overflow tiles
+  ([#40](https://github.com/luxus/kwin-tiling/issues/40) Path A), `always` still
+  hides off-screen columns.
 - **Centered** — master window in the centre, others in left/right stacks.
 
 Cycle between enabled layouts with the cycle action, or set a default in the KCM.

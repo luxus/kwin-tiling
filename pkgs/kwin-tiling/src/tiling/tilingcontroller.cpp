@@ -204,6 +204,8 @@ void TilingController::reconfigure()
         tilingGroup.readEntry("DefaultLayout", QStringLiteral("MasterStack")));
     m_masterRatio = tilingconfig::clampMasterRatio(tilingGroup.readEntry("MasterRatio", 0.5));
     m_defaultColumnWidth = tilingconfig::clampColumnWidth(tilingGroup.readEntry("DefaultColumnWidth", 0.5));
+    m_centerFocusedColumn = viewportmath::parseCenterFocusedColumn(
+        tilingGroup.readEntry("CenterFocusedColumn", QStringLiteral("never")).toStdString());
     m_masterCount = tilingconfig::clampMasterCount(tilingGroup.readEntry("MasterCount", 1));
     m_layoutSwitchOsd = tilingGroup.readEntry("LayoutSwitchOsd", true);
     m_borderlessWhenTiled = tilingGroup.readEntry("BorderlessWhenTiled", false);
@@ -369,6 +371,7 @@ void TilingController::seedEngineSizing(LogicalOutput *output, VirtualDesktop *d
     // columns, so two columns no longer fit the screen).
     if (kind == LayoutEngine::LayoutKind::Scrolling) {
         engine->setDefaultColumnWidth(sizing.defaultColumnWidth);
+        engine->setCenterFocusedColumn(m_centerFocusedColumn);
     } else {
         engine->setPrimarySplit(sizing.masterRatio);
     }

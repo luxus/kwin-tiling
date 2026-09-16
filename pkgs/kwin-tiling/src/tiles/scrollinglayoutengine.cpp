@@ -8,9 +8,11 @@
 #include "customtile.h"
 #include "movestate.h"
 #include "scrollingmove.h"
+#include "viewportmath.h"
 #include "window.h"
 
 #include <algorithm>
+#include <vector>
 
 namespace KWin
 {
@@ -43,7 +45,8 @@ void ScrollingLayoutEngine::addWindow(Window *window)
 
     // New window opens a new column immediately to the right of the active one
     // (niri's default), so existing windows never shrink.
-    int colIdx = m_columns.isEmpty() ? 0 : activeColumnIndex() + 1;
+    const int from = m_columns.isEmpty() ? -1 : activeColumnIndex();
+    int colIdx = m_columns.isEmpty() ? 0 : from + 1;
     colIdx = std::clamp(colIdx, 0, int(m_columns.count()));
 
     Column col;
@@ -54,6 +57,7 @@ void ScrollingLayoutEngine::addWindow(Window *window)
     }
     m_columns.insert(colIdx, col);
     m_activeWindow = window;
+    m_focusFromColumn = from;
 
     reflow();
 }
@@ -297,32 +301,15 @@ void ScrollingLayoutEngine::reflow()
 
 void ScrollingLayoutEngine::scrollActiveIntoView()
 {
-    qreal total = 0.0;
+    std::vector<double> widths;
+    widths.reserve(static_cast<size_t>(m_columns.count()));
     for (const Column &col : m_columns) {
-        total += col.width;
+        widths.push_back(col.width);
     }
-
-    // Whole strip fits the viewport: center it (no scrolling needed).
-    if (total <= 1.0) {
-        m_scrollOffset = (total - 1.0) / 2.0;
-        return;
-    }
-
-    // Bring the active column's [left, right) just into the [scroll, scroll+1)
-    // viewport (PaperWM/niri "don't move unless off-screen" behaviour).
     const int ac = activeColumnIndex();
-    qreal left = 0.0;
-    for (int i = 0; i < ac; ++i) {
-        left += m_columns[i].width;
-    }
-    const qreal right = left + m_columns[ac].width;
-
-    if (left < m_scrollOffset) {
-        m_scrollOffset = left;
-    } else if (right > m_scrollOffset + 1.0) {
-        m_scrollOffset = right - 1.0;
-    }
-    m_scrollOffset = std::clamp(m_scrollOffset, 0.0, total - 1.0);
+    m_scrollOffset = viewportmath::scrollOffsetForFocus(
+        widths, ac, m_focusFromColumn, m_scrollOffset, m_centerMode);
+    m_focusFromColumn = ac;
 }
 
 QList<CustomTile *> ScrollingLayoutEngine::allLeaves() const
@@ -378,6 +365,7 @@ void ScrollingLayoutEngine::setActiveWindow(Window *window)
     if (m_activeWindow == window) {
         return;
     }
+    m_focusFromColumn = activeColumnIndex();
     m_activeWindow = window;
     reflow(); // scroll the newly active column into view
 }
@@ -413,6 +401,15 @@ void ScrollingLayoutEngine::setDefaultColumnWidth(qreal width)
     m_defaultColWidth = std::clamp(width, 0.1, 1.0);
 }
 
+void ScrollingLayoutEngine::setCenterFocusedColumn(viewportmath::CenterFocusedColumn mode)
+{
+    if (m_centerMode == mode) {
+        return;
+    }
+    m_centerMode = mode;
+    reflow();
+}
+
 void ScrollingLayoutEngine::resetSizes()
 {
     for (Column &col : m_columns) {
@@ -432,9 +429,10 @@ void ScrollingLayoutEngine::centerActiveColumn()
     for (int i = 0; i < ac; ++i) {
         left += m_columns[i].width;
     }
-    // Centre the active column; reflow()'s scrollActiveIntoView leaves a fully
-    // visible active column where it is, and clamps this to the valid range.
-    m_scrollOffset = left - (1.0 - m_columns[ac].width) / 2.0;
+    // One-shot centre (Meta+Shift+C), independent of CenterFocusedColumn.
+    // never/on-overflow fit-scroll in reflow() leaves a fully visible column
+    // where it is; always re-centers to the same offset.
+    m_scrollOffset = viewportmath::centerScrollOffset(left, m_columns[ac].width);
     reflow();
 }
 

@@ -225,7 +225,8 @@ Legend: **Have** / **Partial** / **Missing**.
 | --- | --- |
 | Horizontal strip of columns, new window = new column to the right of active | `addWindow` inserts at `activeColumnIndex() + 1` with `m_defaultColWidth` |
 | Per-output isolation (do not spill to the next monitor) | **Have, by hiding.** Off-viewport columns call `Window::setHidden` instead of sitting past the edge (`scrollinglayoutengine.h` comment). Isolation is real; the method is the feel problem |
-| Fit-scroll: don’t move the camera if the active column is already fully visible | `scrollActiveIntoView` — “don’t move unless off-screen” |
+| Fit-scroll: don’t move the camera if the active column is already fully visible | `scrollActiveIntoView` — “don’t move unless off-screen” (`never`) |
+| `center-focused-column` never / always / on-overflow | `[Tiling] CenterFocusedColumn` + KCM; default `never`. `Meta+Shift+C` remains one-shot. Without [#40](https://github.com/luxus/kwin-tiling/issues/40) Path A, `always` still hides off-screen columns |
 | Center active column | `Meta+Shift+C` → `centerActiveColumn()` |
 | Width presets | `Meta+Shift+V` cycles 1/3, 1/2, 2/3, **1.0** (niri’s default cycle is 1/3, 1/2, 2/3; full width is `maximize-column`) |
 | Default column width | `[Tiling] DefaultColumnWidth` + KCM; per-output override |
@@ -246,7 +247,6 @@ Legend: **Have** / **Partial** / **Missing**.
 | niri | kwin-tiling | Gap |
 | --- | --- | --- |
 | Camera pan with peeking columns at constant size | Viewport is `m_scrollOffset` in view-width fractions. Columns that **overlap** `[0,1]` are placed with possibly negative `colX`. `CustomTile::setRelativeGeometry` **intersects with `[0,1]`**, and `Tile::windowGeometry()` **intersects the output**. Overlapping peek columns are **resized to the visible sliver**, not cropped. Fully off-screen columns are **hidden**, not translated | P0 |
-| `center-focused-column` never / always / on-overflow | Only fit-scroll + a one-shot center + “center the whole strip if it fits” | P1 |
 | Consume/expel | Two one-way actions; no consume-or-expel; no consume-from-next-column | P1 |
 | Move column vs move window | `moveWindow` slides the column (sign of delta). `Meta+Alt+Up/Down` uses `moveWindowInColumn` so stacked windows swap in-column; `Meta+Alt+Left/Right` still slides the column | Landed (#42) |
 | Interactive move insert (new column **or** into column) | Drop on another window **swaps**. Drop on empty space uses base `dropWindow` → `addWindow` (new column next to **active**, not drop index). No insert hint | P1 |
@@ -269,8 +269,7 @@ Legend: **Have** / **Partial** / **Missing**.
 | Insert-hint overlay | Missing. Effect or QML overlay, not engine math |
 | `expand-column-to-available-width` | Missing |
 | Preset window heights | Height weights + `Meta+Ctrl+K/J` only |
-| `always-center-single-column` as a mode | Strip-fits-viewport already centers the **whole** strip (`scrollActiveIntoView` when `total <= 1`) |
-| Configurable `center-focused-column` | Missing |
+| `always-center-single-column` as a mode | Strip-fits-viewport already centers the **whole** strip (`never` when `total <= 1`) |
 | Focus/move column first/last, by index | Missing |
 | `Mod+Wheel` focus/move column | Missing (KWin has desktop-wheel commands; not column) |
 | Gesture-synced springs | Compositor / effect (not in glass-warp; that is open/close only) |
@@ -401,8 +400,9 @@ feel like “i3 but sideways.”
 
 5. **Viewport modes**
    Config + KCM: `never` (current fit), `always`, `on-overflow`, plus keep the
-   one-shot center action. Needs a working camera to look right; the **policy**
-   can land in `scrollActiveIntoView` first.
+   one-shot center action. **Policy shipped** in `scrollActiveIntoView` /
+   `viewportmath` ([#46](https://github.com/luxus/kwin-tiling/issues/46)). Without
+   W0-1, `always` still hides off-screen columns.
 
 6. **Peek without resize**
    Struts or a configurable “always show N px of the next column.” Blocked on P0
@@ -686,7 +686,7 @@ Empty-space drop uses cursor X to choose the strip index (`dropWindow` override)
 **Proof:** session smoke mouse subsection; no ghost tiles (`cancelMove` /
 `pruneEmpty`).
 
-#### W1-5. Scrolling: `center-focused-column` modes
+#### W1-5. Scrolling: `center-focused-column` modes — **shipped** ([#46](https://github.com/luxus/kwin-tiling/issues/46))
 
 Add `never` (current fit), `always`, `on-overflow` to kcfg/KCM, default `never`.
 Keep `Meta+Shift+C` as one-shot center. Without W0-1, `always` will still hide

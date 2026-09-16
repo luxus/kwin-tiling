@@ -11,6 +11,7 @@
 #include "tilingrules.h"
 #include "tilingstate.h"
 #include "tiles/layoutengine.h"
+#include "tiles/viewportmath.h"
 
 #include <QHash>
 #include <QObject>
@@ -209,9 +210,9 @@ private:
     void setupLayoutEngine(LogicalOutput *output, TileManager *manager, VirtualDesktop *desktop,
                            LayoutEngine::LayoutKind kind);
     // Seed a (new or live) engine's sizing from the config cache: master
-    // ratio/count for MasterStack, default column width for Scrolling.
-    // Per-(desktop, output) overrides win over per-output, which win over
-    // the global [Tiling] defaults.
+    // ratio/count for MasterStack, default column width + center-focused-column
+    // for Scrolling. Per-(desktop, output) overrides win over per-output, which
+    // win over the global [Tiling] defaults (center-focused-column is global only).
     void seedEngineSizing(LogicalOutput *output, VirtualDesktop *desktop, LayoutEngine *engine,
                            LayoutEngine::LayoutKind kind);
     // Persist a live master-ratio or master-count change to the most specific
@@ -258,6 +259,7 @@ private:
     QList<LayoutEngine::LayoutKind> m_enabledLayoutKinds;
     qreal m_masterRatio = 0.5;
     qreal m_defaultColumnWidth = 0.5;
+    viewportmath::CenterFocusedColumn m_centerFocusedColumn = viewportmath::CenterFocusedColumn::Never;
     int m_masterCount = 1;
     bool m_layoutSwitchOsd = true;
     bool m_borderlessWhenTiled = false;

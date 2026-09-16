@@ -29,6 +29,10 @@
       <min>0.1</min>
       <max>1.0</max>
     </entry>
+    <entry name="centerFocusedColumn" key="CenterFocusedColumn" type="String">
+      <label>When the Scrolling layout recenters the focused column: never (scroll just enough to fit; default), always (center on every focus; columns wider than the view left-align), or on-overflow (center only when the focused column and its neighbour do not both fit). Meta+Shift+C remains a one-shot center. Without Path A overflow tiles (issue #40), always still hides off-screen columns.</label>
+      <default>never</default>
+    </entry>
     <entry name="masterCount" key="MasterCount" type="Int">
       <label>Number of windows in the master area in MasterStack</label>
       <default>1</default>
