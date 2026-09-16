@@ -5,6 +5,7 @@
 */
 
 #include "scrollinglayoutengine.h"
+#include "columnwidthpresets.h"
 #include "customtile.h"
 #include "movestate.h"
 #include "scrollingmove.h"
@@ -415,6 +416,15 @@ void ScrollingLayoutEngine::setCenterFocusedColumn(viewportmath::CenterFocusedCo
     reflow();
 }
 
+void ScrollingLayoutEngine::setColumnWidthPresets(const QList<qreal> &presets)
+{
+    if (presets.isEmpty()) {
+        m_columnWidthPresets = {1.0 / 3.0, 0.5, 2.0 / 3.0, 1.0};
+        return;
+    }
+    m_columnWidthPresets = presets;
+}
+
 void ScrollingLayoutEngine::resetSizes()
 {
     for (Column &col : m_columns) {
@@ -443,20 +453,28 @@ void ScrollingLayoutEngine::centerActiveColumn()
 
 void ScrollingLayoutEngine::cycleColumnWidth()
 {
+    cycleColumnWidthBy(+1);
+}
+
+void ScrollingLayoutEngine::cycleColumnWidthReverse()
+{
+    cycleColumnWidthBy(-1);
+}
+
+void ScrollingLayoutEngine::cycleColumnWidthBy(int direction)
+{
     const int ac = activeColumnIndex();
     if (ac < 0 || ac >= m_columns.count()) {
         return;
     }
-    // niri-style width presets; step to the first one wider than the current,
-    // wrapping back to the narrowest once past full width.
-    static constexpr qreal presets[] = {1.0 / 3.0, 0.5, 2.0 / 3.0, 1.0};
-    const qreal cur = m_columns[ac].width;
-    qreal next = presets[0];
-    for (const qreal p : presets) {
-        if (p > cur + 0.01) {
-            next = p;
-            break;
-        }
+    std::vector<double> presets;
+    presets.reserve(size_t(m_columnWidthPresets.size()));
+    for (const qreal p : m_columnWidthPresets) {
+        presets.push_back(double(p));
+    }
+    const qreal next = qreal(columnwidthpresets::cycle(double(m_columns[ac].width), presets, direction));
+    if (qFuzzyCompare(m_columns[ac].width, next)) {
+        return;
     }
     m_columns[ac].width = next;
     reflow();

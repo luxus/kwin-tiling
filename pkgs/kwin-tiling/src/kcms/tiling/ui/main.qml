@@ -31,6 +31,58 @@ KCM.SimpleKCM {
         { text: i18n("On overflow"), value: "on-overflow" }
     ]
 
+    function presetTokenToPercent(token) {
+        const t = String(token).trim();
+        if (!t) {
+            return 50;
+        }
+        if (t.endsWith("%")) {
+            const n = Number.parseFloat(t.slice(0, -1));
+            return Number.isNaN(n) ? 50 : Math.round(n);
+        }
+        const slash = t.indexOf("/");
+        if (slash > 0) {
+            const a = Number.parseFloat(t.slice(0, slash));
+            const b = Number.parseFloat(t.slice(slash + 1));
+            if (!Number.isNaN(a) && !Number.isNaN(b) && b !== 0) {
+                return Math.round((a / b) * 100);
+            }
+        }
+        const n = Number.parseFloat(t);
+        if (Number.isNaN(n)) {
+            return 50;
+        }
+        if (n > 1) {
+            return Math.round(n);
+        }
+        return Math.round(n * 100);
+    }
+
+    function percentToPresetToken(pct) {
+        return String(pct / 100);
+    }
+
+    function replaceColumnWidthPreset(index, pct) {
+        const list = kcm.settings.columnWidthPresets.slice();
+        list[index] = percentToPresetToken(pct);
+        kcm.settings.columnWidthPresets = list;
+    }
+
+    function addColumnWidthPreset() {
+        const list = kcm.settings.columnWidthPresets.slice();
+        list.push("0.5");
+        kcm.settings.columnWidthPresets = list;
+    }
+
+    function removeColumnWidthPreset(index) {
+        const list = kcm.settings.columnWidthPresets.slice();
+        if (list.length <= 1) {
+            return;
+        }
+        list.splice(index, 1);
+        kcm.settings.columnWidthPresets = list;
+    }
+
     // Tabs across the top of the module.
     header: QQC2.TabBar {
         id: tabBar
@@ -285,6 +337,62 @@ KCM.SimpleKCM {
                 Layout.fillWidth: true
                 Layout.maximumWidth: Kirigami.Units.gridUnit * 30
                 opacity: 0.7
+            }
+
+            ColumnLayout {
+                Kirigami.FormData.label: i18n("Scrolling width presets:")
+                spacing: Kirigami.Units.smallSpacing
+                Layout.fillWidth: true
+
+                Repeater {
+                    model: kcm.settings.columnWidthPresets
+                    delegate: RowLayout {
+                        required property int index
+                        required property var modelData
+                        spacing: Kirigami.Units.smallSpacing
+                        Layout.fillWidth: true
+
+                        QQC2.SpinBox {
+                            from: 10
+                            to: 100
+                            stepSize: 5
+                            value: root.presetTokenToPercent(modelData)
+                            onValueModified: root.replaceColumnWidthPreset(index, value)
+                            Layout.minimumWidth: Kirigami.Units.gridUnit * 8
+                        }
+                        QQC2.Label {
+                            text: i18n("% of view")
+                            opacity: 0.7
+                        }
+                        QQC2.ToolButton {
+                            icon.name: "list-remove"
+                            display: QQC2.AbstractButton.IconOnly
+                            text: i18n("Remove preset")
+                            enabled: kcm.settings.columnWidthPresets.length > 1
+                            QQC2.ToolTip.text: text
+                            QQC2.ToolTip.visible: hovered
+                            onClicked: root.removeColumnWidthPreset(index)
+                        }
+                    }
+                }
+
+                QQC2.Button {
+                    text: i18n("Add preset")
+                    icon.name: "list-add"
+                    onClicked: root.addColumnWidthPreset()
+                    KCM.SettingStateBinding {
+                        configObject: kcm.settings
+                        settingName: "columnWidthPresets"
+                    }
+                }
+
+                QQC2.Label {
+                    text: i18nc("@info", "Cycle (Meta+Shift+V) and reverse cycle (Meta+Ctrl+Shift+V) visit only these widths. 100% is full-width.")
+                    wrapMode: Text.WordWrap
+                    Layout.fillWidth: true
+                    Layout.maximumWidth: Kirigami.Units.gridUnit * 30
+                    opacity: 0.7
+                }
             }
 
             Item {

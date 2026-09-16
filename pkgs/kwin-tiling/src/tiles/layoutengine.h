@@ -222,6 +222,12 @@ public:
     virtual void setCenterFocusedColumn(viewportmath::CenterFocusedColumn mode) { Q_UNUSED(mode) }
 
     /**
+     * Width presets cycleColumnWidth() / cycleColumnWidthReverse() walk through
+     * (fractions of the view). No-op for layouts without a column concept.
+     */
+    virtual void setColumnWidthPresets(const QList<qreal> &presets) { Q_UNUSED(presets) }
+
+    /**
      * Grow (delta > 0) or shrink (delta < 0) @p window's height relative to the
      * other windows sharing its column. No-op when the column has < 2 windows or
      * the layout has no vertical sharing.
@@ -269,10 +275,12 @@ public:
 
     /**
      * Scrolling-only viewport actions: centre the active column, and cycle the
-     * active column through a set of width presets. No-op for other layouts.
+     * active column through configured width presets (forward = next larger,
+     * reverse = next smaller, wrapping). No-op for other layouts.
      */
     virtual void centerActiveColumn() {}
     virtual void cycleColumnWidth() {}
+    virtual void cycleColumnWidthReverse() {}
 
     /**
      * Scrolling-only: merge the active window into the column on its left

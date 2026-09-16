@@ -117,6 +117,14 @@
               ./leafcolumn-test
               touch $out
             '';
+        columnwidthpresets =
+          pkgs.runCommand "kwin-tiling-columnwidthpresets-test" { nativeBuildInputs = [ pkgs.gcc ]; }
+            ''
+              g++ -std=c++20 -O2 -Wall -Wextra -o columnwidthpresets-test \
+                ${./pkgs/kwin-tiling}/tests/columnwidthpresets_test.cpp
+              ./columnwidthpresets-test
+              touch $out
+            '';
         movefsm =
           pkgs.runCommand "kwin-tiling-movefsm-test" { nativeBuildInputs = [ pkgs.gcc ]; }
             ''

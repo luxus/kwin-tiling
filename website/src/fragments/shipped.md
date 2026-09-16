@@ -3,7 +3,7 @@
 - **Window rules** — float or ignore windows by app class or title; utilities, dialogs, and transients auto-float
 - **Keyboard** — focus in four directions, toggle float, promote to master, toggle master pin, focus last window, move within layout, move across monitors, adjust master width/count
 - **Mouse** — drag windows to swap or insert; drag dividers to resize master ratio and per-window heights inside a column
-- **Settings KCM** — enable layouts, gaps, master ratio/count, scrolling column width and center-focused-column mode, borderless-when-tiled, per-monitor overrides, and per-desktop layout/sizing in *System Settings → Window Management → Tiling*; changes apply live
+- **Settings KCM** — enable layouts, gaps, master ratio/count, scrolling column width, center-focused-column mode, column-width presets, borderless-when-tiled, per-monitor overrides, and per-desktop layout/sizing in *System Settings → Window Management → Tiling*; changes apply live
 - **Autotile** — new windows tile automatically; moving between desktops or monitors reflows and follows focus
 - **Persistence** — master ratio, master count, and layout choices survive restarts via `kwinrc`
 - **Smart gaps** — gaps collapse to zero when only one window is on screen

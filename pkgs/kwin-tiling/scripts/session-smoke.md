@@ -69,6 +69,7 @@ bash pkgs/kwin-tiling/tests/run.sh
       the focused column and its neighbour do not both fit. Apply round-trips.
       Off-screen columns stay hidden without [#40](https://github.com/luxus/kwin-tiling/issues/40)
       Path A.
+- [ ] `Meta+Ctrl+Shift+V` reverse-cycles only the configured presets (e.g. `0.25,0.5`)
 - [ ] `Meta+Shift+[` / `Meta+Shift+]` consume / expel (UX may still be rough)
 
 ### 6a. Directional move (issue #42)

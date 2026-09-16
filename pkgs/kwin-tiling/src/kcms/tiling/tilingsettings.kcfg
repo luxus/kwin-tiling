@@ -33,6 +33,10 @@
       <label>When the Scrolling layout recenters the focused column: never (scroll just enough to fit; default), always (center on every focus; columns wider than the view left-align), or on-overflow (center only when the focused column and its neighbour do not both fit). Meta+Shift+C remains a one-shot center. Without Path A overflow tiles (issue #40), always still hides off-screen columns.</label>
       <default>never</default>
     </entry>
+    <entry name="columnWidthPresets" key="ColumnWidthPresets" type="StringList">
+      <label>Column-width presets for the Scrolling layout, as fractions of the view (or 1/3-style ratios). Cycle and reverse-cycle visit only these values. Full width (1) is a preset, not a separate maximize action.</label>
+      <default code="true">QStringList{QStringLiteral("1/3"), QStringLiteral("1/2"), QStringLiteral("2/3"), QStringLiteral("1")}</default>
+    </entry>
     <entry name="masterCount" key="MasterCount" type="Int">
       <label>Number of windows in the master area in MasterStack</label>
       <default>1</default>
