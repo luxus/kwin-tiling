@@ -96,6 +96,10 @@ public:
     void expelWindow() override;
     void consumeIntoColumn() override;
     void expelFromColumn() override;
+    // niri consume-or-expel-window-left/right (Meta+[ ]): solo → merge into
+    // the neighbour; stacked → expel into a new column on that side.
+    void consumeOrExpelWindowLeft() override;
+    void consumeOrExpelWindowRight() override;
 
     void adjustWindowHeight(Window *window, qreal delta) override;
 
@@ -111,6 +115,7 @@ private:
     bool findWindow(Window *window, int *colIdx, int *leafIdx) const;
     int activeColumnIndex() const;
     qreal effectiveColumnWidth(const Column &col) const;
+    void consumeOrExpelWindow(bool left);
     void scrollActiveIntoView();
     QList<CustomTile *> allLeaves() const;
 

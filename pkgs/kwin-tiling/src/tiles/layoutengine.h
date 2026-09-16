@@ -304,11 +304,21 @@ public:
      * (consume), or split it out into its own column (expel). No-op otherwise.
      * consumeIntoColumn / expelFromColumn are niri's named actions (pull first
      * of next; push last of focused to the right). Defaults alias consume/expel.
+     * Distinct from consume-or-expel so Meta+Shift+[ ] keep their action ids.
      */
     virtual void consumeWindow() {}
     virtual void expelWindow() {}
     virtual void consumeIntoColumn() { consumeWindow(); }
     virtual void expelFromColumn() { expelWindow(); }
+
+    /**
+     * Scrolling-only niri consume-or-expel-window-left/right: solo window
+     * merges into the neighbour on that side; stacked column expels the active
+     * window into a new column on that side. No-op at the first/last column
+     * (and on other layouts).
+     */
+    virtual void consumeOrExpelWindowLeft() {}
+    virtual void consumeOrExpelWindowRight() {}
 
     /**
      * MasterStack-only: swap the master column to the other side of the screen.

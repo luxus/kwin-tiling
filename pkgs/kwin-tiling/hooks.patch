@@ -520,7 +520,7 @@ index 18cf34c..b7d5d48 100644
      m_minimizeOperation->setEnabled(m_window->isMinimizable());
      m_closeOperation->setEnabled(m_window->isCloseable());
      m_shortcutOperation->setEnabled(m_window->rules()->checkShortcut(QString()).isNull());
-@@ -1016,6 +1039,217 @@ void Workspace::initShortcuts()
+@@ -1016,6 +1039,230 @@ void Workspace::initShortcuts()
  
      initShortcut(QStringLiteral("MoveMouseToFocus"), i18nc("@action", "Center Pointer in Focused Window"), QKeySequence(Qt::META | Qt::Key_F5), &Workspace::slotMouseToFocus, false);
      initShortcut(QStringLiteral("MoveMouseToCenter"), i18nc("@action", "Center Pointer in Screen"), QKeySequence(Qt::META | Qt::Key_F6), &Workspace::slotMouseToCenter, false);
@@ -720,6 +720,19 @@ index 18cf34c..b7d5d48 100644
 +            m_tilingController->expelWindow();
 +        }
 +    }, true);
++    // New action ids (not a remap of Consume/Expel) so KGlobalAccel keeps
++    // Meta+Shift+[ ] on Tiling Consume/Expel (aliases of consumeIntoColumn /
++    // expelFromColumn). niri Mod+[ ] is Meta+[ ] here.
++    initShortcut("Tiling Consume Or Expel Left", i18n("Tiling Consume Or Expel Left"), Qt::META | Qt::Key_BracketLeft, [this]() {
++        if (m_tilingController) {
++            m_tilingController->consumeOrExpelWindowLeft();
++        }
++    }, true);
++    initShortcut("Tiling Consume Or Expel Right", i18n("Tiling Consume Or Expel Right"), Qt::META | Qt::Key_BracketRight, [this]() {
++        if (m_tilingController) {
++            m_tilingController->consumeOrExpelWindowRight();
++        }
++    }, true);
 +    initShortcut("Tiling Flip Master", i18n("Tiling Flip Master"), Qt::META | Qt::SHIFT | Qt::Key_F, [this]() {
 +        if (m_tilingController) {
 +            m_tilingController->flipMaster();
@@ -738,7 +751,7 @@ index 18cf34c..b7d5d48 100644
  
  #if KWIN_BUILD_TABBOX
      m_tabbox->initShortcuts();
-@@ -1464,17 +1699,13 @@ void windowToDesktop(Window *window, VirtualDesktopManager::Direction direction)
+@@ -1464,17 +1712,13 @@ void windowToDesktop(Window *window, VirtualDesktopManager::Direction direction)
  
      VirtualDesktopManager *vds = VirtualDesktopManager::self();
      Workspace *ws = Workspace::self();
@@ -762,7 +775,7 @@ index 18cf34c..b7d5d48 100644
  }
  
  /**
-@@ -1511,19 +1742,21 @@ void activeWindowToDesktop(VirtualDesktopManager::Direction direction)
+@@ -1511,19 +1755,21 @@ void activeWindowToDesktop(VirtualDesktopManager::Direction direction)
  {
      VirtualDesktopManager *vds = VirtualDesktopManager::self();
      Workspace *ws = Workspace::self();

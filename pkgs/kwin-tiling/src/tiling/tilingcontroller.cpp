@@ -2298,6 +2298,24 @@ void TilingController::expelFromColumn()
     }
 }
 
+void TilingController::consumeOrExpelWindowLeft()
+{
+    Window *window = activeTiledWindow();
+    LayoutEngine *engine = window ? layoutEngineForWindow(window) : activeLayoutEngine();
+    if (engine) {
+        engine->consumeOrExpelWindowLeft();
+    }
+}
+
+void TilingController::consumeOrExpelWindowRight()
+{
+    Window *window = activeTiledWindow();
+    LayoutEngine *engine = window ? layoutEngineForWindow(window) : activeLayoutEngine();
+    if (engine) {
+        engine->consumeOrExpelWindowRight();
+    }
+}
+
 void TilingController::flipMaster()
 {
     Window *window = activeTiledWindow();
