@@ -791,7 +791,7 @@ index 7e6594d..d5e11b9 100644
  }
  
  LogicalOutput *Window::moveResizeOutput() const
-@@ -3907,6 +3922,52 @@ void Window::setTileCompatibility(Tile *tile)
+@@ -3907,6 +3922,50 @@ void Window::setTileCompatibility(Tile *tile)
      }
  }
  
@@ -855,7 +855,7 @@ index 4523cd4..07a81a1 100644
  #include "utils/common.h"
  #include "utils/gravity.h"
  
-@@ -1330,6 +1332,15 @@ public:
+@@ -1330,6 +1332,14 @@ public:
      void forgetTile(Tile *tile);
      void setTileCompatibility(Tile *tile);
  
@@ -870,7 +870,7 @@ index 4523cd4..07a81a1 100644
      void handleQuickTileShortcut(QuickTileMode mode);
      void setQuickTileModeAtCurrentPosition(QuickTileMode mode);
      void setQuickTileMode(QuickTileMode mode, const QPointF &tileAtPoint);
-@@ -2052,6 +2060,7 @@ protected:
+@@ -2052,6 +2062,7 @@ protected:
      bool m_delayedRaise = false;
      QPointer<Tile> m_requestedTile;
      QPointer<Tile> m_tile;
