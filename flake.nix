@@ -58,11 +58,6 @@
           extraKf = {
             aurorae = [ "kcolorscheme" ];
             bluedevil = [ "ksvg" ];
-            krdp = [
-              "ki18n"
-              "kcoreaddons"
-              "kguiaddons"
-            ];
             kscreen = [ "kcrash" ];
             kscreenlocker = [
               "kio"
@@ -110,6 +105,14 @@
                   cargoRoot = "rust";
                   hash = "sha256-Ukb/LbMMHfeazHiTpwKKAZV2nx5tXZZxJYbLGe9RaVM=";
                 };
+              });
+              krdp = kprev.krdp.overrideAttrs (old: {
+                buildInputs = (old.buildInputs or [ ]) ++ [
+                  kfinal.ki18n
+                  kfinal.kcoreaddons
+                  kfinal.kguiaddons
+                  prev.libei
+                ];
               });
               plasma-wayland-protocols = kprev.plasma-wayland-protocols.overrideAttrs (_: {
                 version = "1.22.0";
