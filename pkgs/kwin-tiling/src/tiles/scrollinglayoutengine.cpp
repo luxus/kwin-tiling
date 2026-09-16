@@ -8,7 +8,6 @@
 #include "columnwidthpresets.h"
 #include "consumeexpelmath.h"
 #include "customtile.h"
-#include "insertpolicy.h"
 #include "movestate.h"
 #include "scrollingcolumn.h"
 #include "scrollingmath.h"
