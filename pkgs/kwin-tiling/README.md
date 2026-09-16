@@ -1,8 +1,8 @@
 # Native KWin tiling — reference
 
-Dynamic tiling (master-stack, stacked, scrolling, centred layouts, gaps,
-float/ignore rules, a settings KCM) built **into** KWin. The native impl lifts
-the ceiling of the KWin script API.
+Dynamic tiling (master-stack, stacked, scrolling, centred, and grid layouts,
+gaps, float/ignore rules, a settings KCM) built **into** KWin. The native impl
+lifts the ceiling of the KWin script API.
 
 **Source of truth:** `pkgs/kwin-tiling/` (the package). The flake exposes it as
 `packages.<sys>.kwin-tiling`, `overlays.default`, and `nixosModules.kwin-tiling`.
@@ -21,7 +21,7 @@ Plasma version. It is **not** a fork build.
 |------|------|
 | `pkgs/kwin-tiling/default.nix` | overrideAttrs: applies `hooks.patch` plus `patches/`, copies `src/` into the kwin tree in `postPatch` |
 | `pkgs/kwin-tiling/src/` | **brand-new** files, mirroring kwin's own `src/` layout (editable as normal source) |
-| `pkgs/kwin-tiling/hooks.patch` | **only** the edits to existing kwin files + CMake wiring (~750 lines — the rebase surface) |
+| `pkgs/kwin-tiling/hooks.patch` | **only** the edits to existing kwin files + CMake wiring (~1,000 lines — the rebase surface) |
 | `pkgs/kwin-tiling/patches/` | stock-kwin mini-patches kept out of `hooks.patch` (NixOS unwrap; Noctalia wallpaper → Desktop) |
 | `flake.nix` → `overlays.default` / `nixosModules.kwin-tiling` | sets `kdePackages.kwin = patched`; composing the module onto a host is the on-switch |
 
@@ -185,7 +185,6 @@ KWin+Noctalia session packaging: [luxusAi](https://github.com/luxus/luxusAi)
 - Live `[Tiling] Enabled=false` detaches tiled windows and restores borders.
 - Directional focus/move continue onto the adjacent monitor at a layout edge.
 - Smart gaps basic (0 when ≤1 window); manual on/off toggle available.
-- Configurable new-window placement (postponed).
 - Next: scrolling layout polish (consume/expel UX). `center-focused-column`
   never/always/on-overflow is in kcfg/KCM; without [#40](https://github.com/luxus/kwin-tiling/issues/40)
   Path A, `always` still hides off-screen columns.
@@ -301,12 +300,14 @@ the fork; little of that code remains.
 | | KineticWE fork | this package |
 | --- | --- | --- |
 | Compositor | entire KWin tree (~3,300 tracked files) | `kdePackages.kwin.overrideAttrs` |
-| Files touched | 123 `src/` files diverge from upstream KWin | 37 (22 vendored + 15 in `hooks.patch`) |
-| Existing KWin edits | spread across the fork | +468 / −38 lines in 15 files |
+| Files touched | 123 `src/` files diverge from upstream KWin | 61 (43 vendored + 18 in `hooks.patch`) |
+| Existing KWin edits | spread across the fork | +534 / −33 lines in 18 files |
 | Workarounds dropped | QPainter backend (~20 files, ~1.9k LOC), hand-rolled borders (~500 LOC), install scripts (~2k LOC), `kineticwe` binary | stock `kwin_wayland`; effects as plugins |
 
-14 of our 15 hooked files are the same integration points KineticWE changed for
-tiling; the fork also modifies **109 other** `src/` files (render backends,
+The 43 vendored files are everything under `pkgs/kwin-tiling/src/` (39 `.cpp`/`.h`/`.qml` plus 4 KCM/CMake glue files). Counts drift as layouts and helpers are added; re-count with `find pkgs/kwin-tiling/src -type f | wc -l` and `grep -c '^diff --git' pkgs/kwin-tiling/hooks.patch`.
+
+Most of our 18 hooked files are the same integration points KineticWE changed for
+tiling; the fork also modifies **100+ other** `src/` files (render backends,
 OpenGL, plugins, scene) that we don't carry. Layout engines set relative
 geometry on KWin's `CustomTile` tree — the compositor's own tile machinery
 handles gaps, geometry, and rendering, so we don't need a parallel render path

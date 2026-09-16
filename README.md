@@ -1,9 +1,9 @@
 # kwin-tiling
 
-Native dynamic tiling built **into** KWin — master-stack, stacked, scrolling, and
-centred layouts, gaps, float/ignore window rules, and a settings KCM — packaged
-as a small `overrideAttrs` + `hooks.patch` over stock `kdePackages.kwin` (not a
-compositor fork).
+Native dynamic tiling built **into** KWin — master-stack, stacked, scrolling,
+centred, and grid layouts, gaps, float/ignore window rules, and a settings KCM —
+packaged as a small `overrideAttrs` + `hooks.patch` over stock `kdePackages.kwin`
+(not a compositor fork).
 
 It is **not** a fork: the bulk of the feature is vendored as normal source under
 `pkgs/kwin-tiling/src/` (mirroring KWin's own layout) and copied into the build
@@ -101,8 +101,9 @@ Early inspiration came from
 [theblackdon/kineticwe](https://gitlab.com/theblackdon/kineticwe), a fork that
 showed native tiling could live in the compositor. We ported ideas and features,
 not the fork — little of that code remains. Compared to carrying the full fork
-(~3,300 tracked files, 123 diverging `src/` files today), we touch **37** files
-(**22** vendored + **15** hooked, +468/−38 lines in `hooks.patch`) and skip its
+(~3,300 tracked files, 123 diverging `src/` files today), we touch **61** files
+(**43** vendored under `src/` including KCM glue + **18** hooked, +534/−33 lines
+in `hooks.patch`) and skip its
 QPainter backend, hand-rolled borders, install scripts, and binary rename. For
 rounded corners use the separate
 [kde-rounded-corners](https://github.com/matinlotfali/KDE-Rounded-Corners)

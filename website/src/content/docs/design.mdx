@@ -12,8 +12,9 @@ We patch stock `kdePackages.kwin`:
 
 - **New code** lives as normal source files under `pkgs/kwin-tiling/src/` and is
   copied into the KWin tree at build time.
-- **Existing KWin files** are changed through a small `hooks.patch` (~900 lines,
-  +468 / −38 net) — CMake wiring, input hooks, workspace/window integration.
+- **Existing KWin files** are changed through a small `hooks.patch` (~1,000 lines,
+  +534 / −33 net across 18 files) — CMake wiring, input hooks, workspace/window
+  integration.
 
 That keeps the compositor binary, protocol support, multi-monitor handling, and
 Plasma integration identical to upstream. When KDE fixes a bug in KWin, you get
@@ -66,13 +67,13 @@ path instead of carrying the fork.
 | | KineticWE fork | kwin-tiling |
 | --- | --- | --- |
 | Compositor to maintain | entire KWin tree (~3,300 tracked files) | stock `kdePackages.kwin` |
-| Integration surface | **123** `src/` files diverge from upstream KWin today | **37** files (**22** new + **15** hooked) |
-| Changes to existing KWin | baked into the fork (hard to isolate) | **+468 / −38** lines in `hooks.patch` |
+| Integration surface | **123** `src/` files diverge from upstream KWin today | **61** files (**43** new + **18** hooked) |
+| Changes to existing KWin | baked into the fork (hard to isolate) | **+534 / −33** lines in `hooks.patch` |
 | Extra workarounds | ~20-file QPainter render path (~1.9k LOC), hand-rolled borders/rounded corners (~500 LOC), distro install scripts (~2k LOC), `kineticwe` binary rename | rounded corners via a separate KWin effect plugin |
 | Plasma bumps | rebase the whole compositor | re-test the patch surface |
 
-The tiling hooks overlap heavily — **14 of our 15** hooked files are among the
-changes KineticWE made — but the fork also touches **109 other** `src/` files
+The tiling hooks overlap heavily — most of our 18 hooked files are among the
+changes KineticWE made — but the fork also touches **100+ other** `src/` files
 (render backends, OpenGL, plugins, scene graph) that we don't need. Because we
 extend KWin instead of maintaining a parallel compositor, there is no second
 render path, no binary rename, and no per-distro install scaffolding.
@@ -114,9 +115,9 @@ master-window pin, a focus-last shortcut, optionally hiding decorations on
 tiled windows, and its `autoGrid` layout — a smoothly-interpolating
 2×2→2×3→3×3→3×4 grid — as a new layout kind. There's also one correctness
 lesson from its resize handling: kwilt snapshots geometry at drag-start and
-only updates a split when that specific edge moved; ours currently recomputes
-both master ratio and per-window height weight from the final geometry on
-every resize, which does unnecessary work and can drift the persisted ratio.
+only updates a split when that specific edge moved. That gating is now shipped
+here (`m_activeResizes` start-geometry snapshot plus a 2px-per-axis threshold
+in `endResizeWindow`).
 
 What we're not taking: kwilt's bounded-visible-window model (`dual` and
 `monocle` knock out every window past a cap). This project always tiles every
@@ -124,8 +125,8 @@ window on screen — importing a minimize-on-overflow mode would fight the
 smart-gaps logic and change what "tiled" means here.
 
 Kwilt-inspired items that shipped (sticky master pin, focus-last, borderless
-when tiled, AutoGrid-as-Grid) live under Features; remaining polish is on the
-roadmap (scrolling UX, placement policy).
+when tiled, AutoGrid-as-Grid, new-window placement) live under Features;
+remaining polish is on the roadmap (scrolling UX).
 
 For packaging details and source layout, see `pkgs/kwin-tiling/README.md` in the
 repository.
