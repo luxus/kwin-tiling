@@ -97,12 +97,18 @@ kdePackages.kwin.overrideAttrs (old: {
   # Drop it and substitute a 6.8-compatible version (creates nixos_utils.h and
   # unwraps only in waylandwindow.cpp::updateResourceName, which still exists and
   # feeds the resourceClass this project's class rules match on).
+  #
+  # noctalia-wallpaper-desktop-type: Noctalia paints wallpaper as layer-shell
+  # (scope noctalia-wallpaper, optionally suffixed per output). Overview / desktop
+  # grid / present windows look for Desktop-type windows (plasmashell desktop) and
+  # otherwise show a black background. Kept as a mini-patch, not in hooks.patch.
   patches =
     (builtins.filter (
       p: builtins.match ".*Unwrap-executable-name.*" (baseNameOf (toString p)) == null
     ) (old.patches or [ ]))
     ++ [
       ./patches/nixos-unwrap-6.8.patch
+      ./patches/noctalia-wallpaper-desktop-type.patch
       ./hooks.patch
     ];
 

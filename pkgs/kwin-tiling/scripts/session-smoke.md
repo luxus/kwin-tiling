@@ -86,6 +86,9 @@ bash pkgs/kwin-tiling/tests/run.sh
 - [ ] Noctalia bar appears after session-ready
 - [ ] Lock + session menu work
 - [ ] Logout returns to greeter; next login has no black screen / DRM denied
+- [ ] Overview / desktop grid / present windows show the Noctalia wallpaper
+      (not a black background). Stock KWin maps layer-shell scope
+      `noctalia-wallpaper*` to Desktop type.
 
 ## Result
 
