@@ -145,6 +145,34 @@ Cycle between enabled layouts with the cycle action, or set a default in the KCM
 - Moving between desktops or monitors retiles and moves focus with the window
 - Master ratio, master count, and layout choices persist across restarts
 
+## Animated reflow (optional)
+
+Tiling itself is instant snaps. Motion is an optional desktop effect, not part
+of the layout engines.
+
+This flake packages **Tiling Reflow** (`kwin-effects-tiling-reflow`), a fork of
+[Geometry Change](https://github.com/peterfajdiga/kwin4_effect_geometry_change)
+that reads `WindowTilingReflowRole` when the patched compositor publishes it
+(directional slides, reason-based curves) and falls back to geometry-delta
+inference on stock KWin or when the hint is missing.
+
+```nix
+environment.systemPackages = [
+  inputs.kwin-tiling.packages.${system}.kwin-effects-tiling-reflow
+];
+# or: imports = [ inputs.kwin-tiling.nixosModules.kwin-effects-tiling-reflow ];
+```
+
+Then enable *System Settings → Desktop Effects → Tiling Reflow*, or:
+
+```ini
+[Plugins]
+kwin4_effect_tiling_reflowEnabled=true
+```
+
+Leave it off for i3-style instant snaps. Do not also enable upstream Geometry
+Change — the two would double-animate the same moves.
+
 ## Packaging
 
 Consume the flake and compose the module onto hosts that should run tiling:

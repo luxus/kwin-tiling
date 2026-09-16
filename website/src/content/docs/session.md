@@ -104,7 +104,10 @@ DRM busy on next login).
 | **Union QQC style** | `kdePackages.union` | Plasma 6.7+ QtQuick apps expect Union, not legacy Breeze |
 
 Optional: **krdp** (remote desktop), **kde-rounded-corners** effect (separate
-plugin — not compositor borders).
+plugin — not compositor borders), **kwin-effects-tiling-reflow** (this flake —
+animated tiled reflow; enable *Tiling Reflow* in Desktop Effects). Session
+wiring in luxusAi (`hjemModules.kwin-noctalia`) is a follow-up, same pattern as
+rounded-corners.
 
 ### Deliberately omitted (vs full Plasma)
 
