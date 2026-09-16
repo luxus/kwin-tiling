@@ -75,6 +75,7 @@
               "kidletime"
               "ksvg"
               "kdoctools"
+              "union"
             ];
             systemsettings = [ "kjobwidgets" ];
             union = [
