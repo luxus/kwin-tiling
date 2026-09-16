@@ -285,6 +285,7 @@ Point greetd at the same `Exec=` path, or use a greeter that lists
 | Empty shortcut / app binding menus | `XDG_DATA_DIRS` missing Nix profile paths; run `kbuildsycoca6 --noincremental` |
 | Tiling KCM missing or stale options | `QML2_IMPORT_PATH` unset; clear `~/.cache/systemsettings/qmlcache` and `kcmshell6/qmlcache` |
 | Lock screen does nothing on KWin | noctalia-kwin layer-shell patch not applied |
+| Overview / desktop grid is a black background | Noctalia wallpaper is layer-shell; stock KWin must map `noctalia-wallpaper*` to Desktop (`pkgs/kwin-tiling/patches/noctalia-wallpaper-desktop-type.patch`) |
 | Logout hangs (greetd) | Session script waiting on compositor restart; stop noctalia then kwin explicitly |
 | Next login black screen / DRM busy | Previous kwin/noctalia still holding GPU; marker + ConditionPathExists + stop script |
 | Config changes do not persist | `kwinrc` store symlink — make it a writable file |

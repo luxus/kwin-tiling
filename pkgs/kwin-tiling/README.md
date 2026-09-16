@@ -19,9 +19,10 @@ Plasma version. It is **not** a fork build.
 
 | Path | Role |
 |------|------|
-| `pkgs/kwin-tiling/default.nix` | overrideAttrs: applies `hooks.patch`, copies `src/` into the kwin tree in `postPatch` |
+| `pkgs/kwin-tiling/default.nix` | overrideAttrs: applies `hooks.patch` plus `patches/`, copies `src/` into the kwin tree in `postPatch` |
 | `pkgs/kwin-tiling/src/` | **brand-new** files, mirroring kwin's own `src/` layout (editable as normal source) |
 | `pkgs/kwin-tiling/hooks.patch` | **only** the edits to existing kwin files + CMake wiring (~750 lines — the rebase surface) |
+| `pkgs/kwin-tiling/patches/` | stock-kwin mini-patches kept out of `hooks.patch` (NixOS unwrap; Noctalia wallpaper → Desktop) |
 | `flake.nix` → `overlays.default` / `nixosModules.kwin-tiling` | sets `kdePackages.kwin = patched`; composing the module onto a host is the on-switch |
 
 The split (new files vendored, hooks as a small patch) keeps the bulk of the

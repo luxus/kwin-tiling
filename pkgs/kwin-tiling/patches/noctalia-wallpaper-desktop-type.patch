@@ -1,0 +1,19 @@
+diff --git a/src/layershellv1window.cpp b/src/layershellv1window.cpp
+--- a/src/layershellv1window.cpp
++++ b/src/layershellv1window.cpp
+@@ -32,7 +32,14 @@
+         {QStringLiteral("splash"), WindowType::Splash},
+         {QStringLiteral("utility"), WindowType::Utility},
+     };
+-    return scopeToType.value(scope.toLower(), WindowType::Normal);
++    const QString lowerScope = scope.toLower();
++    // Noctalia wallpaper should be treated like plasmashell desktop so
++    // overview / desktop grid / present windows can find it.
++    // Prefix match in case the scope gets suffixed (e.g. per output).
++    if (lowerScope.startsWith(QStringLiteral("noctalia-wallpaper"))) {
++        return WindowType::Desktop;
++    }
++    return scopeToType.value(lowerScope, WindowType::Normal);
+ }
+ 
+ LayerShellV1Window::LayerShellV1Window(LayerSurfaceV1Interface *shellSurface,
