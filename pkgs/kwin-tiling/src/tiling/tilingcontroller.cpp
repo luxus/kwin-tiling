@@ -11,6 +11,7 @@
 #include "tiling/tilingreflow.h"
 #include "core/rect.h"
 #include "cursor.h"
+#include "tiling/ghosttile.h"
 #include "tiling/movefsm.h"
 #include "tiling/sizingpolicy.h"
 #include "tiling/suspendpolicy.h"
@@ -932,7 +933,8 @@ void TilingController::onWindowAdded(Window *window)
         window->tilingState().mode = TilingState::Mode::Tiled;
         // Created already minimized or maximized must not take a tile: that
         // would leave a ghost slot. Re-join on unminimize/unmaximize.
-        if (window->isMinimized() || window->maximizeMode() != MaximizeRestore) {
+        if (!ghosttile::shouldTakeTileOnAdd(window->isMinimized(),
+                                            window->maximizeMode() != MaximizeRestore)) {
             return;
         }
         VirtualDesktop *desktop = window->desktops().isEmpty()
@@ -1725,16 +1727,16 @@ void TilingController::onWindowMinimizedChanged(Window *window)
         return;
     }
 
-    // Only tiled windows belong to a layout; floating ones are never in an
-    // engine, so minimizing them is none of our business.
-    if (window->tilingState().mode != TilingState::Mode::Tiled) {
+    const bool tiled = window->tilingState().mode == TilingState::Mode::Tiled;
+    switch (ghosttile::classifyMinimize(tiled, window->isMinimized())) {
+    case ghosttile::Action::Ignore:
         return;
-    }
-
-    if (window->isMinimized()) {
+    case ghosttile::Action::Vacate:
         vacateLayout(window);
-    } else {
+        return;
+    case ghosttile::Action::Rejoin:
         rejoinLayout(window);
+        return;
     }
 }
 
@@ -1744,20 +1746,21 @@ void TilingController::onWindowMaximizedChanged(Window *window)
         return;
     }
 
-    // Only tiled windows belong to a layout; floating ones are never in an
-    // engine, so maximizing them is none of our business.
-    if (window->tilingState().mode != TilingState::Mode::Tiled) {
+    // Maximize leave/rejoin mirrors minimize (KineticWE c22d5c2). Mode stays
+    // Tiled so unmaximize re-joins. Always vacate: maximize already forgot the
+    // leaf, so layoutEngineForWindow / shouldHandleRemove may already be
+    // false; vacateLayout pruneEmpty()s the home engine in that case.
+    const bool tiled = window->tilingState().mode == TilingState::Mode::Tiled;
+    const bool maximized = window->maximizeMode() != MaximizeRestore;
+    switch (ghosttile::classifyMaximize(tiled, maximized)) {
+    case ghosttile::Action::Ignore:
         return;
-    }
-
-    if (window->maximizeMode() != MaximizeRestore) {
-        // Leave the layout (ghost-tile) like minimize. Mode stays Tiled so
-        // unmaximize re-joins. Always vacate: maximize already forgot the
-        // leaf, so layoutEngineForWindow / shouldHandleRemove may already be
-        // false; vacateLayout pruneEmpty()s the home engine in that case.
+    case ghosttile::Action::Vacate:
         vacateLayout(window);
-    } else {
+        return;
+    case ghosttile::Action::Rejoin:
         rejoinLayout(window);
+        return;
     }
 }
 
@@ -1860,7 +1863,13 @@ void TilingController::vacateLayout(Window *window)
 
 void TilingController::rejoinLayout(Window *window)
 {
-    if (!shouldTile(window) || layoutEngineForWindow(window)) {
+    // Unmaximize while minimized (or unminimize while maximized) must not take
+    // a slot: the other leave-state is still in effect.
+    if (!window
+        || !ghosttile::shouldRejoin(window->tilingState().mode == TilingState::Mode::Tiled,
+                                    window->isMinimized(),
+                                    window->maximizeMode() != MaximizeRestore)
+        || layoutEngineForWindow(window)) {
         return;
     }
     LogicalOutput *output = window->output() ? window->output() : m_workspace->activeOutput();
@@ -2598,7 +2607,8 @@ void TilingController::retile()
         }
         // Do not give minimized/maximized windows a slot (ghost tile). They
         // re-join via onWindowMinimizedChanged / onWindowMaximizedChanged.
-        if (w->isMinimized() || w->maximizeMode() != MaximizeRestore) {
+        if (!ghosttile::shouldTakeTileOnAdd(w->isMinimized(),
+                                           w->maximizeMode() != MaximizeRestore)) {
             continue;
         }
         fresh->addWindow(w);

@@ -71,7 +71,7 @@ KWin's `Tile`/`TileManager`; engines only set relative geometry.
   `movestate`, `leafcolumn`, `movefsm`, `sizingpolicy`, `suspendpolicy`,
   `tilingconfig`, `scrollingmove`, `viewportmath`, `engineindex`,
   `columnwidthpresets`, `scrollingcolumn`, `overflowmath`, `scrollingmath`,
-  `consumeexpelmath`.
+  `consumeexpelmath`, `ghosttile`.
 - Kind switch **replaces** the engine and re-adds windows; durable layout
   memory is keyed by output/desktop id, not engine pointer.
 - Cross-monitor moves: cancel source leaf, drop on destination — no phantoms.
