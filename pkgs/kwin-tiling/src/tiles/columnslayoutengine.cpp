@@ -145,6 +145,11 @@ bool ColumnsLayoutEngine::ownsGhostLeaf(Window *window) const
     return m_columns[m_moveSourceColumn].stack.ownsGhostLeaf(window);
 }
 
+bool ColumnsLayoutEngine::contains(Window *window) const
+{
+    return findWindow(window, nullptr, nullptr);
+}
+
 void ColumnsLayoutEngine::beginMoveWindow(Window *window)
 {
     int c = -1;
