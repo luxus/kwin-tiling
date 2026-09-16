@@ -87,6 +87,66 @@ inline double columnLeft(const std::vector<double> &widths, int index)
     return left;
 }
 
+/** Viewport-relative column rect. x may be < 0 or x+width > 1; width is never clipped. */
+struct ColumnRect {
+    double x = 0.0;
+    double width = 0.0;
+};
+
+enum class Visibility {
+    FullyVisible, // entirely inside [0, 1]
+    Peeking,      // overlaps the viewport but not fully inside it
+    Offscreen,    // no overlap with [0, 1]
+};
+
+/**
+ * Place every column at (cumulative strip X - scrollOffset) with its stored
+ * width unchanged. Does **not** intersect with [0, 1] — peeking neighbours
+ * keep Column::width (W0-2 / #41). Path A overflow is what makes that
+ * geometry legal on KWin tiles; this header does not copy overflow/pin.
+ */
+inline std::vector<ColumnRect> placeColumns(const std::vector<double> &widths, double scrollOffset)
+{
+    std::vector<ColumnRect> out;
+    out.reserve(widths.size());
+    double x = 0.0;
+    for (const double w : widths) {
+        out.push_back({x - scrollOffset, w});
+        x += w;
+    }
+    return out;
+}
+
+inline Visibility visibility(const ColumnRect &r)
+{
+    const double left = r.x;
+    const double right = r.x + r.width;
+    if (right <= 0.0 || left >= 1.0) {
+        return Visibility::Offscreen;
+    }
+    if (left >= 0.0 && right <= 1.0) {
+        return Visibility::FullyVisible;
+    }
+    return Visibility::Peeking;
+}
+
+/** Visible sliver after a [0,1] clamp. W0-2 forbids using this as placed width. */
+inline double clippedViewportWidth(const ColumnRect &r)
+{
+    const double left = std::max(r.x, 0.0);
+    const double right = std::min(r.x + r.width, 1.0);
+    return std::max(0.0, right - left);
+}
+
+/**
+ * Hide fully off-viewport columns (Path A coexistence). Peeking columns stay
+ * shown at full width. Monocle hide is reflowZoomed, not this.
+ */
+inline bool hideForOffscreen(const ColumnRect &r)
+{
+    return visibility(r) == Visibility::Offscreen;
+}
+
 /**
  * Fit-scroll (niri "never"): if the strip fits the view, center the whole
  * strip; otherwise scroll just enough to bring [left, left+width) into
@@ -112,7 +172,7 @@ inline double fitScrollOffset(double left, double width, double currentOffset, d
  * Center the column in the view. Columns as wide as (or wider than) the view
  * left-align. Not clamped to the strip: centering the first/last column can
  * show empty space and park neighbours past the edge (Path A overflow tiles
- * keep peeking width; fully off-viewport columns stay hidden until #41).
+ * keep peeking width; fully off-viewport columns stay hidden).
  */
 inline double centerScrollOffset(double left, double width)
 {

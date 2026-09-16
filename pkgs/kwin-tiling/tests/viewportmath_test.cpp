@@ -130,6 +130,103 @@ int main()
     // empty strip
     assert(approx(scrollOffsetForFocus({}, 0, -1, 0.0, CenterFocusedColumn::Always), 0.0));
 
+    // placeColumns is a pure translation: x_i = stripX_i - scrollOffset.
+    {
+        const std::vector<double> widths{0.5, 0.5, 0.5};
+        const auto placed = placeColumns(widths, 0.25);
+        assert(placed.size() == 3);
+        assert(approx(placed[0].x, -0.25) && approx(placed[0].width, 0.5));
+        assert(approx(placed[1].x, 0.25) && approx(placed[1].width, 0.5));
+        assert(approx(placed[2].x, 0.75) && approx(placed[2].width, 0.5));
+        assert(visibility(placed[0]) == Visibility::Peeking);
+        assert(visibility(placed[1]) == Visibility::FullyVisible);
+        assert(visibility(placed[2]) == Visibility::Peeking);
+        assert(!hideForOffscreen(placed[0]));
+        assert(!hideForOffscreen(placed[1]));
+        assert(!hideForOffscreen(placed[2]));
+    }
+
+    // Acceptance (#41): default width 1/3, 5-column strip. Focusing along the
+    // strip never changes an unfocused column's width. Peeking neighbours keep
+    // full size (not the visible sliver). Fully off-viewport stay hidden.
+    {
+        const std::vector<double> widths(5, 1.0 / 3.0);
+        const std::vector<double> original = widths;
+        double offset = 0.0;
+
+        for (int active = 0; active < 5; ++active) {
+            offset = scrollOffsetForFocus(widths, active, active - 1, offset, CenterFocusedColumn::Never);
+            const auto placed = placeColumns(widths, offset);
+            assert(placed.size() == 5);
+            assert(visibility(placed[static_cast<size_t>(active)]) == Visibility::FullyVisible);
+            assert(!hideForOffscreen(placed[static_cast<size_t>(active)]));
+
+            for (int c = 0; c < 5; ++c) {
+                const ColumnRect &r = placed[static_cast<size_t>(c)];
+                assert(approx(r.width, original[static_cast<size_t>(c)]));
+                assert(approx(r.width, 1.0 / 3.0));
+
+                const Visibility v = visibility(r);
+                assert(hideForOffscreen(r) == (v == Visibility::Offscreen));
+                if (v == Visibility::Peeking) {
+                    const double sliver = clippedViewportWidth(r);
+                    assert(sliver > 0.0);
+                    assert(sliver < r.width - 1e-9);
+                    assert(!hideForOffscreen(r));
+                }
+                if (v == Visibility::Offscreen) {
+                    assert(approx(clippedViewportWidth(r), 0.0));
+                    assert(hideForOffscreen(r));
+                }
+            }
+        }
+        for (int c = 0; c < 5; ++c) {
+            assert(approx(widths[static_cast<size_t>(c)], original[static_cast<size_t>(c)]));
+        }
+    }
+
+    // Coexistence with Path A overflow: a 1/3 column hanging ~40% past the
+    // left edge keeps stored width (not the sliver) and is *not* hidden.
+    // Fully off-viewport columns on the same strip *are* hidden. Overflow
+    // clamp/pin lives in overflowmath — this header does not copy it.
+    {
+        const std::vector<double> widths(5, 1.0 / 3.0);
+        const double offset = 0.4 / 3.0;
+        const auto placed = placeColumns(widths, offset);
+        assert(placed.size() == 5);
+
+        assert(visibility(placed[0]) == Visibility::Peeking);
+        assert(approx(placed[0].x, -0.4 / 3.0));
+        assert(approx(placed[0].width, 1.0 / 3.0));
+        assert(!hideForOffscreen(placed[0]));
+        const double sliver = clippedViewportWidth(placed[0]);
+        assert(sliver > 0.0 && sliver < placed[0].width - 1e-9);
+
+        assert(visibility(placed[4]) == Visibility::Offscreen);
+        assert(approx(placed[4].width, 1.0 / 3.0));
+        assert(hideForOffscreen(placed[4]));
+        assert(approx(clippedViewportWidth(placed[4]), 0.0));
+
+        bool sawPeek = false;
+        bool sawHide = false;
+        for (const ColumnRect &r : placed) {
+            assert(approx(r.width, 1.0 / 3.0));
+            if (visibility(r) == Visibility::Peeking) {
+                sawPeek = true;
+                assert(!hideForOffscreen(r));
+            }
+            if (hideForOffscreen(r)) {
+                sawHide = true;
+                assert(visibility(r) == Visibility::Offscreen);
+            }
+        }
+        assert(sawPeek);
+        assert(sawHide);
+    }
+
+    // Empty placeColumns.
+    assert(placeColumns({}, 0.0).empty());
+
     std::puts("viewportmath: all checks passed");
     return 0;
 }

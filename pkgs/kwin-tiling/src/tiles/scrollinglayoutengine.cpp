@@ -40,7 +40,8 @@ void ScrollingLayoutEngine::attach(RootTile *root)
     takeOwnershipOfRoot(m_root);
     // Path A (#40): overflow geometry is legal on this tree. Leaves inherit
     // m_allowOverflow so CustomTile [0,1] and windowGeometry() output intersect
-    // do not resize peeking columns. Hide-for-offscreen stays until #41.
+    // do not resize peeking columns. W0-2 (#41): peeking keeps Column::width;
+    // fully off-viewport columns stay hidden.
     if (m_root) {
         m_root->setAllowOverflow(true);
     }
@@ -356,17 +357,18 @@ void ScrollingLayoutEngine::reflow()
 
     scrollActiveIntoView();
 
-    qreal x = 0.0;
+    std::vector<double> widths;
+    widths.reserve(static_cast<size_t>(m_columns.count()));
+    for (const Column &col : m_columns) {
+        widths.push_back(col.width);
+    }
+    const auto placed = viewportmath::placeColumns(widths, m_scrollOffset);
     for (int c = 0; c < m_columns.count(); ++c) {
-        Column &col = m_columns[c];
-        const qreal colX = x - m_scrollOffset;
-        // A column that does not overlap the [0, 1] viewport is scrolled fully
-        // off-screen: hide it instead of letting its tile clamp to the screen
-        // edge or spill onto the neighbouring monitor. The active window is
-        // never hidden (it is always scrolled into view).
-        const bool offscreen = (colX >= 1.0) || (colX + col.width <= 0.0);
-        col.stack.fill(RectF(colX, 0.0, col.width, 1.0), offscreen, m_activeWindow);
-        x += col.width;
+        const auto &p = placed[static_cast<size_t>(c)];
+        // Full Column::width at stripX - scrollOffset. Hide only fully
+        // off-viewport columns (Path A coexistence); peeking stays shown.
+        const bool offscreen = viewportmath::hideForOffscreen(p);
+        m_columns[c].stack.fill(RectF(p.x, 0.0, p.width, 1.0), offscreen, m_activeWindow);
     }
 
     Q_EMIT layoutChanged();

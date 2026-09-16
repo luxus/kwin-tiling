@@ -86,7 +86,7 @@ App (Tiling)** (permanent class rule).
 | Master width | Master column as a fraction of screen width (0.1–0.9) |
 | Master count | How many windows sit in the master area |
 | Default column width | Scrolling layout: width of new columns |
-| Center focused column | Scrolling: `never` (default, scroll to fit), `always` (center on focus; wide columns left-align), or `on-overflow` (center when the focused column and its neighbour do not both fit). `Meta+Shift+C` remains a one-shot center. Off-screen columns stay hidden until overflow tiles ([#40](https://github.com/luxus/kwin-tiling/issues/40) Path A). |
+| Center focused column | Scrolling: `never` (default, scroll to fit), `always` (center on focus; wide columns left-align), or `on-overflow` (center when the focused column and its neighbour do not both fit). `Meta+Shift+C` remains a one-shot center. Peeking columns keep full width ([#40](https://github.com/luxus/kwin-tiling/issues/40) Path A + [#41](https://github.com/luxus/kwin-tiling/issues/41)); fully off-viewport columns stay hidden. |
 | Column-width presets | Scrolling layout: widths visited by cycle / reverse cycle |
 | Gap margins | Left, right, top, bottom screen margins |
 | Gap between | Space between adjacent tiles |
@@ -134,9 +134,10 @@ Per-app output pinning lives under `[TilingRules]` as `AssignOutput` (e.g.
   `Meta+Shift+]` expels the bottom tile into a new column to the right.
   Existing column widths are left alone. Optional `CenterFocusedColumn`
   (`never` / `always` / `on-overflow`) recenters on focus; `Meta+Shift+C` is
-  still a one-shot center. Without overflow tiles
-  ([#40](https://github.com/luxus/kwin-tiling/issues/40) Path A), `always` still
-  hides off-screen columns.
+  still a one-shot center. `always` peeks neighbours at full width
+  ([#40](https://github.com/luxus/kwin-tiling/issues/40) Path A +
+  [#41](https://github.com/luxus/kwin-tiling/issues/41)); fully off-viewport
+  columns stay hidden.
 - **Centered** — master window in the centre, others in left/right stacks.
 - **Grid** — opt-in smoothly scaling grid (not in the default `EnabledLayouts`
   list; enable it in the KCM or add `Grid` to `EnabledLayouts`).
