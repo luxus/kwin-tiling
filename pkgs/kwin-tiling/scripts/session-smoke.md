@@ -77,6 +77,8 @@ bash pkgs/kwin-tiling/tests/run.sh
 - [ ] `Meta+Ctrl+Shift+V` reverse-cycles only the configured presets (e.g. `0.25,0.5`)
 - [ ] Two single-window columns: `Meta+Shift+[` consume-into-column → one stacked column; remaining widths unchanged
 - [ ] `Meta+Shift+]` expel-from-column pushes the bottom tile out to the right; remaining widths unchanged
+- [ ] `Meta+Ctrl+F` expand column to available width (two 1/3 columns: focused
+      fills remainder, neighbour width unchanged; alone toggles full width)
 
 ### 6a. Directional move (issue #42)
 

@@ -268,7 +268,7 @@ Legend: **Have** / **Partial** / **Missing**.
 | Vertical dynamic workspace strips | Plasma virtual desktops + optional per-output desktops. Do not reimplement niri’s workspace model in the tiling engine |
 | Tabbed columns + tab indicator | Missing. Closest: a column of stacked windows, all visible |
 | Insert-hint overlay | Missing. Effect or QML overlay, not engine math |
-| `expand-column-to-available-width` | Missing |
+| `expand-column-to-available-width` | Have (`Meta+Ctrl+F`); grow into unused space among fully visible columns; alone toggles full width |
 | Preset window heights | Height weights + `Meta+Ctrl+K/J` only |
 | `always-center-single-column` as a mode | Strip-fits-viewport already centers the **whole** strip (`never` when `total <= 1`) |
 | Focus/move column first/last, by index | Missing |
@@ -418,7 +418,6 @@ feel like “i3 but sideways.”
 ### P2 — nice-to-have
 
 - Configurable preset widths (and reverse cycle); optional preset heights.
-- `expand-column-to-available-width`.
 - First/last column focus + move.
 - `Mod+Wheel` column focus (careful with existing KWin desktop-wheel).
 - 3-finger swipe → scroll offset (KWin swipe gesture → engine; **hooks** +
@@ -704,12 +703,9 @@ pure helper.
 
 #### W2-1. Scrolling: expand column to available width
 
-niri `expand-column-to-available-width`: grow the focused column into unused space
-among fully visible columns; if it is alone, toggle full width.
-
-**Acceptance:** two 1/3 columns with empty space → focused column grows to fill
-visible remainder; existing neighbour width unchanged. **Proof:** session with
-default 0.5 then 1/3 presets.
+**Shipped** (`Meta+Ctrl+F`): niri `expand-column-to-available-width` — grow the
+focused column into unused space among fully visible columns; if it is alone,
+toggle full width. Neighbour widths are unchanged. Math in `scrollingmath.h`.
 
 #### W2-2. Configurable column-width presets (and reverse)
 

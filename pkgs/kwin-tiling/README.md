@@ -99,6 +99,7 @@ in *System Settings → Shortcuts → KWin*.
 | Toggle gaps | `Meta+Shift+G` |
 | Scrolling: center column / cycle column width | `Meta+Shift+C` / `Meta+Shift+V` |
 | Scrolling: reverse cycle column width | `Meta+Ctrl+Shift+V` |
+| Scrolling: expand column to available width | `Meta+Ctrl+F` |
 | Scrolling: consume into column / expel from column | `Meta+Shift+[` / `Meta+Shift+]` |
 | Switch to MasterStack / Stacked / Scrolling / Centered / Grid | unbound |
 
@@ -315,6 +316,8 @@ Maintenance above).
   splitters inside master or stack column).
 - **Cross-output moves** — per-output virtual-desktop behavior; defensive
   `pruneEmpty` after structural changes.
+- **Scrolling expand-to-available-width** — `Meta+Ctrl+F` grows the focused
+  column into unused visible space; alone toggles full width; neighbours stay.
 - Smart gaps (zero when ≤1 window in a layout).
 - Per-output layout choice + cycle; full `TilingController` integration with
   KWin's move/resize/desktop signals.

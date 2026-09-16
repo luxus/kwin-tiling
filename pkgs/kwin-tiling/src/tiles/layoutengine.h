@@ -288,13 +288,16 @@ public:
     virtual void resetSizes() {}
 
     /**
-     * Scrolling-only viewport actions: centre the active column, and cycle the
+     * Scrolling-only viewport actions: centre the active column, cycle the
      * active column through configured width presets (forward = next larger,
-     * reverse = next smaller, wrapping). No-op for other layouts.
+     * reverse = next smaller, wrapping), and grow the focused column into
+     * unused visible space (niri expand-column-to-available-width).
+     * No-op for other layouts.
      */
     virtual void centerActiveColumn() {}
     virtual void cycleColumnWidth() {}
     virtual void cycleColumnWidthReverse() {}
+    virtual void expandColumnToAvailableWidth() {}
 
     /**
      * Scrolling-only: merge the active window into the column on its left

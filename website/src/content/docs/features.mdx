@@ -41,10 +41,11 @@ viewport scrolls to show the active column. New windows open in new columns;
 you can resize column widths and move windows between columns. `Meta+Alt+Up/Down`
 reorders windows **inside** a column; `Meta+Alt+Left/Right` slides the whole
 column. Center-focused-column modes (`never` / `always` / `on-overflow`) live in
-the KCM; `Meta+Shift+C` is still a one-shot center. Peeking neighbours keep
-full width ([#40](https://github.com/luxus/kwin-tiling/issues/40) Path A +
-[#41](https://github.com/luxus/kwin-tiling/issues/41)); fully off-viewport
-columns stay hidden. Column-width cycle (`Meta+Shift+V`) and
+the KCM; `Meta+Shift+C` is still a one-shot center. Expand-to-available-width
+(`Meta+Ctrl+F`) grows the focused column into unused visible space. Peeking
+neighbours keep full width ([#40](https://github.com/luxus/kwin-tiling/issues/40)
+Path A + [#41](https://github.com/luxus/kwin-tiling/issues/41)); fully
+off-viewport columns stay hidden. Column-width cycle (`Meta+Shift+V`) and
 reverse cycle (`Meta+Ctrl+Shift+V`) visit only the presets configured in the KCM
 (default `1/3`, `1/2`, `2/3`, `1`; full width is a preset). Consume-into-column /
 expel-from-column (niri `Mod+,/.`, aliased to `Meta+Shift+[` / `]`) has
