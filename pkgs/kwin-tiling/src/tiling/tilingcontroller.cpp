@@ -693,12 +693,7 @@ void TilingController::removeWindowFromLayouts(Window *window)
                                 reflowScopeLayoutKind(output));
         for (VirtualDesktop *desktop : VirtualDesktopManager::self()->desktops()) {
             if (LayoutEngine *engine = manager->layoutEngine(desktop)) {
-                // A window lives in at most one engine, so only ask the engine
-                // that actually holds it to remove+reflow; the others would
-                // reflow needlessly for a window they never had.
-                if (engine->windows().contains(window)) {
-                    engine->removeWindow(window);
-                }
+                engine->removeWindow(window);
             }
         }
     }
