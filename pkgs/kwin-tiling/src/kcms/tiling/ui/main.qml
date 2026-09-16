@@ -610,7 +610,9 @@ KCM.SimpleKCM {
                     const nums = [];
                     const count = kcm.desktopLayoutOverridesModel.count;
                     const outputCount = kcm.desktopLayoutOverridesModel.outputNames.length;
-                    if (outputCount === 0) return [];
+                    if (outputCount === 0) {
+                        return [];
+                    }
                     for (let i = 0; i < count; i += outputCount) {
                         nums.push(i / outputCount + 1);
                     }
