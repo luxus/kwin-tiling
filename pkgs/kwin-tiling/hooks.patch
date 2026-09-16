@@ -957,14 +957,20 @@ index 26a2f6b..0d2353b 100644
      for (Window *window : std::as_const(m_windows)) {
          if (!window->isOnDesktop(newDesktop) || !window->isOnOutput(output)) {
              continue;
-@@ -1120,6 +1153,12 @@ void Workspace::updateWindowVisibilityAndActivateOnDesktopChange(VirtualDesktop
+@@ -1120,6 +1153,18 @@ void Workspace::updateWindowVisibilityAndActivateOnDesktopChange(VirtualDesktop
              }
          }
  
 +        // For tiled windows, always update geometry from the tile even if the
 +        // requested tile hasn't changed, because the tile's geometry may have
 +        // been updated by a reflow (e.g. when another window was removed).
-+        if (tile && window->tilingState().mode == TilingState::Mode::Tiled) {
++        //
++        // But never stomp a fullscreen window's geometry. Fullscreen keeps its
++        // tile membership by design (so it restores to the tile on exit), so
++        // without this guard the force-resize below would re-tile a fullscreen
++        // window the moment the user returns to its desktop.
++        if (tile && window->tilingState().mode == TilingState::Mode::Tiled
++            && !window->isFullScreen()) {
 +            window->tilingMoveResize(tile->windowGeometry(), tileManager(output));
 +        }
          window->requestTile(tile);

@@ -34,9 +34,18 @@ public:
 
     /**
      * Returns true if the window should be ignored entirely by tiling
-     * (e.g. shell/panel/launcher windows).
+     * (e.g. shell/panel/launcher windows). Always includes the
+     * xwaylandvideobridge capture surface, even when IgnoreClass is empty.
      */
     bool isIgnored(const Window *window) const;
+
+    /**
+     * Returns true only for the xwaylandvideobridge capture surface — the one
+     * window that is documented to be fully transparent. Separate from
+     * isIgnored(): user IgnoreClass rules and non-client windows must never
+     * be forced transparent / un-maximized.
+     */
+    bool isVideoBridgeSurface(const Window *window) const;
 
     /**
      * Returns true if the window should be forced to float.

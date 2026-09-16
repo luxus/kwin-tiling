@@ -9,12 +9,14 @@
 */
 
 #include "../src/tiles/classmatch.h"
+#include "../src/tiles/videobridge.h"
 
 #include <cassert>
 #include <cstdio>
 #include <vector>
 
 using namespace KWin::classmatch;
+using namespace KWin::videobridge;
 
 int main()
 {
@@ -42,6 +44,20 @@ int main()
     // Empty pattern never matches.
     assert(!matchToken("code", ""));
     assert(!matchAny("code", {}));
+
+    // xwaylandvideobridge: exact class (short + desktop-file) and role.
+    // Not substring — "videobridge" alone must not match.
+    assert(matchesClass("xwaylandvideobridge", "xwaylandvideobridge"));
+    assert(matchesClass("org.kde.xwaylandvideobridge", "ContentsWindow"));
+    assert(matchesClass("Xwaylandvideobridge", ""));
+    assert(!matchesClass("firefox", "Navigator"));
+    assert(!matchesClass("org.kde.videobridge", ""));
+    assert(matchesRole("ContentsWindow"));
+    assert(matchesRole("contentswindow"));
+    assert(!matchesRole("MainWindow"));
+    assert(isVideoBridge("", "", "ContentsWindow"));
+    assert(isVideoBridge("xwaylandvideobridge", "", ""));
+    assert(!isVideoBridge("konsole", "konsole", "MainWindow"));
 
     std::puts("classmatch_test: OK");
     return 0;

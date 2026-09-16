@@ -169,6 +169,20 @@ private:
     // A minimized tiled window leaves its layout (siblings reflow to fill) and
     // re-tiles on restore. Without this the minimized window keeps its slot.
     void onWindowMinimizedChanged(Window *window);
+    // Same ghost-tile leave/rejoin as minimize, for maximize. Fullscreen is
+    // left attached (core KWin does not forget the tile on that path).
+    void onWindowMaximizedChanged(Window *window);
+    // Re-evaluate ignore rules when WM_CLASS arrives late (XWayland).
+    void onWindowClassChanged(Window *window);
+    // Pin the xwaylandvideobridge capture surface to opacity 0 and undo
+    // maximize so it cannot present as an opaque black box. No-op for every
+    // other window. Idempotent (setOpacity/setMaximize no-op on no change).
+    void sanitizeVideoBridgeSurface(Window *window);
+    // Shared leave/rejoin used by minimize and maximize. vacate always
+    // remove+prune on the home engine (maximize may already have forgotten
+    // the leaf, so shouldHandleRemove is false and we must not walk others).
+    void vacateLayout(Window *window);
+    void rejoinLayout(Window *window);
     void focusInDirection(LayoutEngine::FocusDirection direction);
     void moveInDirection(LayoutEngine::FocusDirection direction);
     // The first tiled window on the output adjacent to the active window in
@@ -276,6 +290,10 @@ private:
     int m_nextReflowGroupId = 1;
     // Debounces kwinrc sync() on the interactive sizing paths (see schedulePersist).
     QTimer *m_persistTimer = nullptr;
+    // Geometry immediately before the engine snapped the window into a tile.
+    // Restored in onWindowClassChanged() for ignored system surfaces whose
+    // WM_CLASS arrived after they were already adopted. Cleared on remove.
+    QHash<Window *, RectF> m_preTileGeometry;
 };
 
 } // namespace KWin
