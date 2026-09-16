@@ -15,6 +15,7 @@
 #include <cassert>
 #include <cmath>
 #include <cstdio>
+#include <vector>
 
 using namespace KWin::columnmath;
 
@@ -81,6 +82,44 @@ int main()
     assert(clampWeight(99.0) == kMaxWeight);
     assert(clampWeight(0.0) == kMinWeight);
     assert(clampWeight(1.0) == 1.0);
+
+    // --- reorder (promoteToMaster): rotate, not pairwise swap ---
+    {
+        assert(movedIndex(4, 3, -3) == 0);
+        assert(movedIndex(4, 2, -1) == 1);
+        assert(movedIndex(4, 0, -1) == 0);
+        assert(movedIndex(1, 0, -1) == 0);
+        assert(movedIndex(0, 0, -1) == 0);
+        assert(movedIndex(4, -1, -1) == -1);
+    }
+
+    // Promote C from [A,B,C,D]: becomes master, rest shift down.
+    // Pairwise swap with master would have been {2, 1, 0, 3} — the #16 bug.
+    {
+        const std::vector<int> stack{0, 1, 2, 3};
+        const auto promoted = movedOrder(stack, 2, -2);
+        assert((promoted == std::vector<int>{2, 0, 1, 3}));
+    }
+
+    // Promote last of 4 (deep stack / masterCount > 1): [A,B,C,D] → [D,A,B,C]
+    // Pairwise swap with master would have been {3, 1, 2, 0}.
+    {
+        const auto promoted = movedOrder({0, 1, 2, 3}, 3, -3);
+        assert((promoted == std::vector<int>{3, 0, 1, 2}));
+    }
+
+    // Adjacent ±1 matches a swap (moveWindowNext / Previous unchanged).
+    {
+        assert((movedOrder({0, 1, 2, 3}, 2, -1) == std::vector<int>{0, 2, 1, 3}));
+        assert((movedOrder({0, 1, 2, 3}, 1, +1) == std::vector<int>{0, 2, 1, 3}));
+    }
+
+    // Already at front, or clamped past the ends: no-op.
+    {
+        assert((movedOrder({0, 1, 2}, 0, 0) == std::vector<int>{0, 1, 2}));
+        assert((movedOrder({0, 1, 2}, 0, -5) == std::vector<int>{0, 1, 2}));
+        assert((movedOrder({0, 1, 2}, 2, +5) == std::vector<int>{0, 1, 2}));
+    }
 
     std::puts("columnmath: all checks passed");
     return 0;

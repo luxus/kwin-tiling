@@ -66,7 +66,16 @@ bash pkgs/kwin-tiling/tests/run.sh
 - [ ] `Meta+Shift+C` / `Meta+Shift+V` center / cycle column width
 - [ ] `Meta+Shift+[` / `Meta+Shift+]` consume / expel (UX may still be rough)
 
-## 7. Quick regression
+## 7. Promote to master (reorder, not swap)
+
+- [ ] Open **4** tiled windows in **MasterStack** (order A master, then B, C, D in the stack)
+- [ ] Focus C or D (not adjacent to master) and `Meta+Shift+Space` promote
+- [ ] Expected: promoted window is master; former master and intermediates **shift down**
+      (A,B,C,D + promote C → **C,A,B,D**). Not a pairwise swap (which would yield C,B,A,D)
+- [ ] With 2 masters (`Meta+Ctrl+.`), promote a stack window: it becomes first master;
+      previous masters shift (not swap with only the first)
+
+## 8. Quick regression
 
 - [ ] `Meta+Shift+R` retile recovers a weird layout without crash
 - [ ] KCM opens and shows current options (after Nix rebuild: if stale, wipe

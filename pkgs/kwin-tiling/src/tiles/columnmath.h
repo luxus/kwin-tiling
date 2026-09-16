@@ -73,4 +73,31 @@ inline double weightForFraction(double frac, double otherWeightSum)
     return (frac >= 0.95) ? 10.0 : 0.1;
 }
 
+// Destination index after moving the item at `from` by `delta` in a list of
+// `count`. Out-of-range `from` is left unchanged; the destination is clamped
+// to [0, count). Used by StackColumn::moveByDelta and promoteToMaster.
+inline int movedIndex(int count, int from, int delta)
+{
+    if (count <= 0 || from < 0 || from >= count) {
+        return from;
+    }
+    return std::clamp(from + delta, 0, count - 1);
+}
+
+// Reorder: take the item at `from` and insert it at from+delta (clamped).
+// Neighbours between the two positions shift to fill the gap (rotate, not a
+// pairwise swap). Adjacent ±1 matches a swap; |delta| > 1 does not.
+inline std::vector<int> movedOrder(std::vector<int> ids, int from, int delta)
+{
+    const int n = static_cast<int>(ids.size());
+    const int to = movedIndex(n, from, delta);
+    if (to == from || from < 0 || from >= n) {
+        return ids;
+    }
+    const int item = ids[static_cast<size_t>(from)];
+    ids.erase(ids.begin() + from);
+    ids.insert(ids.begin() + to, item);
+    return ids;
+}
+
 } // namespace KWin::columnmath

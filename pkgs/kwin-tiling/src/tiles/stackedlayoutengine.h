@@ -38,6 +38,7 @@ public:
     void addWindow(Window *window) override;
     void removeWindow(Window *window) override;
     void moveWindow(Window *window, int delta) override;
+    void reorderWindow(Window *window, int delta) override;
     void beginMoveWindow(Window *window) override;
     bool endMoveWindow(Window *window, Window *target) override;
     void cancelMoveWindow(Window *window) override;

@@ -51,6 +51,12 @@ void StackedLayoutEngine::moveWindow(Window *window, int delta)
     reflow();
 }
 
+void StackedLayoutEngine::reorderWindow(Window *window, int delta)
+{
+    m_column.moveByDelta(window, delta);
+    reflow();
+}
+
 void StackedLayoutEngine::beginMoveWindow(Window *window)
 {
     m_column.beginMove(window);

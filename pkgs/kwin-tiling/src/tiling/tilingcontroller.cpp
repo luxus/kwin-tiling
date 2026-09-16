@@ -1293,7 +1293,10 @@ bool TilingController::promoteToMaster(Window *window)
     if (idx <= 0) {
         return false;
     }
-    engine->moveWindow(window, -idx);
+    // Rotate to index 0 so intermediates shift down. moveWindow is a pairwise
+    // swap — with masterCount > 1 or a window deep in the stack that would
+    // leave the order wrong (issue #16).
+    engine->reorderWindow(window, -idx);
     return true;
 }
 
