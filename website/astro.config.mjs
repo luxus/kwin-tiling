@@ -24,6 +24,7 @@ export default defineConfig({
               { label: 'Usage & Shortcuts', slug: 'usage' },
               { label: 'KWin + Noctalia session', slug: 'session' },
               { label: 'Roadmap', slug: 'roadmap' },
+              { label: 'Scrolling vs niri', slug: 'scrolling-vs-niri' },
           ],
       }),
 	],
