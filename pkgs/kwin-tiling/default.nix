@@ -109,6 +109,10 @@ kdePackages.kwin.overrideAttrs (old: {
     ++ [
       ./patches/nixos-unwrap-6.8.patch
       ./patches/noctalia-wallpaper-desktop-type.patch
+      # 6.8 waits on ${LIBEXEC_DIR}/plasma-setup-xwayland before claiming WM_S0.
+      # That binary lives in plasma-workspace, so kwin-noctalia never unblocks
+      # Xwayland listenfds (Steam hangs in connect() to @/tmp/.X11-unix/X0).
+      ./patches/xwayland-missing-setup-script.patch
       ./hooks.patch
     ];
 

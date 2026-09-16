@@ -31,8 +31,9 @@
       # Drop-in replacement of kdePackages.kwin with the patched build, and bump
       # the rest of the Plasma set to the matching 6.7.90 beta. nixpkgs still
       # ships Plasma 6.7.5; KWin 6.8 talks to kglobalacceld / libkscreen /
-      # xdg-desktop-portal-kde / plasma-workspace over D-Bus and will hang or
-      # mis-handshake (Xwayland listenfds) against the stable daemons.
+      # xdg-desktop-portal-kde / plasma-workspace over D-Bus against the stable
+      # daemons. Xwayland listenfds are a separate Nix path issue (kwin waits on
+      # ${LIBEXEC_DIR}/plasma-setup-xwayland, which is not in kwin's store).
       # mkKdeDerivation reads src from kdePackages.sources.<pname>, so overlaying
       # that map rebuilds every Plasma package in the host closure. Gear/KF stay
       # on nixpkgs. kwin is still the tiling overrideAttrs, fed kprev.kwin so

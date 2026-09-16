@@ -1,0 +1,30 @@
+diff --git a/src/xwayland/xwayland.cpp b/src/xwayland/xwayland.cpp
+--- a/src/xwayland/xwayland.cpp
++++ b/src/xwayland/xwayland.cpp
+@@ -600,6 +600,15 @@
+ 
+     for (const QString &script : std::as_const(scripts)) {
+         const QString path = scriptDir.filePath(script);
++        // plasma-setup-xwayland is compiled as ${LIBEXEC_DIR}/... which on Nix
++        // is kwin's store libexec, not plasma-workspace's. QProcess::start on a
++        // missing file never emits finished (Plasma/6.8 !9897), so readyGuard
++        // never drops, WM_S0 is never claimed, and X11 clients hang in connect()
++        // on @/tmp/.X11-unix/X0. Skip missing scripts so registerReady still runs.
++        if (!QFile::exists(path)) {
++            qCDebug(KWIN_XWL) << "Skipping missing Xwayland startup script" << path;
++            continue;
++        }
+         qCDebug(KWIN_XWL) << "Running Xwayland startup script" << path;
+ 
+         auto *process = new QProcess;
+@@ -608,6 +617,10 @@
+             qCDebug(KWIN_XWL) << "Finished Xwayland startup script" << path;
+             process->deleteLater();
+         });
++        connect(process, &QProcess::errorOccurred, process, [process, path, readyGuard]() {
++            qCWarning(KWIN_XWL) << "Failed to start Xwayland startup script" << path;
++            process->deleteLater();
++        });
+         process->start(path);
+     }
+ }
