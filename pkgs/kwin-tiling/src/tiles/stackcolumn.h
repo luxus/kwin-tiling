@@ -10,6 +10,7 @@
 #include "core/rect.h"
 #include "customtile.h"
 #include "movestate.h"
+#include "slotlist.h"
 #include "tile.h"
 #include "window.h"
 
@@ -164,7 +165,7 @@ public:
             m_root->destroyChild(leaf);
             return nullptr;
         }
-        const int idx = (at < 0 || at > m_leaves.count()) ? m_leaves.count() : at;
+        const int idx = slotlist::insertIndex(at, m_leaves.count());
         m_leaves.insert(idx, leaf);
         return leaf;
     }
@@ -202,7 +203,7 @@ public:
         if (idx < 0) {
             return;
         }
-        const int newIdx = columnmath::movedIndex(int(m_leaves.count()), idx, delta);
+        const int newIdx = slotlist::swapTarget(idx, delta, int(m_leaves.count()));
         if (newIdx != idx) {
             m_leaves.swapItemsAt(idx, newIdx);
         }
@@ -398,6 +399,8 @@ public:
     }
 
     // Drop empty/destroyed leaves. Returns true if anything was removed.
+    // Index walk is the CustomTile destroy side-effect; the "remove matching
+    // slots, report whether anything changed" rule is slotlist::pruneIf.
     bool pruneEmpty()
     {
         bool changed = false;
@@ -417,11 +420,7 @@ public:
     // Vertical neighbour within this column (nullptr at the ends).
     Window *vertical(Window *from, bool down) const
     {
-        const int idx = indexOf(from);
-        if (idx < 0) {
-            return nullptr;
-        }
-        return windowAt(idx + (down ? 1 : -1));
+        return windowAt(slotlist::neighborIndex(indexOf(from), down, count()));
     }
 
     // --- cross-column moves (Scrolling consume/expel) ------------------------
@@ -436,7 +435,7 @@ public:
             return detached;
         }
         detached.leaf = m_leaves.takeAt(idx);
-        detached.weight = window ? m_weights.value(window, 1.0) : 1.0;
+        detached.weight = window ? m_weights.value(window, slotlist::kDefaultWeight) : slotlist::kDefaultWeight;
         m_weights.remove(window);
         return detached;
     }
@@ -446,7 +445,7 @@ public:
         if (!detached.leaf) {
             return;
         }
-        const int idx = (at < 0 || at > m_leaves.count()) ? m_leaves.count() : at;
+        const int idx = slotlist::insertIndex(at, m_leaves.count());
         m_leaves.insert(idx, detached.leaf);
         const QList<Window *> ws = detached.leaf->windows();
         if (!ws.isEmpty() && ws.first()) {

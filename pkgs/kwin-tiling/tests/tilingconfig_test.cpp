@@ -3,7 +3,7 @@
     SPDX-License-Identifier: GPL-2.0-or-later
 
     Standalone self-check for tilingconfig.h (enabled-kinds parse, layout
-    precedence, smart-gap suppression).
+    precedence, per-output sizing clamp, smart-gap suppression).
 */
 
 #include "../src/tiling/tilingconfig.h"
@@ -116,6 +116,54 @@ int main()
     assert(shouldSuppressGaps(false, 0));
     assert(shouldSuppressGaps(false, 1));
     assert(!shouldSuppressGaps(false, 2));
+
+    // --- per-output sizing: override-if-present, else default, then clamp ---
+    const OutputSizing global{0.5, 1, 0.5};
+    const OutputSizing resolvedDefault = resolveOutputSizing(global);
+    assert(resolvedDefault.masterRatio == 0.5);
+    assert(resolvedDefault.masterCount == 1);
+    assert(resolvedDefault.defaultColumnWidth == 0.5);
+
+    OutputSizingOverride ratioOnly;
+    ratioOnly.masterRatio = 0.7;
+    const OutputSizing ratioMerged = resolveOutputSizing(global, ratioOnly);
+    assert(ratioMerged.masterRatio == 0.7);
+    assert(ratioMerged.masterCount == 1);
+    assert(ratioMerged.defaultColumnWidth == 0.5);
+
+    OutputSizingOverride allOverSize;
+    allOverSize.masterRatio = 0.25;
+    allOverSize.masterCount = 3;
+    allOverSize.defaultColumnWidth = 0.8;
+    const OutputSizing fullSize = resolveOutputSizing(global, allOverSize);
+    assert(fullSize.masterRatio == 0.25);
+    assert(fullSize.masterCount == 3);
+    assert(fullSize.defaultColumnWidth == 0.8);
+
+    // Out-of-range values clamp on both the global default and the override.
+    assert(clampMasterRatio(0.05) == kMinMasterRatio);
+    assert(clampMasterRatio(0.99) == kMaxMasterRatio);
+    assert(clampMasterRatio(0.5) == 0.5);
+    assert(clampMasterCount(0) == kMinMasterCount);
+    assert(clampMasterCount(-3) == kMinMasterCount);
+    assert(clampMasterCount(4) == 4);
+    assert(clampColumnWidth(0.0) == kMinColumnWidth);
+    assert(clampColumnWidth(1.5) == kMaxColumnWidth);
+
+    const OutputSizing wildGlobal{99.0, 0, -1.0};
+    const OutputSizing clampedGlobal = resolveOutputSizing(wildGlobal);
+    assert(clampedGlobal.masterRatio == kMaxMasterRatio);
+    assert(clampedGlobal.masterCount == kMinMasterCount);
+    assert(clampedGlobal.defaultColumnWidth == kMinColumnWidth);
+
+    OutputSizingOverride wildOver;
+    wildOver.masterRatio = 0.01;
+    wildOver.masterCount = -8;
+    wildOver.defaultColumnWidth = 2.0;
+    const OutputSizing clampedOver = resolveOutputSizing(global, wildOver);
+    assert(clampedOver.masterRatio == kMinMasterRatio);
+    assert(clampedOver.masterCount == kMinMasterCount);
+    assert(clampedOver.defaultColumnWidth == kMaxColumnWidth);
 
     std::puts("tilingconfig_test: OK");
     return 0;

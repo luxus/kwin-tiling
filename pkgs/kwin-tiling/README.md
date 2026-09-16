@@ -47,7 +47,7 @@ LayoutEngine (src/tiles/layoutengine.h)              — abstract base
   └─ ScrollingLayoutEngine    (many StackColumns + viewport; isolated)
 
 StackColumn (src/tiles/stackcolumn.h)                — shared vertical primitive
-  └─ height weights via columnmath; move cancel via movestate
+  └─ height weights via columnmath; order/weight via slotlist; move cancel via movestate
 ```
 
 **Composition rule (new layouts):** compose `StackColumn` + pure math headers.
@@ -58,7 +58,7 @@ MasterStack/Stacked/Grid. Absolute geometry, gaps, and quick-tile stay on
 KWin's `Tile`/`TileManager`; engines only set relative geometry.
 
 - Pure, KWin-free arithmetic (unit-tested): `columnmath`, `masterstackmath`,
-  `gridmath`, `directionmath`, `movestate`, `leafcolumn`, `movefsm`,
+  `gridmath`, `directionmath`, `slotlist`, `movestate`, `leafcolumn`, `movefsm`,
   `sizingpolicy`, `suspendpolicy`, `tilingconfig`.
 - Kind switch **replaces** the engine and re-adds windows; durable layout
   memory is keyed by output/desktop id, not engine pointer.
@@ -150,9 +150,10 @@ beta / 6.7.90**, overriding `kdePackages.kwin` + its Plasma-versioned deps to th
 beta and requiring KDE Frameworks ≥ 6.30 — the flake tracks nixpkgs `master`
 until 6.30 reaches `nixos-unstable`). Consumers pick up the new compositor
 on their next rebuild/switch once they track this flake — then **relogin**.
-`nix flake check` / `tests/run.sh` run pure suites without building KWin.
-Session regression: `scripts/session-smoke.md`. Production KWin+Noctalia session
-packaging: [luxusAi](https://github.com/luxus/luxusAi) `kwin-noctalia-session`.
+`nix flake check` / `tests/run.sh` run the pure suite (see Tests below) without
+building KWin. Session regression: `scripts/session-smoke.md`. Production
+KWin+Noctalia session packaging: [luxusAi](https://github.com/luxus/luxusAi)
+`kwin-noctalia-session`.
 
 ## Known limitations / backlog
 
@@ -171,12 +172,31 @@ packaging: [luxusAi](https://github.com/luxus/luxusAi) `kwin-noctalia-session`.
 - Next: scrolling layout polish (consume/expel UX).
 - Session smoke checklist: `pkgs/kwin-tiling/scripts/session-smoke.md`
 
-## Pure tests (no KWin)
+## Tests
+
+Two layers, matching #7. Part A is what `nix flake check` runs today.
+
+### Pure (no KWin) — Part A
 
 ```sh
 pkgs/kwin-tiling/tests/run.sh    # all *_test.cpp via g++
 # or: nix flake check
 ```
+
+Covers geometry (`columnmath`, `gridmath`, `masterstackmath`, `directionmath`),
+StackColumn order/weight (`slotlist`), layout + sizing precedence (`tilingconfig`),
+move cancel (`movestate`, `leafcolumn`), and controller policy (`movefsm`,
+`sizingpolicy`, `suspendpolicy`, `classmatch`). No compositor link.
+
+### KWin integration (Part B, follow-up)
+
+Not wired yet. #7 Part B needs `BUILD_TESTING` on the kwin derivation, a vendored
+`autotests/integration/` test modeled on KWin's `tiles_test.cpp`, a one-line
+`hooks.patch` CMake registration, and `doCheck` with
+`ctest -R kwin-testNativeTiling --output-on-failure` (never a bare `ctest` —
+KWin's full suite needs a GPU). Expected rects for that first test should come
+from `columnmath::distribute` / `masterstackmath`, not hand-derived numbers.
+Until that lands, `nix build .#kwin-tiling` compiles the compositor only.
 
 ## Move/resize robustness
 

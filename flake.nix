@@ -133,6 +133,14 @@
               ./tilingconfig-test
               touch $out
             '';
+        slotlist =
+          pkgs.runCommand "kwin-tiling-slotlist-test" { nativeBuildInputs = [ pkgs.gcc ]; }
+            ''
+              g++ -std=c++20 -O2 -Wall -Wextra -o slotlist-test \
+                ${./pkgs/kwin-tiling}/tests/slotlist_test.cpp
+              ./slotlist-test
+              touch $out
+            '';
         # Single entry that runs the whole pure suite (same as tests/run.sh).
         pure-suite =
           pkgs.runCommand "kwin-tiling-pure-suite" { nativeBuildInputs = [ pkgs.gcc pkgs.bash ]; }

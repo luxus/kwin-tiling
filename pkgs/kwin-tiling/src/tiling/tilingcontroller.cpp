@@ -80,30 +80,25 @@ Workspace::Direction toWorkspaceDirection(LayoutEngine::FocusDirection direction
     return Workspace::DirectionEast;
 }
 
-struct OutputSizing {
-    qreal masterRatio;
-    int masterCount;
-    qreal defaultColumnWidth;
-};
+using OutputSizing = tilingconfig::OutputSizing;
 
 OutputSizing readOutputSizing(const KConfigGroup &tilingGroup, LogicalOutput *output)
 {
-    OutputSizing sizing{
-        qBound(0.1, tilingGroup.readEntry("MasterRatio", 0.5), 0.9),
-        qMax(1, tilingGroup.readEntry("MasterCount", 1)),
-        qBound(0.1, tilingGroup.readEntry("DefaultColumnWidth", 0.5), 1.0),
+    const tilingconfig::OutputSizing global{
+        tilingGroup.readEntry("MasterRatio", 0.5),
+        tilingGroup.readEntry("MasterCount", 1),
+        tilingGroup.readEntry("DefaultColumnWidth", 0.5),
     };
-    if (!output) {
-        return sizing;
+    tilingconfig::OutputSizingOverride over;
+    if (output) {
+        const KConfigGroup outputGroup(&tilingGroup, QStringLiteral("Output %1").arg(output->name()));
+        if (outputGroup.exists()) {
+            over.masterRatio = outputGroup.readEntry("MasterRatio", global.masterRatio);
+            over.masterCount = outputGroup.readEntry("MasterCount", global.masterCount);
+            over.defaultColumnWidth = outputGroup.readEntry("DefaultColumnWidth", global.defaultColumnWidth);
+        }
     }
-    const KConfigGroup outputGroup(&tilingGroup, QStringLiteral("Output %1").arg(output->name()));
-    if (!outputGroup.exists()) {
-        return sizing;
-    }
-    sizing.masterRatio = qBound(0.1, outputGroup.readEntry("MasterRatio", sizing.masterRatio), 0.9);
-    sizing.masterCount = qMax(1, outputGroup.readEntry("MasterCount", sizing.masterCount));
-    sizing.defaultColumnWidth = qBound(0.1, outputGroup.readEntry("DefaultColumnWidth", sizing.defaultColumnWidth), 1.0);
-    return sizing;
+    return tilingconfig::resolveOutputSizing(global, over);
 }
 
 KConfigGroup sizingWriteGroup(KConfigGroup &tilingGroup, LogicalOutput *output)
@@ -215,9 +210,9 @@ void TilingController::reconfigure()
     m_enabled = tilingGroup.readEntry("Enabled", true);
     m_defaultLayout = LayoutEngine::layoutKindFromString(
         tilingGroup.readEntry("DefaultLayout", QStringLiteral("MasterStack")));
-    m_masterRatio = qBound(0.1, tilingGroup.readEntry("MasterRatio", 0.5), 0.9);
-    m_defaultColumnWidth = qBound(0.1, tilingGroup.readEntry("DefaultColumnWidth", 0.5), 1.0);
-    m_masterCount = qMax(1, tilingGroup.readEntry("MasterCount", 1));
+    m_masterRatio = tilingconfig::clampMasterRatio(tilingGroup.readEntry("MasterRatio", 0.5));
+    m_defaultColumnWidth = tilingconfig::clampColumnWidth(tilingGroup.readEntry("DefaultColumnWidth", 0.5));
+    m_masterCount = tilingconfig::clampMasterCount(tilingGroup.readEntry("MasterCount", 1));
     m_layoutSwitchOsd = tilingGroup.readEntry("LayoutSwitchOsd", true);
     m_borderlessWhenTiled = tilingGroup.readEntry("BorderlessWhenTiled", false);
     // "master" promotes new windows to master; anything else (default "end")
@@ -1737,7 +1732,7 @@ void TilingController::resizePrimary(qreal delta)
     KSharedConfigPtr config = KSharedConfig::openConfig(KWIN_CONFIG);
     KConfigGroup tilingGroup(config, QStringLiteral("Tiling"));
     OutputSizing sizing = readOutputSizing(tilingGroup, output);
-    sizing.masterRatio = qBound(0.1, sizing.masterRatio + delta, 0.9);
+    sizing.masterRatio = tilingconfig::clampMasterRatio(sizing.masterRatio + delta);
     engine->setPrimarySplit(sizing.masterRatio);
 
     // Persist MasterRatio only for master-style layouts (policy unit-tested).
@@ -1764,7 +1759,7 @@ void TilingController::adjustMasterCount(int delta)
     KSharedConfigPtr config = KSharedConfig::openConfig(KWIN_CONFIG);
     KConfigGroup tilingGroup(config, QStringLiteral("Tiling"));
     OutputSizing sizing = readOutputSizing(tilingGroup, output);
-    sizing.masterCount = qMax(1, sizing.masterCount + delta);
+    sizing.masterCount = tilingconfig::clampMasterCount(sizing.masterCount + delta);
     engine->setPrimaryCount(sizing.masterCount);
 
     sizingWriteGroup(tilingGroup, output).writeEntry("MasterCount", sizing.masterCount);
