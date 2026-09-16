@@ -215,4 +215,8 @@ machinery handles the actual window geometry, gap application, and rendering.
 This is why patching upstream KWin works — we add layout logic on top of
 infrastructure that already exists.
 
+External panels talk to the compositor over D-Bus (`org.kde.KWin.Tiling` at
+`/Tiling`) rather than through the KWin script API. See
+[Usage & Shortcuts](usage) for the `qdbus` examples.
+
 For what's still planned, see [Roadmap](roadmap).

@@ -177,6 +177,15 @@ tiles as a black box covering a monitor.
 - [ ] Directional focus (`Meta+Arrows`) and move still follow the layout after
       a cycle (index stays in sync with add/remove/switch)
 
+## 13. D-Bus (`org.kde.KWin.Tiling` at `/Tiling`)
+
+- [ ] `qdbus-qt6 org.kde.KWin /Tiling org.kde.KWin.Tiling.currentLayout` returns
+      a kind (`MasterStack`, …) or empty if tiling is disabled
+- [ ] `…enabledLayouts` lists the KCM cycle list
+- [ ] `…setLayout Stacked` switches the active output/desktop
+- [ ] `…cycleLayout` matches `Meta+Shift+T`
+- [ ] Compositor did **not** abort at login (duplicate `registerObject` on
+      `/Tiling` is the known Qt abort; do not register that path twice)
 
 ## KWin + Noctalia extras (way 2 only)
 

@@ -15,6 +15,7 @@
 #include "tiling/sizingpolicy.h"
 #include "tiling/suspendpolicy.h"
 #include "tiling/tilingosd.h"
+#include "tiling/tilingdbus.h"
 #include "tiles/directionmath.h"
 #include "tiles/columnslayoutengine.h"
 #include "tiles/columnwidthpresets.h"
@@ -216,6 +217,10 @@ TilingController::TilingController(Workspace *workspace)
     });
 
     reconfigure();
+
+    // Owns itself via QObject parent. Registers /Tiling after Workspace::init
+    // returns (see TilingDBusInterface::tryRegister).
+    (void)new TilingDBusInterface(this);
 }
 
 TilingController::~TilingController() = default;
@@ -251,6 +256,10 @@ void TilingController::reconfigure()
     if (!m_enabled) {
         // DisableNow or StayDisabled: detach every tiled window, restore borders.
         suspendAllTiledWindows();
+        Q_EMIT enabledChanged();
+        Q_EMIT enabledLayoutsChanged();
+        Q_EMIT layoutChanged();
+        Q_EMIT tiledWindowsChanged();
         return;
     }
     if (enabledTransition == suspendpolicy::EnabledTransition::EnableNow) {
@@ -309,6 +318,12 @@ void TilingController::reconfigure()
             }
         }
     }
+
+    Q_EMIT enabledChanged();
+    Q_EMIT enabledLayoutsChanged();
+    Q_EMIT layoutChanged();
+    Q_EMIT sizingChanged();
+    Q_EMIT tiledWindowsChanged();
 }
 
 void TilingController::initializeLayouts()
@@ -649,6 +664,117 @@ bool TilingController::isLayoutEnabled(LayoutEngine::LayoutKind kind) const
     return m_enabledLayoutKinds.contains(kind);
 }
 
+QString TilingController::currentLayoutName() const
+{
+    if (!m_enabled) {
+        return {};
+    }
+    if (LayoutEngine *engine = activeLayoutEngine()) {
+        return LayoutEngine::layoutKindToString(engine->layoutKind());
+    }
+    if (!m_workspace) {
+        return LayoutEngine::layoutKindToString(m_defaultLayout);
+    }
+    LogicalOutput *output = m_workspace->activeOutput();
+    if (!output) {
+        return LayoutEngine::layoutKindToString(m_defaultLayout);
+    }
+    VirtualDesktop *desktop = VirtualDesktopManager::self()->currentDesktop(output);
+    if (!desktop) {
+        return LayoutEngine::layoutKindToString(m_defaultLayout);
+    }
+    return LayoutEngine::layoutKindToString(layoutKindFor(output, desktop));
+}
+
+QString TilingController::currentLayoutDisplayName() const
+{
+    if (!m_enabled) {
+        return {};
+    }
+    if (LayoutEngine *engine = activeLayoutEngine()) {
+        return LayoutEngine::layoutDisplayName(engine->layoutKind());
+    }
+    if (!m_workspace) {
+        return LayoutEngine::layoutDisplayName(m_defaultLayout);
+    }
+    LogicalOutput *output = m_workspace->activeOutput();
+    if (!output) {
+        return LayoutEngine::layoutDisplayName(m_defaultLayout);
+    }
+    VirtualDesktop *desktop = VirtualDesktopManager::self()->currentDesktop(output);
+    if (!desktop) {
+        return LayoutEngine::layoutDisplayName(m_defaultLayout);
+    }
+    return LayoutEngine::layoutDisplayName(layoutKindFor(output, desktop));
+}
+
+QStringList TilingController::enabledLayoutNames() const
+{
+    QStringList names;
+    names.reserve(m_enabledLayoutKinds.size());
+    for (LayoutEngine::LayoutKind kind : m_enabledLayoutKinds) {
+        names.append(LayoutEngine::layoutKindToString(kind));
+    }
+    return names;
+}
+
+QString TilingController::layoutNameFor(const QString &outputName, const QString &desktopId) const
+{
+    if (!m_enabled || !m_workspace || desktopId.isEmpty()) {
+        return {};
+    }
+    LogicalOutput *output = outputByName(outputName);
+    if (!output) {
+        return {};
+    }
+    VirtualDesktop *desktop = VirtualDesktopManager::self()->desktopForId(desktopId);
+    if (!desktop) {
+        return {};
+    }
+    if (TileManager *manager = m_workspace->tileManager(output)) {
+        if (LayoutEngine *engine = manager->layoutEngine(desktop)) {
+            return LayoutEngine::layoutKindToString(engine->layoutKind());
+        }
+    }
+    return LayoutEngine::layoutKindToString(layoutKindFor(output, desktop));
+}
+
+qreal TilingController::currentMasterRatio() const
+{
+    if (LayoutEngine *engine = activeLayoutEngine()) {
+        const qreal split = engine->primarySplit();
+        if (split >= 0.0) {
+            return split;
+        }
+    }
+    return m_masterRatio;
+}
+
+int TilingController::currentMasterCount() const
+{
+    if (LayoutEngine *engine = activeLayoutEngine()) {
+        return engine->primaryCount();
+    }
+    return m_masterCount;
+}
+
+QStringList TilingController::tiledWindowIds() const
+{
+    QStringList ids;
+    LayoutEngine *engine = activeLayoutEngine();
+    if (!engine) {
+        return ids;
+    }
+    const QList<Window *> ws = engine->windows();
+    ids.reserve(ws.size());
+    for (Window *w : ws) {
+        if (w) {
+            ids.append(w->internalId().toString());
+        }
+    }
+    return ids;
+}
+
 void TilingController::applyGapSettingsToOutput(LogicalOutput *output, VirtualDesktop *desktop)
 {
     if (!m_workspace || !output) {
@@ -827,6 +953,7 @@ void TilingController::onWindowAdded(Window *window)
         if (output) {
             applyGapSettingsToOutput(output, desktop);
         }
+        Q_EMIT tiledWindowsChanged();
     } else {
         window->tilingState().mode = mode;
         // Floated at map time (ignore/float rule, including the video
@@ -863,6 +990,7 @@ void TilingController::onWindowRemoved(Window *window)
             reassertMasterPin(out, desk);
         }
     }
+    Q_EMIT tiledWindowsChanged();
 }
 
 void TilingController::addWindowToLayout(Window *window, LogicalOutput *output, VirtualDesktop *desktop)
@@ -1318,6 +1446,7 @@ void TilingController::toggleFloating()
             : window->desktops().constFirst();
         addWindowToLayout(window, output, desktop);
     }
+    Q_EMIT tiledWindowsChanged();
 }
 
 void TilingController::onInteractiveMoveResizeStarted()
@@ -1668,6 +1797,7 @@ void TilingController::onWindowClassChanged(Window *window)
             window->moveResize(preTileGeometry);
         }
     }
+    Q_EMIT tiledWindowsChanged();
 }
 
 void TilingController::sanitizeVideoBridgeSurface(Window *window)
@@ -1724,6 +1854,8 @@ void TilingController::vacateLayout(Window *window)
     if (out) {
         applyGapSettingsToOutput(out, desktop);
     }
+
+    Q_EMIT tiledWindowsChanged();
 }
 
 void TilingController::rejoinLayout(Window *window)
@@ -1739,6 +1871,7 @@ void TilingController::rejoinLayout(Window *window)
     if (output) {
         applyGapSettingsToOutput(output, desktop);
     }
+    Q_EMIT tiledWindowsChanged();
 }
 
 Window *TilingController::windowUnderCursorInEngine(LayoutEngine *engine) const
@@ -1952,6 +2085,9 @@ void TilingController::setLayout(LayoutEngine::LayoutKind kind)
             showLayoutNotification(engine->layoutKind());
         }
     }
+    Q_EMIT layoutChanged();
+    Q_EMIT tiledWindowsChanged();
+    Q_EMIT sizingChanged();
 }
 
 void TilingController::setLayoutOn(LogicalOutput *output, VirtualDesktop *desktop, LayoutEngine::LayoutKind kind)
@@ -2175,6 +2311,7 @@ void TilingController::resizePrimary(qreal delta)
     if (sizingpolicy::shouldWriteMasterRatio(kind, engine->primarySplit())) {
         persistMasterRatio(output, desktop, sizing.masterRatio);
     }
+    Q_EMIT sizingChanged();
 }
 
 void TilingController::adjustMasterCount(int delta)
@@ -2193,6 +2330,7 @@ void TilingController::adjustMasterCount(int delta)
     engine->setPrimaryCount(sizing.masterCount);
 
     persistMasterCount(output, desktop, sizing.masterCount);
+    Q_EMIT sizingChanged();
 }
 
 void TilingController::resizeActiveWindowHeight(qreal delta)

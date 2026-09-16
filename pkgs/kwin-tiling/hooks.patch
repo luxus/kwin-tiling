@@ -2,7 +2,7 @@ diff --git a/src/CMakeLists.txt b/src/CMakeLists.txt
 index a5eb835..88bf066 100644
 --- a/src/CMakeLists.txt
 +++ b/src/CMakeLists.txt
-@@ -219,9 +219,19 @@ target_sources(kwin PRIVATE
+@@ -219,9 +219,20 @@ target_sources(kwin PRIVATE)
      tablet_input.cpp
      tabletmodemanager.cpp
      tiles/customtile.cpp
@@ -16,6 +16,7 @@ index a5eb835..88bf066 100644
      tiles/tile.cpp
      tiles/tilemanager.cpp
 +    tiling/tilingcontroller.cpp
++    tiling/tilingdbus.cpp
 +    tiling/tilingosd.cpp
 +    tiling/tilingreflow.cpp
 +    tiling/tilingrules.cpp

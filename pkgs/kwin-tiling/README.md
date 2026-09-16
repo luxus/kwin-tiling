@@ -35,6 +35,7 @@ small. Compose the module only onto hosts that want tiling: replacing
 ```
 TilingController (src/tiling/tilingcontroller.cpp)   — singleton on Workspace
   ├─ owns TilingRules (float/ignore by class, utility/dialog/transient)
+  ├─ owns TilingDBusInterface (org.kde.KWin.Tiling at /Tiling)
   ├─ pure helpers: movefsm (move finish), sizingpolicy, suspendpolicy
   ├─ per (output, desktop): one LayoutEngine on KWin's TileManager
   └─ window add/remove, desktop/output move, interactive move/resize
@@ -161,6 +162,58 @@ to `[Tiling][DesktopOutput <desktop>:<output>]` so each virtual desktop keeps
 its own values (falling back to `[Tiling][Output <name>]` or global `[Tiling]`
 when that pair is unknown).
 
+## D-Bus API (`org.kde.KWin.Tiling` at `/Tiling`)
+
+Published on the existing `org.kde.KWin` session-bus name (no extra service).
+Shape matches KineticWE where that helps shell widgets (e.g. Noctalia's
+`kineticwe-layouts` plugin): `currentLayout`, `currentLayoutDisplay`,
+`enabledLayouts`, `setLayout`, `cycleLayout`, plus `layoutChanged` /
+`enabledLayoutsChanged`. Extra members wrap the same shortcut actions the
+controller already has.
+
+```sh
+qdbus-qt6 org.kde.KWin /Tiling org.kde.KWin.Tiling.currentLayout
+qdbus-qt6 org.kde.KWin /Tiling org.kde.KWin.Tiling.currentLayoutDisplay
+qdbus-qt6 org.kde.KWin /Tiling org.kde.KWin.Tiling.enabledLayouts
+qdbus-qt6 org.kde.KWin /Tiling org.kde.KWin.Tiling.setLayout Stacked
+qdbus-qt6 org.kde.KWin /Tiling org.kde.KWin.Tiling.cycleLayout
+```
+
+| Member | Kind | Meaning |
+|--------|------|---------|
+| `currentLayout` | property | kind string for the active output's current desktop, or `""` if tiling is disabled |
+| `currentLayoutDisplay` | property | human-readable name (`Master & Stack`, …) |
+| `enabledLayouts` | property | `[Tiling] EnabledLayouts` (cycle order) |
+| `enabled` | property | `[Tiling] Enabled` |
+| `masterRatio` / `masterCount` | property | active engine split / master count |
+| `windows` | property | tiled window UUIDs in layout order (KWin `internalId`) |
+| `setLayout(kind)` | method | switch the active output/desktop; unknown names are ignored |
+| `cycleLayout` | method | same as `Meta+Shift+T` |
+| `layoutFor(output, desktopId)` | method | kind for a specific pair (empty if unknown / disabled) |
+| `focus*` / `move*` / `toggleFloating` / `resizePrimary` / `adjustMasterCount` / `toggleGaps` / `toggleZoom` / `retile` | methods | same as the matching shortcuts |
+| `layoutChanged` / `enabledLayoutsChanged` | signals | also fires on desktop/output switch so "current" stays in sync |
+
+`setLayout` uses this project's kind names (`MasterStack`, `Stacked`,
+`Scrolling`, `Centered`, `Grid`, `Columns`) — not KineticWE's `CenterTile` /
+`AutoGrid` / `Monocle`. Unknown strings are a no-op (they do **not** fall back
+to MasterStack).
+
+### `registerObject` abort (do not "fix" by registering harder)
+
+Qt can abort the compositor if `QDBusConnection::registerObject` is called on
+a path that is already claimed (`/Tiling`). Registration therefore:
+
+- is deferred off `Workspace::init` (`QTimer::singleShot(0, …)`)
+- is skipped when `QStandardPaths::isTestModeEnabled()`
+- is skipped when `/Tiling` is already registered
+- retries only while the session bus is disconnected (then gives up)
+- never retries after a failed `registerObject`
+- unregisters in the D-Bus object's destructor
+
+Do not add a second `registerObject("/Tiling")` from Workspace, a plugin, or
+a session wrapper. Stock KWin patch only — this interface lives in the
+compositor binary, not a session fork.
+
 ## Maintenance
 
 **Editing the feature** — edit the real files under `pkgs/kwin-tiling/src/`
@@ -204,6 +257,8 @@ KWin+Noctalia session packaging: [luxusAi](https://github.com/luxus/luxusAi)
   peeking columns keep full width without migrating; fully off-viewport columns
   stay hidden. niri consume-or-expel left/right (`Meta+[` / `Meta+]`) is shipped.
   `center-focused-column` never/always/on-overflow is in kcfg/KCM.
+- D-Bus `/Tiling`: do not call `registerObject` on that path twice — Qt can
+  abort the compositor. See the D-Bus section above.
 - Session smoke checklist: `pkgs/kwin-tiling/scripts/session-smoke.md`
 
 ## Tests
@@ -222,9 +277,10 @@ Covers geometry (`columnmath`, `gridmath`, `masterstackmath`, `directionmath`,
 (`tilingconfig`), Scrolling viewport modes (`viewportmath`), drop-insert
 (`scrollingmath`), in-column move (`scrollingmove`), Window→engine reverse index
 (`engineindex`), column-width presets (`columnwidthpresets`), consume-into-column
-(`scrollingcolumn`), consume-or-expel (`consumeexpelmath`), move cancel
-(`movestate`, `leafcolumn`), and controller policy (`movefsm`, `sizingpolicy`,
-`suspendpolicy`, `classmatch`). No compositor link.
+(`scrollingcolumn`), consume-or-expel (`consumeexpelmath`), D-Bus register
+policy (`tilingdbuspolicy`), move cancel (`movestate`, `leafcolumn`), and
+controller policy (`movefsm`, `sizingpolicy`, `suspendpolicy`, `classmatch`).
+No compositor link.
 
 ### KWin integration (Part B, follow-up)
 
@@ -334,6 +390,8 @@ Maintenance above).
 - KCM settings apply live on reload; per-monitor override UI with reset.
 - Per-desktop layout **and** sizing overrides (master ratio/count, scrolling
   column width) via the same `DesktopOutput N:name` groups as layout choice.
+- **D-Bus** — `org.kde.KWin.Tiling` at `/Tiling` (Kinetic-shaped layout
+  getters/setters + shortcut wrappers) for shell widgets.
 
 See the shipped list and roadmap for the complete current status.
 

@@ -243,6 +243,14 @@
               ./consumeexpelmath-test
               touch $out
             '';
+        tilingdbuspolicy =
+          pkgs.runCommand "kwin-tiling-tilingdbuspolicy-test" { nativeBuildInputs = [ pkgs.gcc ]; }
+            ''
+              g++ -std=c++20 -O2 -Wall -Wextra -o tilingdbuspolicy-test \
+                ${./pkgs/kwin-tiling}/tests/tilingdbuspolicy_test.cpp
+              ./tilingdbuspolicy-test
+              touch $out
+            '';
         # Single entry that runs the whole pure suite (same as tests/run.sh).
         pure-suite =
           pkgs.runCommand "kwin-tiling-pure-suite" { nativeBuildInputs = [ pkgs.gcc pkgs.bash ]; }
