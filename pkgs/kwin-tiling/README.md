@@ -58,7 +58,7 @@ KWin's `Tile`/`TileManager`; engines only set relative geometry.
 
 - Pure, KWin-free arithmetic (unit-tested): `columnmath`, `masterstackmath`,
   `gridmath`, `directionmath`, `movestate`, `leafcolumn`, `movefsm`,
-  `sizingpolicy`, `suspendpolicy`.
+  `sizingpolicy`, `suspendpolicy`, `tilingconfig`.
 - Kind switch **replaces** the engine and re-adds windows; durable layout
   memory is keyed by output/desktop id, not engine pointer.
 - Cross-monitor moves: cancel source leaf, drop on destination — no phantoms.

@@ -200,13 +200,20 @@ private:
     LayoutEngine::LayoutKind resolveLayoutKind(LogicalOutput *output, VirtualDesktop *desktop = nullptr) const;
     // Per-(output, desktop) layout: a remembered manual choice (see
     // persistLayoutChoice) wins over resolveLayoutKind's config default, so a
-    // Cycle/Switch survives a reconfigure and restart.
+    // Cycle/Switch survives a reconfigure and restart. Both this and
+    // resolveLayoutKind read the cache filled by loadConfigCache(), not KConfig.
     LayoutEngine::LayoutKind layoutKindFor(LogicalOutput *output, VirtualDesktop *desktop) const;
     void persistLayoutChoice(LogicalOutput *output, VirtualDesktop *desktop, LayoutEngine::LayoutKind kind);
     LayoutEngine::LayoutKind globalDefaultLayoutKind() const;
     QList<LayoutEngine::LayoutKind> enabledLayoutKinds() const;
     bool isLayoutEnabled(LayoutEngine::LayoutKind kind) const;
-    void applyGapSettingsToOutput(LogicalOutput *output);
+    // Apply cached gap settings. When @p desktop is null, every desktop on the
+    // output is updated (reconfigure / toggleGaps / new output). Window
+    // add/remove/migrate pass the affected desktop so sibling desktops are not
+    // reflowed.
+    void applyGapSettingsToOutput(LogicalOutput *output, VirtualDesktop *desktop = nullptr);
+    // Snapshot [Tiling] layout/gap entries so the hot path never reopens kwinrc.
+    void loadConfigCache(const KConfigGroup &tilingGroup);
 
     void setLayoutOn(LogicalOutput *output, VirtualDesktop *desktop, LayoutEngine::LayoutKind kind);
     void reconcileLayoutKinds();
@@ -226,7 +233,8 @@ private:
     std::unique_ptr<TilingRules> m_rules;
     bool m_enabled = true;
     LayoutEngine::LayoutKind m_defaultLayout = LayoutEngine::LayoutKind::MasterStack;
-    QStringList m_enabledLayouts;
+    // Parsed EnabledLayouts (cycle order), rebuilt in loadConfigCache().
+    QList<LayoutEngine::LayoutKind> m_enabledLayoutKinds;
     qreal m_masterRatio = 0.5;
     qreal m_defaultColumnWidth = 0.5;
     int m_masterCount = 1;
@@ -237,6 +245,20 @@ private:
     bool m_newWindowMaster = false;
     // Live "gaps off" toggle (toggleGaps); transient, resets on restart.
     bool m_gapsSuppressed = false;
+
+    // Config cache filled by loadConfigCache() / persistLayoutChoice().
+    struct CachedGaps {
+        qreal gapBetween = 0.0;
+        int gapLeft = 0;
+        int gapRight = 0;
+        int gapTop = 0;
+        int gapBottom = 0;
+    };
+    CachedGaps m_gapDefaults;
+    QHash<QString, CachedGaps> m_outputGaps; // output name → merged gaps
+    QHash<QString, LayoutEngine::LayoutKind> m_outputDefaultLayouts; // output name
+    QHash<QString, LayoutEngine::LayoutKind> m_desktopOutputLayouts; // "N:output"
+    QHash<QString, LayoutEngine::LayoutKind> m_desktopLayoutMemory; // "output/desktopId"
 
     struct MoveContext {
         QPointer<LayoutEngine> engine;
