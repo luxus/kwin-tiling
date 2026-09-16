@@ -111,6 +111,53 @@ int main()
         assert(col.containsWindow(3));
     }
 
+    // --- issue #11: contains() misses mid-drag ghost; ownsGhostLeaf does not ---
+    {
+        Column col;
+        col.insertWindow(1);
+        col.insertWindow(2);
+        col.beginMove(1);
+        col.emptySourceForDrag();
+        assert(!col.containsWindow(1)); // the naive guard would skip
+        assert(col.ownsGhostLeaf(1));
+        assert(!col.ownsGhostLeaf(2)); // sibling's close must not claim this ghost
+        assert(col.shouldHandleRemove(1));
+        assert(col.shouldHandleRemove(2)); // still in layout
+        Column other;
+        other.insertWindow(3);
+        assert(!other.shouldHandleRemove(1)); // foreign engine: no reflow
+        assert(!other.ownsGhostLeaf(1));
+    }
+
+    // cancelMove of a sibling must not destroy this window's ghost
+    {
+        Column col;
+        col.insertWindow(1);
+        col.insertWindow(2);
+        col.beginMove(1);
+        col.emptySourceForDrag();
+        assert(!col.cancelMove(2));
+        assert(col.hasEmptyLeaf());
+        assert(col.hasMoveSource());
+        assert(col.ownsGhostLeaf(1));
+        assert(col.cancelMove(1));
+        assert(!col.hasEmptyLeaf());
+        assert(!col.hasMoveSource());
+    }
+
+    // shouldHandleRemove + cancel clears the ghost (engine removeWindow path)
+    {
+        Column col;
+        col.insertWindow(1);
+        col.beginMove(1);
+        col.emptySourceForDrag();
+        assert(col.shouldHandleRemove(1));
+        assert(col.cancelMove(1));
+        assert(!col.hasEmptyLeaf());
+        assert(col.count() == 0);
+        assert(col.destroyCount() == 1);
+    }
+
     std::puts("leafcolumn_test: OK");
     return 0;
 }

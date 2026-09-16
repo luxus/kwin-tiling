@@ -66,10 +66,15 @@ enum class RemovePath {
     SiblingOtherColumn, // keep move open, shift source index
 };
 
-inline RemovePath classifyRemove(bool moveOpen, bool windowFound, int removeCol, int sourceCol)
+inline RemovePath classifyRemove(bool moveOpen, bool windowFound, int removeCol, int sourceCol,
+                                 bool isMoveWindow = true)
 {
     if (!moveOpen) {
         return RemovePath::NoMoveNormal;
+    }
+    // A sibling (or unrelated) close must not cancel this window's drag ghost.
+    if (!isMoveWindow) {
+        return windowFound ? RemovePath::SiblingOtherColumn : RemovePath::NoMoveNormal;
     }
     if (!windowFound || removeCol == sourceCol) {
         return RemovePath::CancelSource;
@@ -86,6 +91,35 @@ inline RemovePath classifyRemove(bool moveOpen, bool windowFound, int removeCol,
 inline bool shouldDestroySourceLeaf(bool leafEmpty, bool leafHoldsDragged)
 {
     return leafEmpty || leafHoldsDragged;
+}
+
+/**
+ * Ghost ownership for one window: an open move whose source leaf is that
+ * window's (empty after KWin untile-for-drag, or still holding it).
+ * windows().contains() is false for an empty ghost, so a contains() guard
+ * would skip removeWindow and leak a phantom tile.
+ */
+inline bool ownsGhostLeaf(bool moveOpen, bool moveWindowMatches, bool sourceLeafEmpty, bool sourceHoldsWindow)
+{
+    if (!moveOpen || !moveWindowMatches) {
+        return false;
+    }
+    return sourceLeafEmpty || sourceHoldsWindow;
+}
+
+/**
+ * Whether this engine should run removeWindow for the given window.
+ * Contains-only is insufficient mid-drag (empty ghost leaf).
+ */
+inline bool shouldHandleRemove(bool windowInLayout, bool ownsGhostForWindow)
+{
+    return windowInLayout || ownsGhostForWindow;
+}
+
+/** Reflow only when the remove actually cancelled a ghost or dropped a leaf. */
+inline bool shouldReflowAfterRemove(bool cancelledGhost, bool removedFromLayout)
+{
+    return cancelledGhost || removedFromLayout;
 }
 
 // --- pure leaf-list model (tests + algorithm twin of StackColumn) ------------

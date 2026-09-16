@@ -63,7 +63,12 @@ void ScrollingLayoutEngine::removeWindow(Window *window)
     int l = -1;
     const bool found = findWindow(window, &c, &l);
     const int prevMoveCol = m_moveHasSource ? m_moveSourceColumn : -1;
-    const auto path = movestate::classifyRemove(m_moveHasSource, found, c, prevMoveCol);
+    const bool isMoveWindow = m_moveHasSource && prevMoveCol >= 0 && prevMoveCol < m_columns.count()
+        && m_columns[prevMoveCol].stack.ownsGhostLeaf(window);
+    if (!movestate::shouldHandleRemove(found, isMoveWindow)) {
+        return;
+    }
+    const auto path = movestate::classifyRemove(m_moveHasSource, found, c, prevMoveCol, isMoveWindow);
 
     auto clearActiveIf = [this, window]() {
         if (m_activeWindow == window) {
@@ -116,6 +121,14 @@ void ScrollingLayoutEngine::removeWindow(Window *window)
     }
     clearActiveIf();
     reflow();
+}
+
+bool ScrollingLayoutEngine::ownsGhostLeaf(Window *window) const
+{
+    if (!window || !m_moveHasSource || m_moveSourceColumn < 0 || m_moveSourceColumn >= m_columns.count()) {
+        return false;
+    }
+    return m_columns[m_moveSourceColumn].stack.ownsGhostLeaf(window);
 }
 
 void ScrollingLayoutEngine::beginMoveWindow(Window *window)

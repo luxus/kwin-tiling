@@ -146,6 +146,27 @@ public:
     virtual void pruneEmpty() {}
 
     /**
+     * True when this engine holds an empty (or still-occupied) source leaf for
+     * @p window's in-progress interactive move. KWin untiles the window for
+     * the drag, so windows() no longer contains it; a contains() guard would
+     * skip removeWindow and leak a phantom tile. Default: no open move.
+     */
+    virtual bool ownsGhostLeaf(Window *window) const
+    {
+        Q_UNUSED(window)
+        return false;
+    }
+
+    /**
+     * Whether removeWindow should run on this engine: the window is still in
+     * windows(), or this engine owns that window's drag ghost leaf.
+     */
+    bool shouldHandleRemove(Window *window) const
+    {
+        return window && (windows().contains(window) || ownsGhostLeaf(window));
+    }
+
+    /**
      * Returns all tiled windows managed by this engine in layout order.
      */
     virtual QList<Window *> windows() const = 0;

@@ -6,6 +6,7 @@
 
 #include "stackedlayoutengine.h"
 #include "customtile.h"
+#include "movestate.h"
 #include "window.h"
 
 namespace KWin
@@ -38,11 +39,18 @@ void StackedLayoutEngine::addWindow(Window *window)
 void StackedLayoutEngine::removeWindow(Window *window)
 {
     // Mid-drag: cancelMove destroys empty source holders (clearMove would leave phantoms).
-    m_column.cancelMove(window);
-    if (m_column.contains(window)) {
+    // Skip engines that neither hold the window nor its drag ghost — no reflow.
+    if (!m_column.shouldHandleRemove(window)) {
+        return;
+    }
+    const bool cancelled = m_column.cancelMove(window);
+    const bool contained = m_column.contains(window);
+    if (contained) {
         m_column.removeWindow(window);
     }
-    reflow();
+    if (movestate::shouldReflowAfterRemove(cancelled, contained)) {
+        reflow();
+    }
 }
 
 void StackedLayoutEngine::moveWindow(Window *window, int delta)

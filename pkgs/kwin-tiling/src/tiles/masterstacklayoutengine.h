@@ -44,6 +44,7 @@ public:
     void dropWindow(Window *window, Window *target, const QPointF &pos, const RectF &area) override;
     void reflow() override;
     void pruneEmpty() override;
+    bool ownsGhostLeaf(Window *window) const override;
 
     QList<Window *> windows() const override;
     Window *primaryWindow() const override;

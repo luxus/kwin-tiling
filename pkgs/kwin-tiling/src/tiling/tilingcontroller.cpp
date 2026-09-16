@@ -787,12 +787,24 @@ void TilingController::removeWindowFromLayouts(Window *window)
         if (!manager) {
             continue;
         }
-        const ReflowScope scope(this, output, ReflowContext::Reason::Remove,
-                                reflowScopeLayoutKind(output));
+        // contains() alone misses mid-drag ghost leaves (KWin untiles the
+        // window). Only engines that still hold the window or own its ghost
+        // leaf should remove + reflow; others stay untouched.
+        QList<LayoutEngine *> engines;
         for (VirtualDesktop *desktop : VirtualDesktopManager::self()->desktops()) {
             if (LayoutEngine *engine = manager->layoutEngine(desktop)) {
-                engine->removeWindow(window);
+                if (engine->shouldHandleRemove(window)) {
+                    engines.append(engine);
+                }
             }
+        }
+        if (engines.isEmpty()) {
+            continue;
+        }
+        const ReflowScope scope(this, output, ReflowContext::Reason::Remove,
+                                reflowScopeLayoutKind(output));
+        for (LayoutEngine *engine : engines) {
+            engine->removeWindow(window);
         }
     }
 }
@@ -1875,9 +1887,10 @@ void TilingController::onWindowOutputChanged(Window *window, LogicalOutput *oldO
     if (!m_workspace || !window || !oldOutput || oldOutput == window->output()) {
         return;
     }
-    // The window left oldOutput: drop it from every engine there so the source
-    // layout reflows. removeWindow is a no-op when the window isn't present, so
-    // this is safe even if the drag/shortcut path already cleaned up.
+    // The window left oldOutput: drop it from engines that still hold it or
+    // its drag ghost so the source layout reflows. shouldHandleRemove is true
+    // for the owning engine even after KWin untiles the window for a drag;
+    // a contains() guard would skip that cleanup and leak a phantom tile.
     TileManager *manager = m_workspace->tileManager(oldOutput);
     if (manager) {
         VirtualDesktop *oldDesktop = nullptr;
@@ -1886,8 +1899,13 @@ void TilingController::onWindowOutputChanged(Window *window, LogicalOutput *oldO
         }
         for (VirtualDesktop *desktop : VirtualDesktopManager::self()->desktops()) {
             if (LayoutEngine *engine = manager->layoutEngine(desktop)) {
-                engine->removeWindow(window); // if the window is still in a leaf
-                engine->pruneEmpty();         // if KWin left an empty leaf behind
+                // contains() misses the untile-for-drag ghost; ownsGhostLeaf
+                // keeps removeWindow on the source engine so cancelMove/prune
+                // still run. Engines that never held this window do not reflow.
+                if (engine->shouldHandleRemove(window)) {
+                    engine->removeWindow(window); // window in a leaf or its ghost
+                }
+                engine->pruneEmpty(); // KWin may still have left an empty leaf
             }
         }
         applyGapSettingsToOutput(oldOutput, oldDesktop);

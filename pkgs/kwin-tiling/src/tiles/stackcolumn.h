@@ -77,6 +77,30 @@ public:
         return indexOf(window) >= 0;
     }
 
+    /**
+     * True when this column's open move source is @p window's leaf — empty
+     * after KWin untile-for-drag, or still holding that window. windows() skips
+     * empty leaves, so a contains() guard would miss this and leak a phantom.
+     */
+    bool ownsGhostLeaf(Window *window) const
+    {
+        if (!window || !hasMoveSource()) {
+            return false;
+        }
+        CustomTile *leaf = m_moveSourceLeaf;
+        if (!leaf) {
+            return false;
+        }
+        const QList<Window *> ws = leaf->windows();
+        const bool matches = !m_moveWindow || m_moveWindow == window;
+        return movestate::ownsGhostLeaf(true, matches, ws.isEmpty(), ws.contains(window));
+    }
+
+    bool shouldHandleRemove(Window *window) const
+    {
+        return movestate::shouldHandleRemove(contains(window), ownsGhostLeaf(window));
+    }
+
     int indexOf(Window *window) const
     {
         for (int i = 0; i < m_leaves.count(); ++i) {
@@ -157,6 +181,10 @@ public:
             window->setHidden(false);
         }
         CustomTile *leaf = m_leaves.takeAt(idx);
+        if (leaf && leaf == m_moveSourceLeaf) {
+            m_moveSourceLeaf.clear();
+            m_moveWindow.clear();
+        }
         if (leaf) {
             leaf->unmanage(window);
             if (m_root) {
@@ -202,6 +230,7 @@ public:
         const int idx = indexOf(window);
         if (idx >= 0 && idx < m_leaves.count()) {
             m_moveSourceLeaf = m_leaves[idx];
+            m_moveWindow = window;
         }
     }
 
@@ -218,6 +247,7 @@ public:
     {
         QPointer<CustomTile> sourceLeaf = m_moveSourceLeaf;
         m_moveSourceLeaf.clear();
+        m_moveWindow.clear();
         if (!sourceLeaf) {
             return false;
         }
@@ -243,8 +273,13 @@ public:
     // pure cancelMoveLeaf tests) so pure tests and this path cannot diverge.
     bool cancelMove(Window *window)
     {
+        // Sibling / unrelated remove must not steal this window's drag ghost.
+        if (m_moveWindow && window && m_moveWindow != window) {
+            return false;
+        }
         QPointer<CustomTile> sourceLeaf = m_moveSourceLeaf;
         m_moveSourceLeaf.clear();
+        m_moveWindow.clear();
         if (!sourceLeaf || !m_leaves.contains(sourceLeaf)) {
             return false;
         }
@@ -424,8 +459,10 @@ private:
     QList<QPointer<CustomTile>> m_leaves;
     QHash<Window *, qreal> m_weights;
     // Source leaf remembered during an interactive drag so the window can be
-    // swapped/restored on release.
+    // swapped/restored on release. m_moveWindow identifies whose ghost this is
+    // after KWin untiles the window (the leaf is then empty).
     QPointer<CustomTile> m_moveSourceLeaf;
+    QPointer<Window> m_moveWindow;
 };
 
 } // namespace KWin

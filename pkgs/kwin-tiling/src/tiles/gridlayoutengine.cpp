@@ -7,6 +7,7 @@
 #include "gridlayoutengine.h"
 #include "customtile.h"
 #include "gridmath.h"
+#include "movestate.h"
 #include "window.h"
 
 namespace KWin
@@ -37,11 +38,17 @@ void GridLayoutEngine::addWindow(Window *window)
 
 void GridLayoutEngine::removeWindow(Window *window)
 {
-    m_column.cancelMove(window);
-    if (m_column.contains(window)) {
+    if (!m_column.shouldHandleRemove(window)) {
+        return;
+    }
+    const bool cancelled = m_column.cancelMove(window);
+    const bool contained = m_column.contains(window);
+    if (contained) {
         m_column.removeWindow(window);
     }
-    reflow();
+    if (movestate::shouldReflowAfterRemove(cancelled, contained)) {
+        reflow();
+    }
 }
 
 void GridLayoutEngine::moveWindow(Window *window, int delta)
