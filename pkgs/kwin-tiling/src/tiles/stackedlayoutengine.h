@@ -41,7 +41,9 @@ public:
     void reorderWindow(Window *window, int delta) override;
     void beginMoveWindow(Window *window) override;
     bool endMoveWindow(Window *window, Window *target) override;
+    bool endMoveWindowOnZone(Window *window, Window *target, DropZone zone) override;
     void cancelMoveWindow(Window *window) override;
+    void dropWindow(Window *window, Window *target, const QPointF &pos, const RectF &area) override;
     void reflow() override;
     void pruneEmpty() override;
     bool ownsGhostLeaf(Window *window) const override { return m_column.ownsGhostLeaf(window); }

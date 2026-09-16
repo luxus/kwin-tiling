@@ -35,20 +35,20 @@ Layouts are **thin arrangement engines** over one vertical primitive:
 
 - **`StackColumn`** — ordered, weighted vertical stack (insert, drag/swap,
   height fill). Used by every kind.
-- **Pure math / policy headers** — `columnmath`, `masterstackmath`, `gridmath`,
-  `directionmath`, `slotlist`, `movestate`, `leafcolumn`, `movefsm`,
-  `sizingpolicy`, `tilingconfig`, `scrollingmove`, `viewportmath`,
-  `columnwidthpresets`, `scrollingcolumn`, `engineindex`, `overflowmath`,
-  `scrollingmath`, `consumeexpelmath` — tested without linking
+- **Pure math / policy headers** — `columnmath`, `columnlayoutmath`, `insertpolicy`,
+  `masterstackmath`, `gridmath`, `directionmath`, `slotlist`, `movestate`,
+  `leafcolumn`, `movefsm`, `sizingpolicy`, `tilingconfig`, `scrollingmove`,
+  `viewportmath`, `columnwidthpresets`, `scrollingcolumn`, `engineindex`,
+  `overflowmath`, `scrollingmath`, `consumeexpelmath` — tested without linking
   KWin (`nix flake check` / `tests/run.sh`).
 - **`LayoutEngine` base** — zoom/monocle reflow, resize gate, no-op knobs for
   layout-specific actions.
-- **Scrolling** is deliberately separate (viewport, column widths, consume/expel)
-  so those quirks never branch into master/stack/grid paths.
+- **Scrolling** is deliberately separate (viewport, column widths, left-merge
+  consume/expel) so those quirks never branch into master/stack/grid/columns
+  paths.
 
-New layouts (e.g. Columns) should compose `StackColumn` + pure policy, not
-copy-paste height or cancel-move logic. See `pkgs/kwin-tiling/README.md`
-Architecture.
+Columns composes `StackColumn` + `columnlayoutmath` / `insertpolicy` (equal
+widths that fill the view). Drop-zone InsertAbove/InsertBelow is shared.
 
 For rounded corners and focus outlines on frameless windows, use the separate
 [`kde-rounded-corners`](https://github.com/matinlotfali/KDE-Rounded-Corners)
@@ -76,8 +76,8 @@ path instead of carrying the fork.
 | | KineticWE fork | kwin-tiling |
 | --- | --- | --- |
 | Compositor to maintain | entire KWin tree (~3,300 tracked files) | stock `kdePackages.kwin` |
-| Integration surface | **123** `src/` files diverge from upstream KWin today | **62** files (**44** new + **18** hooked) |
-| Changes to existing KWin | baked into the fork (hard to isolate) | **+552 / −33** lines in `hooks.patch` |
+| Integration surface | **123** `src/` files diverge from upstream KWin today | **66** files (**48** new + **18** hooked) |
+| Changes to existing KWin | baked into the fork (hard to isolate) | **+558 / −33** lines in `hooks.patch` |
 | Extra workarounds | ~20-file QPainter render path (~1.9k LOC), hand-rolled borders/rounded corners (~500 LOC), distro install scripts (~2k LOC), `kineticwe` binary rename | rounded corners via a separate KWin effect plugin |
 | Plasma bumps | rebase the whole compositor | re-test the patch surface |
 

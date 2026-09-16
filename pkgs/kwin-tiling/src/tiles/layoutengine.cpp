@@ -113,6 +113,8 @@ QString LayoutEngine::layoutKindToString(LayoutKind kind)
         return QStringLiteral("Centered");
     case LayoutKind::Grid:
         return QStringLiteral("Grid");
+    case LayoutKind::Columns:
+        return QStringLiteral("Columns");
     }
     return QStringLiteral("MasterStack");
 }
@@ -130,6 +132,8 @@ QString LayoutEngine::layoutDisplayName(LayoutKind kind)
         return QStringLiteral("Centered");
     case LayoutKind::Grid:
         return QStringLiteral("Grid");
+    case LayoutKind::Columns:
+        return QStringLiteral("Columns");
     }
     return QStringLiteral("Master & Stack");
 }
@@ -150,6 +154,9 @@ LayoutEngine::LayoutKind LayoutEngine::layoutKindFromString(const QString &name,
     }
     if (name.compare(QLatin1String("Grid"), Qt::CaseInsensitive) == 0) {
         return LayoutKind::Grid;
+    }
+    if (name.compare(QLatin1String("Columns"), Qt::CaseInsensitive) == 0) {
+        return LayoutKind::Columns;
     }
     return fallback;
 }

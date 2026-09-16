@@ -226,6 +226,7 @@ bool ScrollingLayoutEngine::dropConsumesIntoTarget(Window *window, Window *targe
     }
     // Same-column drop keeps swap-on-drop (endMoveWindow). Cross-column
     // (or a drop with no recorded source) consumes into the target column.
+    // Distinct from Columns InsertAbove/Below (#32).
     if (m_moveHasSource && m_moveSourceColumn == tc) {
         return false;
     }
@@ -240,6 +241,7 @@ void ScrollingLayoutEngine::dropWindow(Window *window, Window *target, const QPo
 
     // Drop on a window: consume into that column at the Y-half index.
     // Caller already destroyed the empty source leaf (cancelMove / pruneEmpty).
+    // Uses scrollingmath, not Columns insertpolicy 25% bands.
     if (target && target != window) {
         int tc = -1;
         int tl = -1;

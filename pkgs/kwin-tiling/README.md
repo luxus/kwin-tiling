@@ -1,8 +1,8 @@
 # Native KWin tiling — reference
 
-Dynamic tiling (master-stack, stacked, scrolling, centred, and grid layouts,
-gaps, float/ignore rules, a settings KCM) built **into** KWin. The native impl
-lifts the ceiling of the KWin script API.
+Dynamic tiling (master-stack, stacked, scrolling, centred, grid, and columns
+layouts, gaps, float/ignore rules, a settings KCM) built **into** KWin. The
+native impl lifts the ceiling of the KWin script API.
 
 **Source of truth:** `pkgs/kwin-tiling/` (the package). The flake exposes it as
 `packages.<sys>.kwin-tiling`, `overlays.default`, and `nixosModules.kwin-tiling`.
@@ -44,6 +44,7 @@ LayoutEngine (src/tiles/layoutengine.h)              — abstract base
   ├─ MasterStackLayoutEngine  (MasterStack + Centered kinds)
   ├─ StackedLayoutEngine      (single full-area StackColumn)
   ├─ GridLayoutEngine         (StackColumn + gridmath slot order)
+  ├─ ColumnsLayoutEngine      (many StackColumns, widths sum to 1; no viewport)
   └─ ScrollingLayoutEngine    (many StackColumns + viewport; isolated)
 
 StackColumn (src/tiles/stackcolumn.h)                — shared vertical primitive
@@ -55,7 +56,7 @@ StackColumn (src/tiles/stackcolumn.h)                — shared vertical primiti
 Do **not** fork vertical leaf lifecycle into each engine. Cross-layout quirks
 (zoom, resize gating) live on `LayoutEngine`. Scrolling keeps viewport state
 (`scrollOffset`, column widths, consume/expel) private — never leak into
-MasterStack/Stacked/Grid. Absolute geometry, gaps, and quick-tile stay on
+MasterStack/Stacked/Grid/Columns. Absolute geometry, gaps, and quick-tile stay on
 KWin's `Tile`/`TileManager`; engines only set relative geometry.
 
 - **Tile association (#14):** `StackColumn` calls `requestTile(leaf)` when a leaf
@@ -64,11 +65,12 @@ KWin's `Tile`/`TileManager`; engines only set relative geometry.
 - **Reverse index (#15):** `TilingController` maps `Window*` → engine so
   `layoutEngineForWindow` is O(1). `LayoutEngine::contains()` is the non-allocating
   membership check.
-- Pure, KWin-free arithmetic (unit-tested): `columnmath`, `masterstackmath`,
-  `gridmath`, `directionmath`, `slotlist`, `movestate`, `leafcolumn`, `movefsm`,
-  `sizingpolicy`, `suspendpolicy`, `tilingconfig`, `scrollingmove`, `viewportmath`,
-  `engineindex`, `columnwidthpresets`, `scrollingcolumn`, `overflowmath`,
-  `scrollingmath`, `consumeexpelmath`.
+- Pure, KWin-free arithmetic (unit-tested): `columnmath`, `columnlayoutmath`,
+  `insertpolicy`, `masterstackmath`, `gridmath`, `directionmath`, `slotlist`,
+  `movestate`, `leafcolumn`, `movefsm`, `sizingpolicy`, `suspendpolicy`,
+  `tilingconfig`, `scrollingmove`, `viewportmath`, `engineindex`,
+  `columnwidthpresets`, `scrollingcolumn`, `overflowmath`, `scrollingmath`,
+  `consumeexpelmath`.
 - Kind switch **replaces** the engine and re-adds windows; durable layout
   memory is keyed by output/desktop id, not engine pointer.
 - Cross-monitor moves: cancel source leaf, drop on destination — no phantoms.
@@ -103,7 +105,7 @@ in *System Settings → Shortcuts → KWin*.
 | Scrolling: expand column to available width | `Meta+Ctrl+F` |
 | Scrolling: consume into column / expel from column | `Meta+Shift+[` / `Meta+Shift+]` |
 | Scrolling: consume-or-expel left / right | `Meta+[` / `Meta+]` |
-| Switch to MasterStack / Stacked / Scrolling / Centered / Grid | unbound |
+| Switch to MasterStack / Stacked / Scrolling / Centered / Grid / Columns | unbound |
 
 In **Scrolling**, `Meta+Alt+Up/Down` reorders the window **inside its column**
 (niri `move-window-up/down`) and does not slide columns. `Meta+Alt+Left/Right`
@@ -119,14 +121,14 @@ Consume/expel stays `Meta+Shift+[` / `]` and is a different action.
 > **new** pair (`Tiling Consume Or Expel Left/Right`, default `Meta+[` / `Meta+]`).
 
 Mouse: drag the **master/stack divider** to set the master ratio; **drop** a
-window onto another to swap, or onto empty space to insert there (master column
-left of the divider, stack to the right). In **Scrolling**, drop on the
+window onto another to swap (middle) or **insert above/below** (top/bottom
+bands) in MasterStack/Stacked/Grid/Columns. In **Scrolling**, drop on the
 top/bottom half of a window in another column consumes into that column at that
 index (same-column drop still swaps); empty-space drop uses cursor X to pick
 the strip index (a gap between columns inserts a new column there). Drag
 **horizontal borders within a column** to adjust per-window heights (MasterStack,
-Stacked, and Scrolling); drag **vertical borders** in Scrolling to resize the
-active column width; other edges snap.
+Stacked, Scrolling, Columns); drag **vertical borders** in Scrolling or Columns
+to resize column width; other edges snap.
 Window context menu: **Float (Tiling)** (this window) and **Always Float This
 App (Tiling)** (class rule).
 
@@ -140,12 +142,13 @@ Read by the controller on `reconfigure`; also surfaced in the KCM
 |-----|------|---------|---------|
 | `Enabled` | bool | `true` | master switch |
 | `DefaultLayout` | string | `MasterStack` | layout for new (output, desktop) pairs |
-| `EnabledLayouts` | list | `MasterStack,Stacked,Scrolling,Centered` | available layouts + cycle order (Grid opt-in) |
+| `EnabledLayouts` | list | `MasterStack,Stacked,Scrolling,Centered` | available layouts + cycle order (Grid and Columns opt-in) |
 | `MasterRatio` | double | `0.5` | master column width fraction (0.1–0.9) |
 | `MasterCount` | int | `1` | windows in the master area |
 | `DefaultColumnWidth` | double | `0.5` | Scrolling: new column width fraction (0.1–1.0) |
 | `CenterFocusedColumn` | string | `never` | Scrolling: `never` (fit-scroll), `always` (center on focus; wide columns left-align), or `on-overflow` (center when the focused column and its neighbour do not both fit). `Meta+Shift+C` stays a one-shot center. Path A overflow (#40) plus W0-2 (#41) let peeking columns keep full width without migrating; fully off-viewport columns stay hidden. |
 | `ColumnWidthPresets` | list | `1/3,1/2,2/3,1` | Scrolling: cycle/reverse-cycle widths (fractions, `1/3`, or percents). Full width is a preset. |
+| `MaxColumns` | int | `3` | Columns layout: max side-by-side columns (2–5) |
 | `BorderlessWhenTiled` | bool | `false` | hide window decorations on tiled windows |
 | `NewWindowPlacement` | string | `end` | `master` promotes new windows to master (master-style layouts; respects an active master pin); `end` appends them |
 | `GapLeft/Right/Top/Bottom` | int | `0` | outer gaps |
@@ -215,7 +218,7 @@ pkgs/kwin-tiling/tests/run.sh    # all *_test.cpp via g++
 ```
 
 Covers geometry (`columnmath`, `gridmath`, `masterstackmath`, `directionmath`,
-`overflowmath`), StackColumn order/weight (`slotlist`), layout + sizing precedence
+`columnlayoutmath`, `insertpolicy`, `overflowmath`), StackColumn order/weight (`slotlist`), layout + sizing precedence
 (`tilingconfig`), Scrolling viewport modes (`viewportmath`), drop-insert
 (`scrollingmath`), in-column move (`scrollingmove`), Window→engine reverse index
 (`engineindex`), column-width presets (`columnwidthpresets`), consume-into-column
@@ -308,6 +311,8 @@ Maintenance above).
 
 - **Grid layout** — smoothly-interpolating grid layout kind (`gridmath.h` +
   `GridLayoutEngine`); enable via KCM, cycle or switch at runtime.
+- **Columns layout** — equal-width columns that fill the view (`columnlayoutmath` +
+  `ColumnsLayoutEngine`); opt-in via KCM. Drop-zone InsertAbove/InsertBelow.
 - **Master pin** — sticky master per output/desktop (`Meta+S`).
 - **Focus last** — toggle to previously active window (`Meta+U`).
 - **Borderless when tiled** — optional `BorderlessWhenTiled` KCM setting.
@@ -374,11 +379,11 @@ the fork; little of that code remains.
 | | KineticWE fork | this package |
 | --- | --- | --- |
 | Compositor | entire KWin tree (~3,300 tracked files) | `kdePackages.kwin.overrideAttrs` |
-| Files touched | 123 `src/` files diverge from upstream KWin | 62 (44 vendored + 18 in `hooks.patch`) |
-| Existing KWin edits | spread across the fork | +552 / −33 lines in 18 files |
+| Files touched | 123 `src/` files diverge from upstream KWin | 66 (48 vendored + 18 in `hooks.patch`) |
+| Existing KWin edits | spread across the fork | +558 / −33 lines in 18 files |
 | Workarounds dropped | QPainter backend (~20 files, ~1.9k LOC), hand-rolled borders (~500 LOC), install scripts (~2k LOC), `kineticwe` binary | stock `kwin_wayland`; effects as plugins |
 
-The 44 vendored files are everything under `pkgs/kwin-tiling/src/` (40 `.cpp`/`.h`/`.qml` plus 4 KCM/CMake glue files). Counts drift as layouts and helpers are added; re-count with `find pkgs/kwin-tiling/src -type f | wc -l` and `grep -c '^diff --git' pkgs/kwin-tiling/hooks.patch`.
+The 48 vendored files are everything under `pkgs/kwin-tiling/src/` (`.cpp`/`.h`/`.qml` plus KCM/CMake glue). Counts drift as layouts and helpers are added; re-count with `find pkgs/kwin-tiling/src -type f | wc -l` and `grep -c '^diff --git' pkgs/kwin-tiling/hooks.patch`.
 
 Most of our 18 hooked files are the same integration points KineticWE changed for
 tiling; the fork also modifies **100+ other** `src/` files (render backends,

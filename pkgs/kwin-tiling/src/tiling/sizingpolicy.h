@@ -19,6 +19,7 @@ enum class LayoutKind {
     Scrolling = 2,
     Centered = 3,
     Grid = 4,
+    Columns = 5,
 };
 
 /** primarySplit() < 0 means the engine has no primary split (Stacked/Grid). */

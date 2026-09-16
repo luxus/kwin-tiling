@@ -39,7 +39,7 @@ All shortcuts are registered as KWin actions. Rebind them in *System Settings
 | Scrolling: expand column to available width | `Meta+Ctrl+F` |
 | Scrolling: consume into column / expel from column | `Meta+Shift+[` / `Meta+Shift+]` |
 | Scrolling: consume-or-expel left / right | `Meta+[` / `Meta+]` |
-| Switch to MasterStack / Stacked / Scrolling / Centered / Grid | *(unbound)* |
+| Switch to MasterStack / Stacked / Scrolling / Centered / Grid / Columns | *(unbound)* |
 
 KGlobalAccel only applies a default when the shortcut is free **and** the
 action is new in your profile. If an action was previously unbound, assign it
@@ -68,15 +68,16 @@ expel; those stay `Meta+Shift+[` / `]`.
 ## Mouse
 
 - Drag the **master/stack divider** to set the master column width
-- Drag a tiled window **onto another** to swap positions. In **Scrolling**, drop
-  on the top or bottom half of a window in **another** column consumes into that
-  column at that index (niri-style); drop on a window in the **same** column
+- Drag a tiled window **onto another** to swap (middle) or insert above/below
+  (top/bottom of the target) in MasterStack/Stacked/Grid/Columns. In **Scrolling**,
+  drop on the top or bottom half of a window in **another** column consumes into
+  that column at that index (niri-style); drop on a window in the **same** column
   still swaps
 - Drag **onto empty space** to insert the window at that position. MasterStack
   uses master vs stack side of the divider; **Scrolling** uses cursor X to pick
   the strip index (a drop on the gap between columns inserts a new column there)
 - Drag **horizontal borders inside a column** to resize individual window heights
-- Drag **vertical borders in Scrolling** to resize the active column width
+- Drag **vertical borders in Scrolling or Columns** to resize column width
 - Unsupported resize directions snap back
 
 Right-click a window for **Float (Tiling)** (this window) or **Always Float This
@@ -97,13 +98,14 @@ App (Tiling)** (permanent class rule).
 | Setting | What it does |
 | --- | --- |
 | Enable tiling | Global on/off switch |
-| Available layouts | Which layouts appear in the cycle (MasterStack, Stacked, Scrolling, Centered; Grid is opt-in) |
+| Available layouts | Which layouts appear in the cycle (MasterStack, Stacked, Scrolling, Centered; Grid and Columns opt-in) |
 | Default layout | Layout used on new monitor/desktop pairs |
 | Master width | Master column as a fraction of screen width (0.1–0.9) |
 | Master count | How many windows sit in the master area |
 | Default column width | Scrolling layout: width of new columns |
 | Center focused column | Scrolling: `never` (default, scroll to fit), `always` (center on focus; wide columns left-align), or `on-overflow` (center when the focused column and its neighbour do not both fit). `Meta+Shift+C` remains a one-shot center. Peeking columns keep full width ([#40](https://github.com/luxus/kwin-tiling/issues/40) Path A + [#41](https://github.com/luxus/kwin-tiling/issues/41)); fully off-viewport columns stay hidden. |
 | Column-width presets | Scrolling layout: widths visited by cycle / reverse cycle |
+| Max columns | Columns layout: maximum side-by-side columns (2–5) |
 | Gap margins | Left, right, top, bottom screen margins |
 | Gap between | Space between adjacent tiles |
 | Per-output overrides | Different layout, gaps, or sizing per monitor |
@@ -158,6 +160,7 @@ Per-app output pinning lives under `[TilingRules]` as `AssignOutput` (e.g.
 - **Centered** — master window in the centre, others in left/right stacks.
 - **Grid** — opt-in smoothly scaling grid (not in the default `EnabledLayouts`
   list; enable it in the KCM or add `Grid` to `EnabledLayouts`).
+- **Columns** — equal-width columns filling the view; extra windows stack (opt-in).
 
 Cycle between enabled layouts with the cycle action, or set a default in the KCM.
 

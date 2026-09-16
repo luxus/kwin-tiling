@@ -21,7 +21,7 @@ KWin script API allows — without maintaining a renamed compositor fork. We pat
 stock KWin with vendored source and a small hooks patch instead of carrying a
 full compositor fork like
 [KineticWE](https://gitlab.com/theblackdon/kineticwe) did. See
-[Design](design) for the comparison — **62 files** touched here vs **123**
+[Design](design) for the comparison — **66 files** touched here vs **123**
 diverging `src/` files in the fork, and none of its QPainter backend or install
 scaffolding.
 
@@ -29,10 +29,10 @@ scaffolding.
 
 At a glance:
 
-- **Five layout modes** — master-stack, stacked, scrolling, centred, and grid
+- **Six layout modes** — master-stack, stacked, scrolling, centred, grid, and columns
 - **Gaps** — space between tiles and around the screen edge, per-monitor overrides
 - **Window rules** — float or ignore apps by class/title; dialogs auto-float
-- **Full control** — keyboard shortcuts, drag-to-swap, divider resize, settings KCM
+- **Full control** — keyboard shortcuts, drag-to-swap or insert above/below, divider resize, settings KCM
 - **Nix packaging** — flake module and overlay; no compositor fork to maintain
 
 See [Features](features) for the full breakdown of each layout, rule, and
