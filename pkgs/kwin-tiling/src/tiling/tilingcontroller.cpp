@@ -16,6 +16,7 @@
 #include "tiling/suspendpolicy.h"
 #include "tiling/tilingosd.h"
 #include "tiles/directionmath.h"
+#include "tiles/columnwidthpresets.h"
 #include "tiles/layoutengine.h"
 #include "tiles/gridlayoutengine.h"
 #include "tiles/masterstacklayoutengine.h"
@@ -35,6 +36,8 @@
 #include <QDBusPendingCall>
 #include <QStandardPaths>
 #include <QtGlobal>
+#include <string>
+#include <vector>
 
 #include <optional>
 #include <string>
@@ -151,6 +154,27 @@ tilingconfig::LayoutKindInputs layoutKindInputs(LayoutEngine::LayoutKind globalD
     return in;
 }
 
+QStringList defaultColumnWidthPresetStrings()
+{
+    return {QStringLiteral("1/3"), QStringLiteral("1/2"), QStringLiteral("2/3"), QStringLiteral("1")};
+}
+
+QList<qreal> parseColumnWidthPresets(const QStringList &raw)
+{
+    std::vector<std::string> tokens;
+    tokens.reserve(size_t(raw.size()));
+    for (const QString &s : raw) {
+        tokens.push_back(s.toStdString());
+    }
+    const std::vector<double> parsed = columnwidthpresets::parse(tokens);
+    QList<qreal> out;
+    out.reserve(int(parsed.size()));
+    for (const double v : parsed) {
+        out.append(qreal(v));
+    }
+    return out;
+}
+
 } // namespace
 
 TilingController::TilingController(Workspace *workspace)
@@ -206,6 +230,8 @@ void TilingController::reconfigure()
     m_defaultColumnWidth = tilingconfig::clampColumnWidth(tilingGroup.readEntry("DefaultColumnWidth", 0.5));
     m_centerFocusedColumn = viewportmath::parseCenterFocusedColumn(
         tilingGroup.readEntry("CenterFocusedColumn", QStringLiteral("never")).toStdString());
+    m_columnWidthPresets = parseColumnWidthPresets(
+        tilingGroup.readEntry("ColumnWidthPresets", defaultColumnWidthPresetStrings()));
     m_masterCount = tilingconfig::clampMasterCount(tilingGroup.readEntry("MasterCount", 1));
     m_layoutSwitchOsd = tilingGroup.readEntry("LayoutSwitchOsd", true);
     m_borderlessWhenTiled = tilingGroup.readEntry("BorderlessWhenTiled", false);
@@ -373,6 +399,7 @@ void TilingController::seedEngineSizing(LogicalOutput *output, VirtualDesktop *d
     if (kind == LayoutEngine::LayoutKind::Scrolling) {
         engine->setDefaultColumnWidth(sizing.defaultColumnWidth);
         engine->setCenterFocusedColumn(m_centerFocusedColumn);
+        engine->setColumnWidthPresets(m_columnWidthPresets);
     } else {
         engine->setPrimarySplit(sizing.masterRatio);
     }
@@ -2198,6 +2225,15 @@ void TilingController::cycleColumnWidth()
     LayoutEngine *engine = window ? layoutEngineForWindow(window) : activeLayoutEngine();
     if (engine) {
         engine->cycleColumnWidth();
+    }
+}
+
+void TilingController::cycleColumnWidthReverse()
+{
+    Window *window = activeTiledWindow();
+    LayoutEngine *engine = window ? layoutEngineForWindow(window) : activeLayoutEngine();
+    if (engine) {
+        engine->cycleColumnWidthReverse();
     }
 }
 

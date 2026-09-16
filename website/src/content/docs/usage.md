@@ -35,6 +35,7 @@ All shortcuts are registered as KWin actions. Rebind them in *System Settings
 | Flip master side | `Meta+Shift+F` |
 | Toggle gaps | `Meta+Shift+G` |
 | Scrolling: center column / cycle column width | `Meta+Shift+C` / `Meta+Shift+V` |
+| Scrolling: reverse cycle column width | `Meta+Ctrl+Shift+V` |
 | Scrolling: consume / expel window | `Meta+Shift+[` / `Meta+Shift+]` |
 | Switch to MasterStack / Stacked / Scrolling / Centered / Grid | *(unbound)* |
 
@@ -81,6 +82,7 @@ App (Tiling)** (permanent class rule).
 | Master count | How many windows sit in the master area |
 | Default column width | Scrolling layout: width of new columns |
 | Center focused column | Scrolling: `never` (default, scroll to fit), `always` (center on focus; wide columns left-align), or `on-overflow` (center when the focused column and its neighbour do not both fit). `Meta+Shift+C` remains a one-shot center. Off-screen columns stay hidden until overflow tiles ([#40](https://github.com/luxus/kwin-tiling/issues/40) Path A). |
+| Column-width presets | Scrolling layout: widths visited by cycle / reverse cycle |
 | Gap margins | Left, right, top, bottom screen margins |
 | Gap between | Space between adjacent tiles |
 | Per-output overrides | Different layout, gaps, or sizing per monitor |
@@ -102,6 +104,7 @@ MasterRatio=0.5
 MasterCount=1
 DefaultColumnWidth=0.5
 CenterFocusedColumn=never
+ColumnWidthPresets=1/3,1/2,2/3,1
 NewWindowPlacement=end
 GapBetween=4
 GapLeft=8
@@ -120,9 +123,10 @@ Per-app output pinning lives under `[TilingRules]` as `AssignOutput` (e.g.
 - **Stacked** — single column, full width, windows stacked vertically.
 - **Scrolling** — horizontal strip of columns; viewport scrolls to the active one.
   `Meta+Alt+Up/Down` moves the window inside the column; `Meta+Alt+Left/Right`
-  slides the column. Consume/expel is `Meta+Shift+[` / `]`. Optional
-  `CenterFocusedColumn` (`never` / `always` / `on-overflow`) recenters on focus;
-  `Meta+Shift+C` is still a one-shot center. Without overflow tiles
+  slides the column. Cycle column width through KCM-configured presets
+  (`Meta+Shift+V`, reverse `Meta+Ctrl+Shift+V`). Consume/expel is `Meta+Shift+[` / `]`.
+  Optional `CenterFocusedColumn` (`never` / `always` / `on-overflow`) recenters
+  on focus; `Meta+Shift+C` is still a one-shot center. Without overflow tiles
   ([#40](https://github.com/luxus/kwin-tiling/issues/40) Path A), `always` still
   hides off-screen columns.
 - **Centered** — master window in the centre, others in left/right stacks.

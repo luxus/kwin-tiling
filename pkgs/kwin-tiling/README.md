@@ -66,7 +66,7 @@ KWin's `Tile`/`TileManager`; engines only set relative geometry.
 - Pure, KWin-free arithmetic (unit-tested): `columnmath`, `masterstackmath`,
   `gridmath`, `directionmath`, `slotlist`, `movestate`, `leafcolumn`, `movefsm`,
   `sizingpolicy`, `suspendpolicy`, `tilingconfig`, `scrollingmove`, `viewportmath`,
-  `engineindex`.
+  `engineindex`, `columnwidthpresets`.
 - Kind switch **replaces** the engine and re-adds windows; durable layout
   memory is keyed by output/desktop id, not engine pointer.
 - Cross-monitor moves: cancel source leaf, drop on destination — no phantoms.
@@ -97,6 +97,7 @@ in *System Settings → Shortcuts → KWin*.
 | Flip master side | `Meta+Shift+F` |
 | Toggle gaps | `Meta+Shift+G` |
 | Scrolling: center column / cycle column width | `Meta+Shift+C` / `Meta+Shift+V` |
+| Scrolling: reverse cycle column width | `Meta+Ctrl+Shift+V` |
 | Scrolling: consume / expel window into-column | `Meta+Shift+[` / `Meta+Shift+]` |
 | Switch to MasterStack / Stacked / Scrolling / Centered / Grid | unbound |
 
@@ -134,6 +135,7 @@ Read by the controller on `reconfigure`; also surfaced in the KCM
 | `MasterCount` | int | `1` | windows in the master area |
 | `DefaultColumnWidth` | double | `0.5` | Scrolling: new column width fraction (0.1–1.0) |
 | `CenterFocusedColumn` | string | `never` | Scrolling: `never` (fit-scroll), `always` (center on focus; wide columns left-align), or `on-overflow` (center when the focused column and its neighbour do not both fit). `Meta+Shift+C` stays a one-shot center. Without [#40](https://github.com/luxus/kwin-tiling/issues/40) Path A overflow tiles, `always` still hides off-screen columns. |
+| `ColumnWidthPresets` | list | `1/3,1/2,2/3,1` | Scrolling: cycle/reverse-cycle widths (fractions, `1/3`, or percents). Full width is a preset. |
 | `BorderlessWhenTiled` | bool | `false` | hide window decorations on tiled windows |
 | `NewWindowPlacement` | string | `end` | `master` promotes new windows to master (master-style layouts; respects an active master pin); `end` appends them |
 | `GapLeft/Right/Top/Bottom` | int | `0` | outer gaps |

@@ -43,8 +43,10 @@ reorders windows **inside** a column; `Meta+Alt+Left/Right` slides the whole
 column. Center-focused-column modes (`never` / `always` / `on-overflow`) live in
 the KCM; `Meta+Shift+C` is still a one-shot center. Without
 [#40](https://github.com/luxus/kwin-tiling/issues/40) Path A overflow tiles,
-`always` still hides off-screen columns. Consume/expel and column-width cycling
-have keyboard defaults — see [Usage & Shortcuts](usage) and
+`always` still hides off-screen columns. Column-width cycle (`Meta+Shift+V`) and
+reverse cycle (`Meta+Ctrl+Shift+V`) visit only the presets configured in the KCM
+(default `1/3`, `1/2`, `2/3`, `1`; full width is a preset). Consume/expel has
+keyboard defaults — see [Usage & Shortcuts](usage) and
 [Scrolling vs niri](scrolling-vs-niri) for remaining polish.
 
 ### Centered
@@ -162,7 +164,7 @@ When tiling is enabled:
 - **Cross-monitor robustness** — moving windows between outputs no longer leaves
   phantom tiles; empty leaves are pruned after structural changes
 - **Shared layout foundation** — `StackColumn` + pure math (`columnmath`,
-  `masterstackmath`, `gridmath`, `movestate`, `movefsm`, …) so vertical stacking
+  `masterstackmath`, `gridmath`, `columnwidthpresets`, `movestate`, `movefsm`, …) so vertical stacking
   and move rules are not copy-pasted per engine; pure suite via `nix flake check`
 - **Clean packaging** — vendored source plus a small patch over stock KWin,
   shipped as a Nix flake module (currently tracks **KWin 6.8 beta / 6.7.90**)

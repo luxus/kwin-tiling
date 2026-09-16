@@ -76,11 +76,15 @@ public:
     void setDefaultColumnWidth(qreal width) override;
     void setCenterFocusedColumn(viewportmath::CenterFocusedColumn mode) override;
 
+    // Cycle/reverse visit only these fractions (kcfg ColumnWidthPresets).
+    void setColumnWidthPresets(const QList<qreal> &presets) override;
+
     // QoL: reset every column to the default width; centre the active column in
     // the viewport; cycle the active column through width presets.
     void resetSizes() override;
     void centerActiveColumn() override;
     void cycleColumnWidth() override;
+    void cycleColumnWidthReverse() override;
     // niri-style: merge the active window into the column on its left, or split
     // it out into its own column to the right.
     void consumeWindow() override;
@@ -101,6 +105,8 @@ private:
     void scrollActiveIntoView();
     QList<CustomTile *> allLeaves() const;
 
+    void cycleColumnWidthBy(int direction);
+
     QPointer<RootTile> m_root;
     QList<Column> m_columns;
     QPointer<Window> m_activeWindow;
@@ -109,6 +115,7 @@ private:
     viewportmath::CenterFocusedColumn m_centerMode = viewportmath::CenterFocusedColumn::Never;
     // Previous active column for on-overflow; -1 = none. Consumed each reflow.
     int m_focusFromColumn = -1;
+    QList<qreal> m_columnWidthPresets = {1.0 / 3.0, 0.5, 2.0 / 3.0, 1.0};
     bool m_moveHasSource = false;
     int m_moveSourceColumn = -1;
 };
