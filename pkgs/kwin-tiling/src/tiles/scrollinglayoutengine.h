@@ -28,8 +28,8 @@ class Window;
  * windowGeometry() output intersect, and pins the window to this TileManager
  * output so a centre past the edge does not migrate. Fully off-viewport
  * columns stay *hidden* (`viewportmath::hideForOffscreen`); hide is also used
- * for monocle. CenterFocusedColumn always/on-overflow can therefore peek
- * neighbours without migrating them. Do not interpolate m_scrollOffset.
+ * for monocle. CenterFocusedColumn always/on-overflow/pair-center can therefore
+ * peek neighbours without migrating them. Do not interpolate m_scrollOffset.
  *
  * Each column is a StackColumn (the shared vertical-stack primitive), so the
  * height splitting, weights and resize behave exactly like the other layouts.

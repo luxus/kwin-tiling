@@ -386,7 +386,7 @@ void ScrollingLayoutEngine::scrollActiveIntoView()
     }
     const int ac = activeColumnIndex();
     m_scrollOffset = viewportmath::scrollOffsetForFocus(
-        widths, ac, m_focusFromColumn, m_scrollOffset, m_centerMode);
+        widths, ac, m_focusFromColumn, m_scrollOffset, m_centerMode, m_defaultColWidth);
     m_focusFromColumn = ac;
 }
 

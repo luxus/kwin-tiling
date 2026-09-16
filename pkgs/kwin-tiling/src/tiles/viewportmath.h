@@ -11,10 +11,12 @@
 #include <string_view>
 #include <vector>
 
-// Pure Scrolling viewport policy: never / always / on-overflow scroll offset.
-// No KWin / Qt types — unit-tested standalone (tests/viewportmath_test.cpp).
-// Mirrors niri's compute_new_view_offset_for_column (center-focused-column).
-// Coordinates are view-width fractions: the viewport is [offset, offset+1).
+// Pure Scrolling viewport policy: never / always / on-overflow / pair-center
+// scroll offset. No KWin / Qt types — unit-tested standalone
+// (tests/viewportmath_test.cpp). Mirrors niri's
+// compute_new_view_offset_for_column (center-focused-column) plus Direktor /
+// Karousel pair-center. Coordinates are view-width fractions: the viewport is
+// [offset, offset+1).
 
 namespace KWin::viewportmath
 {
@@ -23,6 +25,7 @@ enum class CenterFocusedColumn {
     Never = 0,
     Always = 1,
     OnOverflow = 2,
+    PairCenter = 3, // Karousel / Direktor: always pair-peek when n > 2
 };
 
 inline std::string normalizeModeName(std::string_view name)
@@ -51,6 +54,9 @@ inline CenterFocusedColumn parseCenterFocusedColumn(std::string_view name)
     if (n == "onoverflow") {
         return CenterFocusedColumn::OnOverflow;
     }
+    if (n == "paircenter" || n == "centerpairs" || n == "karousel") {
+        return CenterFocusedColumn::PairCenter;
+    }
     return CenterFocusedColumn::Never;
 }
 
@@ -61,6 +67,8 @@ inline const char *centerFocusedColumnToString(CenterFocusedColumn mode)
         return "always";
     case CenterFocusedColumn::OnOverflow:
         return "on-overflow";
+    case CenterFocusedColumn::PairCenter:
+        return "pair-center";
     case CenterFocusedColumn::Never:
         break;
     }
@@ -201,8 +209,36 @@ inline bool neighborOverflows(const std::vector<double> &widths, int activeIndex
     return widths[static_cast<size_t>(sourceIndex)] + widths[static_cast<size_t>(activeIndex)] > 1.0;
 }
 
+/**
+ * Direktor / Karousel pair-center (n > 2): keep a dead-zone so one neighbour
+ * of @p defaultWidth always has room beside the active column — not only when
+ * the actual neighbour overflows. Viewport-relative active left stays in
+ * [minX, maxX] with minX = (1 - width - defaultWidth) / 2. If the pair cannot
+ * fit (minX < 0), fall back to fit (active fully visible, wide columns
+ * left-align). Does not clamp to the strip (same as Always).
+ */
+inline double pairCenterScrollOffset(double left, double width, double currentOffset,
+                                     double defaultWidth)
+{
+    double minX = (1.0 - width - defaultWidth) / 2.0;
+    double maxX = 1.0 - width - minX;
+    if (minX < 0.0) {
+        minX = 0.0;
+        maxX = std::max(0.0, 1.0 - width);
+    }
+    const double viewLeft = left - currentOffset;
+    if (viewLeft < minX) {
+        return left - minX;
+    }
+    if (viewLeft > maxX) {
+        return left - maxX;
+    }
+    return currentOffset;
+}
+
 inline double scrollOffsetForFocus(const std::vector<double> &widths, int activeIndex, int prevIndex,
-                                   double currentOffset, CenterFocusedColumn mode)
+                                   double currentOffset, CenterFocusedColumn mode,
+                                   double defaultWidth = 0.5)
 {
     if (widths.empty()) {
         return 0.0;
@@ -212,6 +248,16 @@ inline double scrollOffsetForFocus(const std::vector<double> &widths, int active
     const double left = columnLeft(widths, ac);
     const double width = widths[static_cast<size_t>(ac)];
     const double total = totalWidth(widths);
+
+    if (mode == CenterFocusedColumn::PairCenter) {
+        // Pair-peek only when there is a strip to peek into. 1–2 columns fit
+        // like Never (including centering a strip that is narrower than the
+        // view). Always pair-peek for n > 2 — not only on overflow.
+        if (n <= 2) {
+            return fitScrollOffset(left, width, currentOffset, total);
+        }
+        return pairCenterScrollOffset(left, width, currentOffset, defaultWidth);
+    }
 
     const bool center = (mode == CenterFocusedColumn::Always)
         || (mode == CenterFocusedColumn::OnOverflow && neighborOverflows(widths, ac, prevIndex));

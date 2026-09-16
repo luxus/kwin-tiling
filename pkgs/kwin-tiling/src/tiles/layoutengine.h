@@ -251,7 +251,8 @@ public:
 
     /**
      * Scrolling viewport policy: when to center the focused column (niri
-     * center-focused-column). No-op for layouts without a viewport.
+     * center-focused-column never/always/on-overflow, plus pair-center).
+     * No-op for layouts without a viewport.
      */
     virtual void setCenterFocusedColumn(viewportmath::CenterFocusedColumn mode) { Q_UNUSED(mode) }
 

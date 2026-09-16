@@ -147,7 +147,7 @@ Read by the controller on `reconfigure`; also surfaced in the KCM
 | `MasterRatio` | double | `0.5` | master column width fraction (0.1–0.9) |
 | `MasterCount` | int | `1` | windows in the master area |
 | `DefaultColumnWidth` | double | `0.5` | Scrolling: new column width fraction (0.1–1.0) |
-| `CenterFocusedColumn` | string | `never` | Scrolling: `never` (fit-scroll), `always` (center on focus; wide columns left-align), or `on-overflow` (center when the focused column and its neighbour do not both fit). `Meta+Shift+C` stays a one-shot center. Path A overflow (#40) plus W0-2 (#41) let peeking columns keep full width without migrating; fully off-viewport columns stay hidden. |
+| `CenterFocusedColumn` | string | `never` | Scrolling: `never` (fit-scroll), `always` (center on focus; wide columns left-align), `on-overflow` (center when the focused column and its neighbour do not both fit), or `pair-center` (Karousel / Direktor: when more than two columns, always leave room for one neighbour of default width beside the active column). `Meta+Shift+C` stays a one-shot center. Path A overflow (#40) plus W0-2 (#41) let peeking columns keep full width without migrating; fully off-viewport columns stay hidden. |
 | `ColumnWidthPresets` | list | `1/3,1/2,2/3,1` | Scrolling: cycle/reverse-cycle widths (fractions, `1/3`, or percents). Full width is a preset. |
 | `MaxColumns` | int | `3` | Columns layout: max side-by-side columns (2–5) |
 | `BorderlessWhenTiled` | bool | `false` | hide window decorations on tiled windows |
@@ -256,7 +256,7 @@ KWin+Noctalia session packaging: [luxusAi](https://github.com/luxus/luxusAi)
 - Next: scrolling layout polish. Path A overflow (#40) and W0-2 (#41) are in:
   peeking columns keep full width without migrating; fully off-viewport columns
   stay hidden. niri consume-or-expel left/right (`Meta+[` / `Meta+]`) is shipped.
-  `center-focused-column` never/always/on-overflow is in kcfg/KCM.
+  `center-focused-column` never/always/on-overflow/pair-center is in kcfg/KCM.
 - D-Bus `/Tiling`: do not call `registerObject` on that path twice — Qt can
   abort the compositor. See the D-Bus section above.
 - Session smoke checklist: `pkgs/kwin-tiling/scripts/session-smoke.md`
