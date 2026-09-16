@@ -1490,6 +1490,16 @@ void TilingController::onWindowMoveFinished(Window *window)
                 target = nullptr;
             }
             if (target) {
+                // Scrolling: drop on another column consumes into it (top/bottom
+                // half picks the leaf index). Same-column and other layouts keep
+                // swap-on-drop via endMoveWindow. Distinct from Columns #32.
+                if (context.engine->dropConsumesIntoTarget(window, target)) {
+                    context.engine->cancelMoveWindow(window);
+                    context.engine->dropWindow(window, target, cursorPos, area);
+                    context.engine->pruneEmpty();
+                    window->setGeometryRestore(context.originalGeometryRestore);
+                    return;
+                }
                 if (context.engine->endMoveWindow(window, target)) {
                     context.engine->pruneEmpty();
                     window->setGeometryRestore(context.originalGeometryRestore);

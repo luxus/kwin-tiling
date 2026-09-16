@@ -52,8 +52,13 @@ expel; those stay `Meta+Shift+[` / `]`.
 ## Mouse
 
 - Drag the **master/stack divider** to set the master column width
-- Drag a tiled window **onto another** to swap positions
-- Drag **onto empty space** to insert the window at that position
+- Drag a tiled window **onto another** to swap positions. In **Scrolling**, drop
+  on the top or bottom half of a window in **another** column consumes into that
+  column at that index (niri-style); drop on a window in the **same** column
+  still swaps
+- Drag **onto empty space** to insert the window at that position. MasterStack
+  uses master vs stack side of the divider; **Scrolling** uses cursor X to pick
+  the strip index (a drop on the gap between columns inserts a new column there)
 - Drag **horizontal borders inside a column** to resize individual window heights
 - Drag **vertical borders in Scrolling** to resize the active column width
 - Unsupported resize directions snap back

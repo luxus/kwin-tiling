@@ -33,8 +33,9 @@ class Window;
  *
  * Each column is a StackColumn (the shared vertical-stack primitive), so the
  * height splitting, weights and resize behave exactly like the other layouts.
- * Only the horizontal placement, viewport scrolling and column consume/expel
- * are specific to this engine.
+ * Only the horizontal placement, viewport scrolling, column consume/expel,
+ * and drop-insert (consume into a column vs new column at cursor X) are
+ * specific to this engine. Distinct from Columns InsertAbove/Below (#32).
  *
  * Directional Meta+Alt: Up/Down reorders inside the focused column
  * (`moveWindowInColumn`); Left/Right slides the whole column (`moveWindow`).
@@ -57,6 +58,8 @@ public:
     void beginMoveWindow(Window *window) override;
     bool endMoveWindow(Window *window, Window *target) override;
     void cancelMoveWindow(Window *window) override;
+    void dropWindow(Window *window, Window *target, const QPointF &pos, const RectF &area) override;
+    bool dropConsumesIntoTarget(Window *window, Window *target) const override;
     void reflow() override;
     void pruneEmpty() override;
     bool ownsGhostLeaf(Window *window) const override;

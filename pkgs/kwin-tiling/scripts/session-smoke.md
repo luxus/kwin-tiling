@@ -90,6 +90,20 @@ column has **two stacked** windows and a neighbour column remains.
       strip (niri `move-column-left/right`). Does **not** consume or expel —
       those stay `Meta+Shift+[` / `]`
 
+### 6b. Scrolling mouse drop-insert (W1-4)
+
+Two single-window columns (A | B), then a third (C) if needed. No ghost tiles
+after any drop (`cancelMove` / `pruneEmpty`).
+
+- [ ] Drag C onto the **lower half** of B → B becomes a 2-high column (C below B);
+      C’s source column is gone
+- [ ] Drag onto the **upper half** of a window in another column → consumed
+      **above** that window
+- [ ] Drag onto the **gap between columns** (empty space) → a **new column**
+      inserts at that strip index (cursor X), not always next to the active
+      column
+- [ ] Drag onto another window **in the same column** still **swaps**
+
 ## 7. Promote to master (reorder, not swap)
 
 - [ ] Open **4** tiled windows in **MasterStack** (order A master, then B, C, D in the stack)

@@ -15,5 +15,6 @@
 - **Packaging** — vendored source + small hooks patch over stock KWin (6.8 beta / 6.7.90); ships as a Nix flake module/overlay
 - **Tiling Reflow effect** — optional `kwin-effects-tiling-reflow` plugin; reads `WindowTilingReflowRole` when present
 - **Testable pure core** — column/grid/master-stack math, slotlist, overflow Path A, layout/sizing
-  precedence, scrollingmove, viewportmath, move FSM, leaf cancel rules without linking KWin
+  precedence, scrolling drop-insert, scrollingmove, viewportmath, engineindex,
+  columnwidthpresets, scrollingcolumn, move FSM, leaf cancel rules without linking KWin
 - **Session smoke** — `pkgs/kwin-tiling/scripts/session-smoke.md` for post-relogin checks

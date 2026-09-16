@@ -145,6 +145,20 @@ public:
     }
 
     /**
+     * When true, a same-output drop onto @p target should consume/insert
+     * (cancelMove + dropWindow) rather than swap (endMoveWindow). Default
+     * false keeps swap-on-drop. Scrolling returns true when the target lives
+     * in another column so top/bottom-half drops join that column (niri-style);
+     * same-column drops still swap. Distinct from Columns InsertAbove/Below (#32).
+     */
+    virtual bool dropConsumesIntoTarget(Window *window, Window *target) const
+    {
+        Q_UNUSED(window)
+        Q_UNUSED(target)
+        return false;
+    }
+
+    /**
      * Recompute all tile geometries. Called after config changes, output resize,
      * or when the engine's internal order changes.
      */

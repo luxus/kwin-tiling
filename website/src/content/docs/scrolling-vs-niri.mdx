@@ -233,7 +233,8 @@ Legend: **Have** / **Partial** / **Missing**.
 | Consume into left column / expel to the right | `Meta+Shift+[` / `Meta+Shift+]` — **one direction each**, not niri’s consume-or-expel |
 | Vertical stack inside a column, height weights, mouse splitters | `StackColumn` shared with other layouts |
 | Focus left/right/up/down | `Meta+Arrows` → `windowInDirection` |
-| Drag-to-swap onto another tiled window | Implemented (`begin/end/cancelMoveWindow`); was the #4 task 2 gap |
+| Drag-to-swap onto another tiled window | Implemented (`begin/end/cancelMoveWindow`); was the #4 task 2 gap. Same-column drop still swaps |
+| Drop insert into column / new column at cursor X | Cross-column top/bottom half **consumes** into that column (`dropWindow`); empty-space drop uses cursor X for strip index. No insert-hint overlay (W2-5) |
 | Keyboard grow/shrink active column | `Meta+Ctrl+L/H` via `setPrimarySplit` |
 | Mouse drag vertical border → column width | `applyResize` width path |
 | Gaps (between + edge margins), smart gaps | KWin tile gap machinery; not niri struts |
@@ -249,7 +250,7 @@ Legend: **Have** / **Partial** / **Missing**.
 | Camera pan with peeking columns at constant size | Viewport is `m_scrollOffset` in view-width fractions. Columns that **overlap** `[0,1]` are placed with possibly negative `colX`. `CustomTile::setRelativeGeometry` **intersects with `[0,1]`**, and `Tile::windowGeometry()` **intersects the output**. Overlapping peek columns are **resized to the visible sliver**, not cropped. Fully off-screen columns are **hidden**, not translated | P0 |
 | Consume/expel | Two one-way actions; no consume-or-expel; no consume-from-next-column | P1 |
 | Move column vs move window | `moveWindow` slides the column (sign of delta). `Meta+Alt+Up/Down` uses `moveWindowInColumn` so stacked windows swap in-column; `Meta+Alt+Left/Right` still slides the column | Landed (#42) |
-| Interactive move insert (new column **or** into column) | Drop on another window **swaps**. Drop on empty space uses base `dropWindow` → `addWindow` (new column next to **active**, not drop index). No insert hint | P1 |
+| Insert-hint overlay during interactive move | Drop insert (W1-4) is implemented; coloured new-column vs in-column hint is W2-5 | P1 (hint) |
 | Preset widths | Have a cycle; includes 1.0; no reverse; not configurable in KCM | P2 |
 | Gaps / outer insets | `GapLeft/Right/Top/Bottom` + `GapBetween`. No struts-as-peek | P2 |
 | Fullscreen / maximize | Plasma/KWin fullscreen + tiling zoom. Fullscreen is **not** a tile you can scroll away from | Hard / different layer |
@@ -677,14 +678,15 @@ into column → one stacked column.
 
 #### W1-4. Scrolling: drop on a window can insert into that column
 
-Swap-on-drop stays. Add an insert path: dropping on the top/bottom half of a
-target (or a modifier) **consumes** into that column at that index, niri-style.
-Empty-space drop uses cursor X to choose the strip index (`dropWindow` override).
+**Shipped.** Swap-on-drop stays (same-column). Dropping on the top/bottom half of
+a target in another column **consumes** into that column at that index,
+niri-style. Empty-space drop uses cursor X to choose the strip index
+(`dropWindow` override). Distinct from Columns InsertAbove/Below (#32).
 
 **Acceptance:** drop onto the lower half of a single-window column yields a
 2-high column; drop on the gap between columns inserts a new column there.
-**Proof:** session smoke mouse subsection; no ghost tiles (`cancelMove` /
-`pruneEmpty`).
+**Proof:** session smoke mouse subsection (6b); `scrollingmath` pure suite; no
+ghost tiles (`cancelMove` / `pruneEmpty`).
 
 #### W1-5. Scrolling: `center-focused-column` modes — **shipped** ([#46](https://github.com/luxus/kwin-tiling/issues/46))
 
