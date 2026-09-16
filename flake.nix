@@ -88,6 +88,18 @@
             kfinal: kprev:
             {
               sources = kprev.sources // plasmaSources;
+              # Spectacle 6.7.90 requires KQuickImageEditor 0.7; nixpkgs still ships 0.6.1.
+              kquickimageedit = kprev.kquickimageedit.overrideAttrs (_: {
+                version = "0.7.0";
+                src = prev.fetchFromGitLab {
+                  domain = "invent.kde.org";
+                  owner = "libraries";
+                  repo = "kquickimageeditor";
+                  rev = "v0.7.0";
+                  hash = "sha256-LIpEJt4s5H77YeQ/XjoIqh4Dc7XRM/YCv3hzEfnhmXI=";
+                };
+              });
+              kquickimageeditor = kfinal.kquickimageedit;
               # Union 6.7.90 requires cxx-rust-cssparser 1.1.0; nixpkgs still ships 1.0.0.
               cxx-rust-cssparser = kprev.cxx-rust-cssparser.overrideAttrs (old: rec {
                 version = "1.1.0";
