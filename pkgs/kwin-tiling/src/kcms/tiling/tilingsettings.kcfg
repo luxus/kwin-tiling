@@ -14,7 +14,7 @@
       <default>MasterStack</default>
     </entry>
     <entry name="enabledLayouts" key="EnabledLayouts" type="StringList">
-      <label>Layouts available for cycleLayout() and setLayout(); list order determines cycle order. Grid is opt-in (not in the default list) because it is newer and less battle-tested than the other layouts.</label>
+      <label>Layouts available for cycleLayout() and setLayout(); list order determines cycle order. Grid and Columns are opt-in (not in the default list) because they are newer and less battle-tested than the other layouts.</label>
       <default code="true">QStringList{QStringLiteral("MasterStack"), QStringLiteral("Stacked"), QStringLiteral("Scrolling"), QStringLiteral("Centered")}</default>
     </entry>
     <entry name="masterRatio" key="MasterRatio" type="Double">
@@ -42,6 +42,12 @@
       <default>1</default>
       <min>1</min>
       <max>10</max>
+    </entry>
+    <entry name="maxColumns" key="MaxColumns" type="Int">
+      <label>Maximum number of side-by-side columns in the Columns layout (2–5)</label>
+      <default>3</default>
+      <min>2</min>
+      <max>5</max>
     </entry>
     <entry name="layoutSwitchOsd" key="LayoutSwitchOsd" type="Bool">
       <label>Show an on-screen notification when switching layouts</label>

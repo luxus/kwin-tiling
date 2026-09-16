@@ -7,6 +7,7 @@
 #pragma once
 
 #include "core/rect.h"
+#include "insertpolicy.h"
 #include "kwin_export.h"
 #include "viewportmath.h"
 
@@ -45,6 +46,7 @@ public:
         Scrolling = 2,
         Centered = 3,
         Grid = 4,
+        Columns = 5,
     };
 
     static QString layoutKindToString(LayoutKind kind);
@@ -121,6 +123,23 @@ public:
      * Returns true if the engine handled the window.
      */
     virtual bool endMoveWindow(Window *window, Window *target) { Q_UNUSED(window) Q_UNUSED(target) return false; }
+
+    /**
+     * Where on the target window an interactive drag was released.
+     * Swap — middle of the target (classic trade-places).
+     * InsertAbove / InsertBelow — join the target's column above or below it.
+     */
+    using DropZone = insertpolicy::DropZone;
+
+    /**
+     * Drop-zone variant of endMoveWindow(). Engines that do not distinguish
+     * zones fall back to a swap. Returns true if the engine handled the window.
+     */
+    virtual bool endMoveWindowOnZone(Window *window, Window *target, DropZone zone)
+    {
+        Q_UNUSED(zone)
+        return endMoveWindow(window, target);
+    }
 
     /**
      * Called when a dragged tiled window was moved to a different output and
@@ -242,6 +261,11 @@ public:
     virtual void setColumnWidthPresets(const QList<qreal> &presets) { Q_UNUSED(presets) }
 
     /**
+     * Maximum number of side-by-side columns (Columns layout). No-op otherwise.
+     */
+    virtual void setMaxColumns(int maxColumns) { Q_UNUSED(maxColumns) }
+
+    /**
      * Grow (delta > 0) or shrink (delta < 0) @p window's height relative to the
      * other windows sharing its column. No-op when the column has < 2 windows or
      * the layout has no vertical sharing.
@@ -300,8 +324,10 @@ public:
     virtual void expandColumnToAvailableWidth() {}
 
     /**
-     * Scrolling-only: merge the active window into the column on its left
-     * (consume), or split it out into its own column (expel). No-op otherwise.
+     * Scrolling: merge the active window into the column on its left
+     * (consume), or split it out into its own column (expel).
+     * Columns: merge into the column on the right (else left), or split out
+     * a new column if under the max-column cap. No-op otherwise.
      * consumeIntoColumn / expelFromColumn are niri's named actions (pull first
      * of next; push last of focused to the right). Defaults alias consume/expel.
      * Distinct from consume-or-expel so Meta+Shift+[ ] keep their action ids.

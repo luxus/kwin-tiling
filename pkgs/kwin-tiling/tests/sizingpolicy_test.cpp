@@ -23,6 +23,7 @@ int main()
     assert(!shouldPersistMasterRatio(LayoutKind::Stacked));
     assert(!shouldPersistMasterRatio(LayoutKind::Grid));
     assert(!shouldPersistMasterRatio(LayoutKind::Scrolling));
+    assert(!shouldPersistMasterRatio(LayoutKind::Columns));
 
     // MasterStack with real ratio → write.
     assert(shouldWriteMasterRatio(LayoutKind::MasterStack, 0.5));

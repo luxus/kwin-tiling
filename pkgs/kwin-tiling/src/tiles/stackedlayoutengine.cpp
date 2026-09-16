@@ -6,6 +6,7 @@
 
 #include "stackedlayoutengine.h"
 #include "customtile.h"
+#include "insertpolicy.h"
 #include "movestate.h"
 #include "window.h"
 
@@ -77,6 +78,38 @@ bool StackedLayoutEngine::endMoveWindow(Window *window, Window *target)
         reflow();
     }
     return handled;
+}
+
+bool StackedLayoutEngine::endMoveWindowOnZone(Window *window, Window *target, DropZone zone)
+{
+    const bool handled = m_column.endMoveOnZone(window, target, zone);
+    if (handled) {
+        reflow();
+    }
+    return handled;
+}
+
+void StackedLayoutEngine::dropWindow(Window *window, Window *target, const QPointF &pos, const RectF &area)
+{
+    if (!window) {
+        return;
+    }
+    int at = -1;
+    if (target && target != window) {
+        const int idx = m_column.indexOf(target);
+        if (idx >= 0) {
+            const auto geom = target->frameGeometry();
+            const DropZone zone = insertpolicy::classifyPoint(pos.x(), pos.y(), geom.x(), geom.y(),
+                                                              geom.width(), geom.height());
+            at = (zone == DropZone::Swap) ? idx : insertpolicy::insertRowAtTarget(idx, zone);
+        }
+    } else if (area.height() > 0) {
+        const qreal relY = (pos.y() - area.y()) / area.height();
+        at = (relY < 0.5) ? 0 : m_column.count();
+    }
+    if (m_column.insertWindow(window, at)) {
+        reflow();
+    }
 }
 
 void StackedLayoutEngine::cancelMoveWindow(Window *window)

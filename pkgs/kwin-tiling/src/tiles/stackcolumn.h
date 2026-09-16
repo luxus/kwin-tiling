@@ -9,6 +9,7 @@
 #include "columnmath.h"
 #include "core/rect.h"
 #include "customtile.h"
+#include "insertpolicy.h"
 #include "movestate.h"
 #include "slotlist.h"
 #include "tile.h"
@@ -76,6 +77,8 @@ inline void disassociateWindowTile(Window *window, Tile *leaf)
  *                  via fillRange(); ratio/count live in the engine.
  *   - Scrolling  : many StackColumns laid side by side; leaves move between
  *                  them (consume/expel) via detachWindow()/attachLeaf().
+ *   - Columns    : many StackColumns that always fill the view (no viewport);
+ *                  widths sum to 1.0 via columnlayoutmath.
  *
  * It deliberately never calls reflow() or emits signals — the owning engine
  * arranges all of its columns and emits layoutChanged() once. Monocle/zoom is
@@ -281,6 +284,22 @@ public:
         return !m_moveSourceLeaf.isNull() && m_leaves.contains(m_moveSourceLeaf);
     }
 
+    int moveSourceIndex() const
+    {
+        if (m_moveSourceLeaf.isNull()) {
+            return -1;
+        }
+        return m_leaves.indexOf(m_moveSourceLeaf);
+    }
+
+    void swapAt(int a, int b)
+    {
+        if (a == b || a < 0 || b < 0 || a >= m_leaves.count() || b >= m_leaves.count()) {
+            return;
+        }
+        m_leaves.swapItemsAt(a, b);
+    }
+
     // Swap the dragged window with `target` (each keeps the other's leaf/slot),
     // or restore it to its source leaf when there is no target. Returns true if
     // a move was in progress (engine should reflow).
@@ -315,6 +334,34 @@ public:
             associateWindowTile(window, sourceLeaf);
         }
         return true;
+    }
+
+    // InsertAbove / InsertBelow: destroy the (ghost) source leaf and insert a
+    // new leaf next to `target`. Swap falls back to endMove(). If `window` is
+    // not in this column (cross-column drop), only the insert happens.
+    bool endMoveOnZone(Window *window, Window *target, insertpolicy::DropZone zone)
+    {
+        if (zone == insertpolicy::DropZone::Swap || !target || target == window) {
+            return endMove(window, target);
+        }
+        const int tgt = indexOf(target);
+        if (tgt < 0) {
+            return endMove(window, nullptr);
+        }
+        int srcRow = indexOf(window);
+        if (srcRow < 0) {
+            srcRow = moveSourceIndex();
+        }
+        if (srcRow < 0) {
+            m_moveSourceLeaf.clear();
+            m_moveWindow.clear();
+            return insertWindow(window, insertpolicy::insertRowAtTarget(tgt, zone)) != nullptr;
+        }
+        const auto pos = insertpolicy::insertPos(0, srcRow, count(), 0, tgt, zone);
+        if (!cancelMove(window) && contains(window)) {
+            removeWindow(window);
+        }
+        return insertWindow(window, pos.row) != nullptr;
     }
 
     // The dragged window left this column/output: drop the (possibly emptied)

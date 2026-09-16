@@ -7,6 +7,7 @@
 #include "gridlayoutengine.h"
 #include "customtile.h"
 #include "gridmath.h"
+#include "insertpolicy.h"
 #include "movestate.h"
 #include "window.h"
 
@@ -75,6 +76,38 @@ bool GridLayoutEngine::endMoveWindow(Window *window, Window *target)
         reflow();
     }
     return handled;
+}
+
+bool GridLayoutEngine::endMoveWindowOnZone(Window *window, Window *target, DropZone zone)
+{
+    const bool handled = m_column.endMoveOnZone(window, target, zone);
+    if (handled) {
+        reflow();
+    }
+    return handled;
+}
+
+void GridLayoutEngine::dropWindow(Window *window, Window *target, const QPointF &pos, const RectF &area)
+{
+    if (!window) {
+        return;
+    }
+    int at = -1;
+    if (target && target != window) {
+        const int idx = m_column.indexOf(target);
+        if (idx >= 0) {
+            const auto geom = target->frameGeometry();
+            const DropZone zone = insertpolicy::classifyPoint(pos.x(), pos.y(), geom.x(), geom.y(),
+                                                              geom.width(), geom.height());
+            at = (zone == DropZone::Swap) ? idx : insertpolicy::insertRowAtTarget(idx, zone);
+        }
+    } else if (area.width() > 0 && area.height() > 0) {
+        Q_UNUSED(pos)
+        at = m_column.count();
+    }
+    if (m_column.insertWindow(window, at)) {
+        reflow();
+    }
 }
 
 void GridLayoutEngine::cancelMoveWindow(Window *window)

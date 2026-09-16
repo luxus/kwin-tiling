@@ -228,9 +228,10 @@ private:
                            LayoutEngine::LayoutKind kind);
     // Seed a (new or live) engine's sizing from the config cache: master
     // ratio/count for MasterStack, default column width + width presets +
-    // center-focused-column for Scrolling. Per-(desktop, output) overrides win
-    // over per-output, which win over the global [Tiling] defaults.
-    // Column-width presets and center-focused-column stay global.
+    // center-focused-column for Scrolling, max columns for Columns.
+    // Per-(desktop, output) overrides win over per-output, which win over the
+    // global [Tiling] defaults. Column-width presets, center-focused-column,
+    // and MaxColumns stay global.
     void seedEngineSizing(LogicalOutput *output, VirtualDesktop *desktop, LayoutEngine *engine,
                            LayoutEngine::LayoutKind kind);
     // Persist a live master-ratio or master-count change to the most specific
@@ -280,6 +281,7 @@ private:
     viewportmath::CenterFocusedColumn m_centerFocusedColumn = viewportmath::CenterFocusedColumn::Never;
     QList<qreal> m_columnWidthPresets = {1.0 / 3.0, 0.5, 2.0 / 3.0, 1.0};
     int m_masterCount = 1;
+    int m_maxColumns = 3;
     bool m_layoutSwitchOsd = true;
     bool m_borderlessWhenTiled = false;
     // [Tiling] NewWindowPlacement: when true ("master"), a newly tiled window is

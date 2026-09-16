@@ -22,7 +22,8 @@ KCM.SimpleKCM {
         { text: i18n("Stacked"), value: "Stacked" },
         { text: i18n("Scrolling"), value: "Scrolling" },
         { text: i18n("Centered"), value: "Centered" },
-        { text: i18n("Grid"), value: "Grid" }
+        { text: i18n("Grid"), value: "Grid" },
+        { text: i18n("Columns"), value: "Columns" }
     ]
 
     readonly property var centerFocusedColumnOptions: [
@@ -193,6 +194,21 @@ KCM.SimpleKCM {
                 }
             }
 
+            QQC2.CheckBox {
+                id: enableColumns
+                text: i18n("Columns")
+                checked: kcm.settings.enabledLayouts.indexOf("Columns") !== -1
+                onToggled: {
+                    let layouts = kcm.settings.enabledLayouts.slice();
+                    if (checked && layouts.indexOf("Columns") === -1) {
+                        layouts.push("Columns");
+                    } else if (!checked) {
+                        layouts = layouts.filter(l => l !== "Columns");
+                    }
+                    kcm.settings.enabledLayouts = layouts;
+                }
+            }
+
             QQC2.Label {
                 visible: kcm.settings.enabledLayouts.length < 2
                 Kirigami.FormData.label: i18nc("@info", "Note:")
@@ -296,6 +312,19 @@ KCM.SimpleKCM {
                 KCM.SettingStateBinding {
                     configObject: kcm.settings
                     settingName: "masterCount"
+                }
+            }
+
+            QQC2.SpinBox {
+                id: maxColumns
+                Kirigami.FormData.label: i18n("Columns layout max columns:")
+                from: 2
+                to: 5
+                value: kcm.settings.maxColumns
+                onValueModified: kcm.settings.maxColumns = value
+                KCM.SettingStateBinding {
+                    configObject: kcm.settings
+                    settingName: "maxColumns"
                 }
             }
 

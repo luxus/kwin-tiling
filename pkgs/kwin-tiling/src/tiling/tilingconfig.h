@@ -29,6 +29,7 @@ enum class LayoutKind {
     Scrolling = 2,
     Centered = 3,
     Grid = 4,
+    Columns = 5,
 };
 
 inline bool iequals(std::string_view a, std::string_view b)
@@ -68,6 +69,9 @@ inline std::optional<LayoutKind> parseLayoutKind(std::string_view name)
     }
     if (iequals(name, "Grid")) {
         return LayoutKind::Grid;
+    }
+    if (iequals(name, "Columns")) {
+        return LayoutKind::Columns;
     }
     return std::nullopt;
 }
@@ -202,6 +206,8 @@ inline constexpr double kMaxMasterRatio = 0.9;
 inline constexpr double kMinColumnWidth = 0.1;
 inline constexpr double kMaxColumnWidth = 1.0;
 inline constexpr int kMinMasterCount = 1;
+inline constexpr int kMinMaxColumns = 2;
+inline constexpr int kMaxMaxColumns = 5;
 
 inline double clampMasterRatio(double v)
 {
@@ -216,6 +222,11 @@ inline int clampMasterCount(int v)
 inline double clampColumnWidth(double v)
 {
     return std::clamp(v, kMinColumnWidth, kMaxColumnWidth);
+}
+
+inline int clampMaxColumns(int v)
+{
+    return std::clamp(v, kMinMaxColumns, kMaxMaxColumns);
 }
 
 struct OutputSizing {

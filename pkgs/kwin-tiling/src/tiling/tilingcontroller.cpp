@@ -16,9 +16,11 @@
 #include "tiling/suspendpolicy.h"
 #include "tiling/tilingosd.h"
 #include "tiles/directionmath.h"
+#include "tiles/columnslayoutengine.h"
 #include "tiles/columnwidthpresets.h"
 #include "tiles/layoutengine.h"
 #include "tiles/gridlayoutengine.h"
+#include "tiles/insertpolicy.h"
 #include "tiles/masterstacklayoutengine.h"
 #include "tiles/masterstackmath.h"
 #include "tiles/scrollinglayoutengine.h"
@@ -62,6 +64,8 @@ std::unique_ptr<LayoutEngine> createLayoutEngine(LayoutEngine::LayoutKind kind, 
         return std::make_unique<ScrollingLayoutEngine>(parent);
     case LayoutEngine::LayoutKind::Grid:
         return std::make_unique<GridLayoutEngine>(parent);
+    case LayoutEngine::LayoutKind::Columns:
+        return std::make_unique<ColumnsLayoutEngine>(parent);
     case LayoutEngine::LayoutKind::MasterStack:
     default:
         return std::make_unique<MasterStackLayoutEngine>(parent);
@@ -233,6 +237,7 @@ void TilingController::reconfigure()
     m_columnWidthPresets = parseColumnWidthPresets(
         tilingGroup.readEntry("ColumnWidthPresets", defaultColumnWidthPresetStrings()));
     m_masterCount = tilingconfig::clampMasterCount(tilingGroup.readEntry("MasterCount", 1));
+    m_maxColumns = tilingconfig::clampMaxColumns(tilingGroup.readEntry("MaxColumns", 3));
     m_layoutSwitchOsd = tilingGroup.readEntry("LayoutSwitchOsd", true);
     m_borderlessWhenTiled = tilingGroup.readEntry("BorderlessWhenTiled", false);
     // "master" promotes new windows to master; anything else (default "end")
@@ -392,15 +397,15 @@ void TilingController::seedEngineSizing(LogicalOutput *output, VirtualDesktop *d
     }
     const CachedSizing sizing = resolvedSizing(output, desktop);
     engine->setPrimaryCount(sizing.masterCount);
+    engine->setMaxColumns(m_maxColumns);
     // Scrolling sizes new columns from DefaultColumnWidth; MasterStack/Stacked
-    // use the master ratio. Routing both through here keeps the two settings
-    // from overwriting one another (the master ratio used to seed scrolling
-    // columns, so two columns no longer fit the screen).
+    // use the master ratio. Columns keeps equal widths that sum to 1.0 and is
+    // not seeded from either of those settings.
     if (kind == LayoutEngine::LayoutKind::Scrolling) {
         engine->setDefaultColumnWidth(sizing.defaultColumnWidth);
         engine->setCenterFocusedColumn(m_centerFocusedColumn);
         engine->setColumnWidthPresets(m_columnWidthPresets);
-    } else {
+    } else if (kind != LayoutEngine::LayoutKind::Columns) {
         engine->setPrimarySplit(sizing.masterRatio);
     }
 }
@@ -1491,8 +1496,7 @@ void TilingController::onWindowMoveFinished(Window *window)
             }
             if (target) {
                 // Scrolling: drop on another column consumes into it (top/bottom
-                // half picks the leaf index). Same-column and other layouts keep
-                // swap-on-drop via endMoveWindow. Distinct from Columns #32.
+                // half picks the leaf index). Distinct from Columns InsertAbove/Below.
                 if (context.engine->dropConsumesIntoTarget(window, target)) {
                     context.engine->cancelMoveWindow(window);
                     context.engine->dropWindow(window, target, cursorPos, area);
@@ -1500,7 +1504,11 @@ void TilingController::onWindowMoveFinished(Window *window)
                     window->setGeometryRestore(context.originalGeometryRestore);
                     return;
                 }
-                if (context.engine->endMoveWindow(window, target)) {
+                LayoutEngine::DropZone zone = LayoutEngine::DropZone::Swap;
+                const RectF geom = target->frameGeometry();
+                zone = insertpolicy::classifyPoint(cursorPos.x(), cursorPos.y(), geom.x(), geom.y(),
+                                                   geom.width(), geom.height());
+                if (context.engine->endMoveWindowOnZone(window, target, zone)) {
                     context.engine->pruneEmpty();
                     window->setGeometryRestore(context.originalGeometryRestore);
                     return;

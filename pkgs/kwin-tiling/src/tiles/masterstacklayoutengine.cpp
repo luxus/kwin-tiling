@@ -6,6 +6,7 @@
 
 #include "masterstacklayoutengine.h"
 #include "customtile.h"
+#include "insertpolicy.h"
 #include "movestate.h"
 #include "window.h"
 
@@ -268,6 +269,49 @@ bool MasterStackLayoutEngine::endMoveWindow(Window *window, Window *target)
     return handled;
 }
 
+bool MasterStackLayoutEngine::endMoveWindowOnZone(Window *window, Window *target, DropZone zone)
+{
+    if (zone == DropZone::Swap || !target || target == window) {
+        return endMoveWindow(window, target);
+    }
+
+    if (isCentered()) {
+        if (!m_moveHasSource) {
+            return false;
+        }
+        StackColumn *sourceCol = columnFor(m_moveSourceSide);
+        SideColumn targetSide;
+        StackColumn *targetCol = findColumn(target, &targetSide);
+        if (!sourceCol || !targetCol) {
+            return endMoveWindow(window, nullptr);
+        }
+        if (sourceCol == targetCol) {
+            const bool handled = sourceCol->endMoveOnZone(window, target, zone);
+            m_moveHasSource = false;
+            if (handled) {
+                reflow();
+            }
+            return handled;
+        }
+        const int tgtRow = targetCol->indexOf(target);
+        sourceCol->cancelMove(window);
+        m_moveHasSource = false;
+        const int at = insertpolicy::insertRowAtTarget(tgtRow, zone);
+        if (targetCol->insertWindow(window, at)) {
+            reflow();
+            return true;
+        }
+        return false;
+    }
+
+    m_moveHasSource = false;
+    const bool handled = m_column.endMoveOnZone(window, target, zone);
+    if (handled) {
+        reflow();
+    }
+    return handled;
+}
+
 void MasterStackLayoutEngine::cancelMoveWindow(Window *window)
 {
     if (isCentered()) {
@@ -301,6 +345,12 @@ void MasterStackLayoutEngine::dropWindow(Window *window, Window *target, const Q
             col = findColumn(target);
             if (col) {
                 at = col->indexOf(target);
+                const auto geom = target->frameGeometry();
+                const DropZone zone = insertpolicy::classifyPoint(pos.x(), pos.y(), geom.x(), geom.y(),
+                                                                  geom.width(), geom.height());
+                if (zone != DropZone::Swap) {
+                    at = insertpolicy::insertRowAtTarget(at, zone);
+                }
             }
         } else {
             qreal leftWidth = 0.0;
@@ -337,6 +387,11 @@ void MasterStackLayoutEngine::dropWindow(Window *window, Window *target, const Q
         index = m_column.indexOf(target);
         if (index < 0) {
             index = m_column.count();
+        } else {
+            const auto geom = target->frameGeometry();
+            const DropZone zone = insertpolicy::classifyPoint(pos.x(), pos.y(), geom.x(), geom.y(),
+                                                              geom.width(), geom.height());
+            index = (zone == DropZone::Swap) ? index : insertpolicy::insertRowAtTarget(index, zone);
         }
     } else {
         const qreal relX = (area.width() > 0) ? (pos.x() - area.x()) / area.width() : 1.0;

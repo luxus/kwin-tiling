@@ -25,6 +25,7 @@ int main()
     assert(parseLayoutKind("Scrolling") == LayoutKind::Scrolling);
     assert(parseLayoutKind("Centered") == LayoutKind::Centered);
     assert(parseLayoutKind("Grid") == LayoutKind::Grid);
+    assert(parseLayoutKind("Columns") == LayoutKind::Columns);
     assert(!parseLayoutKind(""));
     assert(!parseLayoutKind("NotALayout"));
 
@@ -48,7 +49,9 @@ int main()
 
     // Config default: DesktopOutput wins when it differs from global.
     const std::vector<LayoutKind> all = parseEnabledKinds(
-        {"MasterStack", "Stacked", "Scrolling", "Centered", "Grid"}, LayoutKind::MasterStack);
+        {"MasterStack", "Stacked", "Scrolling", "Centered", "Grid", "Columns"}, LayoutKind::MasterStack);
+    assert(all.size() == 6);
+    assert(all.back() == LayoutKind::Columns);
     assert(resolveConfigDefault(LayoutKind::MasterStack, all, LayoutKind::Stacked, LayoutKind::Scrolling)
            == LayoutKind::Stacked);
     // DesktopOutput equal to global still lets the per-output override apply
@@ -150,6 +153,9 @@ int main()
     assert(clampMasterCount(4) == 4);
     assert(clampColumnWidth(0.0) == kMinColumnWidth);
     assert(clampColumnWidth(1.5) == kMaxColumnWidth);
+    assert(clampMaxColumns(1) == kMinMaxColumns);
+    assert(clampMaxColumns(9) == kMaxMaxColumns);
+    assert(clampMaxColumns(3) == 3);
 
     const OutputSizing wildGlobal{99.0, 0, -1.0};
     const OutputSizing clampedGlobal = resolveOutputSizing(wildGlobal);

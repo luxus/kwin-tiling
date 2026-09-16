@@ -2,7 +2,7 @@ diff --git a/src/CMakeLists.txt b/src/CMakeLists.txt
 index a5eb835..88bf066 100644
 --- a/src/CMakeLists.txt
 +++ b/src/CMakeLists.txt
-@@ -219,9 +219,18 @@ target_sources(kwin PRIVATE
+@@ -219,9 +219,19 @@ target_sources(kwin PRIVATE
      tablet_input.cpp
      tabletmodemanager.cpp
      tiles/customtile.cpp
@@ -10,6 +10,7 @@ index a5eb835..88bf066 100644
 +    tiles/masterstacklayoutengine.cpp
      tiles/quicktile.cpp
 +    tiles/gridlayoutengine.cpp
++    tiles/columnslayoutengine.cpp
 +    tiles/scrollinglayoutengine.cpp
 +    tiles/stackedlayoutengine.cpp
      tiles/tile.cpp
@@ -520,7 +521,7 @@ index 18cf34c..b7d5d48 100644
      m_minimizeOperation->setEnabled(m_window->isMinimizable());
      m_closeOperation->setEnabled(m_window->isCloseable());
      m_shortcutOperation->setEnabled(m_window->rules()->checkShortcut(QString()).isNull());
-@@ -1016,6 +1039,230 @@ void Workspace::initShortcuts()
+@@ -1016,6 +1039,235 @@ void Workspace::initShortcuts()
  
      initShortcut(QStringLiteral("MoveMouseToFocus"), i18nc("@action", "Center Pointer in Focused Window"), QKeySequence(Qt::META | Qt::Key_F5), &Workspace::slotMouseToFocus, false);
      initShortcut(QStringLiteral("MoveMouseToCenter"), i18nc("@action", "Center Pointer in Screen"), QKeySequence(Qt::META | Qt::Key_F6), &Workspace::slotMouseToCenter, false);
@@ -675,6 +676,11 @@ index 18cf34c..b7d5d48 100644
 +            m_tilingController->setLayout(LayoutEngine::LayoutKind::Grid);
 +        }
 +    }, true);
++    initShortcut("Tiling Switch To Columns", i18n("Tiling Switch To Columns"), QKeySequence(), [this]() {
++        if (m_tilingController) {
++            m_tilingController->setLayout(LayoutEngine::LayoutKind::Columns);
++        }
++    }, true);
 +    initShortcut("Tiling Switch To Centered", i18n("Tiling Switch To Centered"), QKeySequence(), [this]() {
 +        if (m_tilingController) {
 +            m_tilingController->setLayout(LayoutEngine::LayoutKind::Centered);
@@ -751,7 +757,7 @@ index 18cf34c..b7d5d48 100644
  
  #if KWIN_BUILD_TABBOX
      m_tabbox->initShortcuts();
-@@ -1464,17 +1712,13 @@ void windowToDesktop(Window *window, VirtualDesktopManager::Direction direction)
+@@ -1464,17 +1717,13 @@ void windowToDesktop(Window *window, VirtualDesktopManager::Direction direction)
  
      VirtualDesktopManager *vds = VirtualDesktopManager::self();
      Workspace *ws = Workspace::self();
@@ -775,7 +781,7 @@ index 18cf34c..b7d5d48 100644
  }
  
  /**
-@@ -1511,19 +1755,21 @@ void activeWindowToDesktop(VirtualDesktopManager::Direction direction)
+@@ -1511,19 +1760,21 @@ void activeWindowToDesktop(VirtualDesktopManager::Direction direction)
  {
      VirtualDesktopManager *vds = VirtualDesktopManager::self();
      Workspace *ws = Workspace::self();
