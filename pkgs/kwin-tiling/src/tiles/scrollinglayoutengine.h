@@ -27,6 +27,9 @@ class Window;
  * window belongs to the output under its centre, so an off-screen position
  * would spill onto — and be migrated to — the adjacent monitor. Hiding keeps
  * scrolling confined to a single output (multi-monitor scrolling is not a goal).
+ * CenterFocusedColumn always/on-overflow therefore still hides neighbours that
+ * the camera would peek; Path A overflow tiles (issue #40) are required for
+ * niri-like peeking.
  *
  * Each column is a StackColumn (the shared vertical-stack primitive), so the
  * height splitting, weights and resize behave exactly like the other layouts.
@@ -70,6 +73,7 @@ public:
     // Width given to newly opened columns (fraction of the view). Does not
     // touch existing columns, so a reconfigure won't clobber user resizes.
     void setDefaultColumnWidth(qreal width) override;
+    void setCenterFocusedColumn(viewportmath::CenterFocusedColumn mode) override;
 
     // QoL: reset every column to the default width; centre the active column in
     // the viewport; cycle the active column through width presets.
@@ -101,6 +105,9 @@ private:
     QPointer<Window> m_activeWindow;
     qreal m_scrollOffset = 0.0;   // in view-width fractions
     qreal m_defaultColWidth = 0.5;
+    viewportmath::CenterFocusedColumn m_centerMode = viewportmath::CenterFocusedColumn::Never;
+    // Previous active column for on-overflow; -1 = none. Consumed each reflow.
+    int m_focusFromColumn = -1;
     bool m_moveHasSource = false;
     int m_moveSourceColumn = -1;
 };

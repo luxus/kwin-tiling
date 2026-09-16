@@ -149,6 +149,14 @@
               ./scrollingmove-test
               touch $out
             '';
+        viewportmath =
+          pkgs.runCommand "kwin-tiling-viewportmath-test" { nativeBuildInputs = [ pkgs.gcc ]; }
+            ''
+              g++ -std=c++20 -O2 -Wall -Wextra -o viewportmath-test \
+                ${./pkgs/kwin-tiling}/tests/viewportmath_test.cpp
+              ./viewportmath-test
+              touch $out
+            '';
         # Single entry that runs the whole pure suite (same as tests/run.sh).
         pure-suite =
           pkgs.runCommand "kwin-tiling-pure-suite" { nativeBuildInputs = [ pkgs.gcc pkgs.bash ]; }

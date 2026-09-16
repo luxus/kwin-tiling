@@ -40,9 +40,12 @@ A horizontal strip of columns — similar to PaperWM or niri's scrolling model. 
 viewport scrolls to show the active column. New windows open in new columns;
 you can resize column widths and move windows between columns. `Meta+Alt+Up/Down`
 reorders windows **inside** a column; `Meta+Alt+Left/Right` slides the whole
-column. Consume/expel, center column, and column-width cycling have keyboard
-defaults — see [Usage & Shortcuts](usage) and [Roadmap](roadmap) for polish
-still planned.
+column. Center-focused-column modes (`never` / `always` / `on-overflow`) live in
+the KCM; `Meta+Shift+C` is still a one-shot center. Without
+[#40](https://github.com/luxus/kwin-tiling/issues/40) Path A overflow tiles,
+`always` still hides off-screen columns. Consume/expel and column-width cycling
+have keyboard defaults — see [Usage & Shortcuts](usage) and
+[Scrolling vs niri](scrolling-vs-niri) for remaining polish.
 
 ### Centered
 
@@ -129,6 +132,7 @@ behind a ghost tile — the controller cancels the move and cleans up empty leav
 - Global enable/disable
 - Which layouts are available and which is the default
 - Master width (ratio) and master count
+- Scrolling column width and center-focused-column mode (never / always / on-overflow)
 - Gap values (between tiles and per-edge margins)
 - Per-monitor overrides for layout and gaps
 

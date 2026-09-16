@@ -59,7 +59,7 @@ KWin's `Tile`/`TileManager`; engines only set relative geometry.
 
 - Pure, KWin-free arithmetic (unit-tested): `columnmath`, `masterstackmath`,
   `gridmath`, `directionmath`, `slotlist`, `movestate`, `leafcolumn`, `movefsm`,
-  `sizingpolicy`, `suspendpolicy`, `tilingconfig`, `scrollingmove`.
+  `sizingpolicy`, `suspendpolicy`, `tilingconfig`, `scrollingmove`, `viewportmath`.
 - Kind switch **replaces** the engine and re-adds windows; durable layout
   memory is keyed by output/desktop id, not engine pointer.
 - Cross-monitor moves: cancel source leaf, drop on destination — no phantoms.
@@ -126,6 +126,7 @@ Read by the controller on `reconfigure`; also surfaced in the KCM
 | `MasterRatio` | double | `0.5` | master column width fraction (0.1–0.9) |
 | `MasterCount` | int | `1` | windows in the master area |
 | `DefaultColumnWidth` | double | `0.5` | Scrolling: new column width fraction (0.1–1.0) |
+| `CenterFocusedColumn` | string | `never` | Scrolling: `never` (fit-scroll), `always` (center on focus; wide columns left-align), or `on-overflow` (center when the focused column and its neighbour do not both fit). `Meta+Shift+C` stays a one-shot center. Without [#40](https://github.com/luxus/kwin-tiling/issues/40) Path A overflow tiles, `always` still hides off-screen columns. |
 | `BorderlessWhenTiled` | bool | `false` | hide window decorations on tiled windows |
 | `NewWindowPlacement` | string | `end` | `master` promotes new windows to master (master-style layouts; respects an active master pin); `end` appends them |
 | `GapLeft/Right/Top/Bottom` | int | `0` | outer gaps |
@@ -178,7 +179,9 @@ KWin+Noctalia session packaging: [luxusAi](https://github.com/luxus/luxusAi)
 - Directional focus/move continue onto the adjacent monitor at a layout edge.
 - Smart gaps basic (0 when ≤1 window); manual on/off toggle available.
 - Configurable new-window placement (postponed).
-- Next: scrolling layout polish (consume/expel UX).
+- Next: scrolling layout polish (consume/expel UX). `center-focused-column`
+  never/always/on-overflow is in kcfg/KCM; without [#40](https://github.com/luxus/kwin-tiling/issues/40)
+  Path A, `always` still hides off-screen columns.
 - Session smoke checklist: `pkgs/kwin-tiling/scripts/session-smoke.md`
 
 ## Tests
@@ -194,6 +197,7 @@ pkgs/kwin-tiling/tests/run.sh    # all *_test.cpp via g++
 
 Covers geometry (`columnmath`, `gridmath`, `masterstackmath`, `directionmath`),
 StackColumn order/weight (`slotlist`), layout + sizing precedence (`tilingconfig`),
+Scrolling viewport modes (`viewportmath`), in-column move (`scrollingmove`),
 move cancel (`movestate`, `leafcolumn`), and controller policy (`movefsm`,
 `sizingpolicy`, `suspendpolicy`, `classmatch`). No compositor link.
 

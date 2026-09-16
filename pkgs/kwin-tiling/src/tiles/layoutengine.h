@@ -8,6 +8,7 @@
 
 #include "core/rect.h"
 #include "kwin_export.h"
+#include "viewportmath.h"
 
 #include <QList>
 #include <QObject>
@@ -205,6 +206,12 @@ public:
      * fraction of the view. No-op for layouts without a column concept.
      */
     virtual void setDefaultColumnWidth(qreal width) { Q_UNUSED(width) }
+
+    /**
+     * Scrolling viewport policy: when to center the focused column (niri
+     * center-focused-column). No-op for layouts without a viewport.
+     */
+    virtual void setCenterFocusedColumn(viewportmath::CenterFocusedColumn mode) { Q_UNUSED(mode) }
 
     /**
      * Grow (delta > 0) or shrink (delta < 0) @p window's height relative to the

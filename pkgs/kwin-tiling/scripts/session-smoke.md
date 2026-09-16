@@ -64,6 +64,11 @@ bash pkgs/kwin-tiling/tests/run.sh
 - [ ] Switch to Scrolling; open several windows
 - [ ] Focus moves columns without permanently losing windows (off-viewport hide OK)
 - [ ] `Meta+Shift+C` / `Meta+Shift+V` center / cycle column width
+- [ ] KCM `Center focused column`: `never` (default fit), `always` recenters on
+      every focus (wide columns left-aligned), `on-overflow` centers only when
+      the focused column and its neighbour do not both fit. Apply round-trips.
+      Off-screen columns stay hidden without [#40](https://github.com/luxus/kwin-tiling/issues/40)
+      Path A.
 - [ ] `Meta+Shift+[` / `Meta+Shift+]` consume / expel (UX may still be rough)
 
 ### 6a. Directional move (issue #42)

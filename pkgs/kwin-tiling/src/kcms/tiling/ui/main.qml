@@ -25,6 +25,12 @@ KCM.SimpleKCM {
         { text: i18n("Grid"), value: "Grid" }
     ]
 
+    readonly property var centerFocusedColumnOptions: [
+        { text: i18n("Never (scroll to fit)"), value: "never" },
+        { text: i18n("Always"), value: "always" },
+        { text: i18n("On overflow"), value: "on-overflow" }
+    ]
+
     // Tabs across the top of the module.
     header: QQC2.TabBar {
         id: tabBar
@@ -253,6 +259,32 @@ KCM.SimpleKCM {
                     configObject: kcm.settings
                     settingName: "defaultColumnWidth"
                 }
+            }
+
+            QQC2.ComboBox {
+                id: centerFocusedColumn
+                Kirigami.FormData.label: i18n("Center focused column:")
+                model: root.centerFocusedColumnOptions
+                textRole: "text"
+                valueRole: "value"
+                currentIndex: {
+                    const idx = model.findIndex(item => item.value === kcm.settings.centerFocusedColumn);
+                    return idx >= 0 ? idx : 0;
+                }
+                onActivated: kcm.settings.centerFocusedColumn = currentValue
+                KCM.SettingStateBinding {
+                    configObject: kcm.settings
+                    settingName: "centerFocusedColumn"
+                }
+            }
+
+            QQC2.Label {
+                Kirigami.FormData.label: i18nc("@info", "Note:")
+                text: i18nc("@info", "Always and on-overflow still hide columns scrolled off this monitor. Overflow tiles (Path A) are required to peek neighbours at full width.")
+                wrapMode: Text.WordWrap
+                Layout.fillWidth: true
+                Layout.maximumWidth: Kirigami.Units.gridUnit * 30
+                opacity: 0.7
             }
 
             Item {
