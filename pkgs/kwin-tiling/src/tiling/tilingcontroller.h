@@ -185,6 +185,9 @@ private:
     QString pinKeyFor(LogicalOutput *output, VirtualDesktop *desktop) const;
     void reassertMasterPin(LogicalOutput *output, VirtualDesktop *desktop);
     LayoutEngine *activeLayoutEngine() const;
+    // The connected output whose name matches @p name (case-insensitive), or
+    // nullptr. Used to honour the [TilingRules] AssignOutput per-app rule.
+    LogicalOutput *outputByName(const QString &name) const;
     LayoutEngine *layoutEngineForWindow(Window *window, LogicalOutput **output = nullptr, VirtualDesktop **desktop = nullptr) const;
     Window *activeTiledWindow() const;
 

@@ -9,6 +9,9 @@
 #include "kwin_export.h"
 #include "tilingstate.h"
 
+#include <QList>
+#include <QPair>
+#include <QString>
 #include <QStringList>
 
 class KConfigGroup;
@@ -47,6 +50,14 @@ public:
      */
     TilingState::Mode initialMode(const Window *window) const;
 
+    /**
+     * Returns the name of the output a window's class is pinned to via the
+     * [TilingRules] AssignOutput map, or an empty string when no rule matches.
+     * Entries are "classPattern:outputName" (class matched like the float/ignore
+     * rules; output name compared verbatim by the caller).
+     */
+    QString outputForWindow(const Window *window) const;
+
 private:
     bool matchClass(const Window *window, const QStringList &patterns) const;
     bool matchTitle(const Window *window, const QStringList &patterns) const;
@@ -56,6 +67,8 @@ private:
     QStringList m_floatingClasses;
     QStringList m_floatingTitles;
     QStringList m_alwaysTileClasses;
+    // (classPattern, outputName) pairs from AssignOutput, first match wins.
+    QList<QPair<QString, QString>> m_assignOutput;
     bool m_floatUtility = true;
     bool m_floatDialog = true;
     bool m_floatTransient = true;

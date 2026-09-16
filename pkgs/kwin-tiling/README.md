@@ -158,7 +158,10 @@ packaging: [luxusAi](https://github.com/luxus/luxusAi) `kwin-noctalia-session`.
   overrides live in `[Tiling][Output <name>]` (not per-desktop).
 - Divider-drag ratio is approximate when gaps are non-zero.
 - Per-app rules: always-tile + float/ignore via TilingRules. Class match is
-  exact or trailing-`*` prefix (not substring).
+  exact or trailing-`*` prefix (not substring). `[TilingRules] AssignOutput`
+  pins a class to a monitor, e.g.
+  `AssignOutput=firefox:DP-2,org.kde.konsole:HDMI-A-1` (applied to new windows;
+  falls back to normal placement when the output is disconnected).
 - Live `[Tiling] Enabled=false` detaches tiled windows and restores borders.
 - Directional focus/move continue onto the adjacent monitor at a layout edge.
 - Smart gaps basic (0 when ≤1 window); manual on/off toggle available.
