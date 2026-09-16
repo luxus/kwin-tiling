@@ -10,6 +10,7 @@
 
 #include "tiles/layoutengine.h"
 #include "virtualdesktops.h"
+#include "window.h"
 #include "workspace.h"
 
 #include <QDBusConnection>
