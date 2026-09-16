@@ -111,8 +111,8 @@ inline double fitScrollOffset(double left, double width, double currentOffset, d
 /**
  * Center the column in the view. Columns as wide as (or wider than) the view
  * left-align. Not clamped to the strip: centering the first/last column can
- * show empty space and park neighbours past the edge (those stay hidden
- * until Path A overflow tiles, issue #40).
+ * show empty space and park neighbours past the edge (Path A overflow tiles
+ * keep peeking width; fully off-viewport columns stay hidden until #41).
  */
 inline double centerScrollOffset(double left, double width)
 {

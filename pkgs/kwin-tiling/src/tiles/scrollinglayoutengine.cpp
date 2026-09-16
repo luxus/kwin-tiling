@@ -37,6 +37,12 @@ void ScrollingLayoutEngine::attach(RootTile *root)
 {
     m_root = root;
     takeOwnershipOfRoot(m_root);
+    // Path A (#40): overflow geometry is legal on this tree. Leaves inherit
+    // m_allowOverflow so CustomTile [0,1] and windowGeometry() output intersect
+    // do not resize peeking columns. Hide-for-offscreen stays until #41.
+    if (m_root) {
+        m_root->setAllowOverflow(true);
+    }
 }
 
 void ScrollingLayoutEngine::addWindow(Window *window)

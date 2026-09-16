@@ -226,7 +226,7 @@ Legend: **Have** / **Partial** / **Missing**.
 | Horizontal strip of columns, new window = new column to the right of active | `addWindow` inserts at `activeColumnIndex() + 1` with `m_defaultColWidth` |
 | Per-output isolation (do not spill to the next monitor) | **Have, by hiding.** Off-viewport columns call `Window::setHidden` instead of sitting past the edge (`scrollinglayoutengine.h` comment). Isolation is real; the method is the feel problem |
 | Fit-scroll: don’t move the camera if the active column is already fully visible | `scrollActiveIntoView` — “don’t move unless off-screen” (`never`) |
-| `center-focused-column` never / always / on-overflow | `[Tiling] CenterFocusedColumn` + KCM; default `never`. `Meta+Shift+C` remains one-shot. Without [#40](https://github.com/luxus/kwin-tiling/issues/40) Path A, `always` still hides off-screen columns |
+| `center-focused-column` never / always / on-overflow | `[Tiling] CenterFocusedColumn` + KCM; default `never`. `Meta+Shift+C` remains one-shot. Path A overflow (#40) lets peeking columns keep full width without migrating; fully off-viewport columns stay hidden until #41 |
 | Center active column | `Meta+Shift+C` → `centerActiveColumn()` |
 | Width presets | `Meta+Shift+V` cycles 1/3, 1/2, 2/3, **1.0** (niri’s default cycle is 1/3, 1/2, 2/3; full width is `maximize-column`) |
 | Default column width | `[Tiling] DefaultColumnWidth` + KCM; per-output override |

@@ -165,7 +165,7 @@ When tiling is enabled:
 - **Cross-monitor robustness** — moving windows between outputs no longer leaves
   phantom tiles; empty leaves are pruned after structural changes
 - **Shared layout foundation** — `StackColumn` + pure math (`columnmath`,
-  `masterstackmath`, `gridmath`, `columnwidthpresets`, `movestate`, `movefsm`, …) so vertical stacking
+  `masterstackmath`, `gridmath`, `slotlist`, `viewportmath`, `columnwidthpresets`, `overflowmath`, `movestate`, `movefsm`, …) so vertical stacking
   and move rules are not copy-pasted per engine; pure suite via `nix flake check`
 - **Clean packaging** — vendored source plus a small patch over stock KWin,
   shipped as a Nix flake module (currently tracks **KWin 6.8 beta / 6.7.90**)
