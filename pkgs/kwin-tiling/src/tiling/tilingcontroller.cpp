@@ -134,8 +134,20 @@ TilingController::TilingController(Workspace *workspace)
                 engine->setActiveWindow(window);
             }
         });
+        // Drop per-output state when a monitor is unplugged (see onOutputRemoved).
+        connect(m_workspace, &Workspace::outputRemoved, this, &TilingController::onOutputRemoved);
         m_lastFocused = m_workspace->activeWindow();
     }
+
+    // Coalesce kwinrc writes from rapid interactive sizing changes into a single
+    // delayed sync (see schedulePersist).
+    m_persistTimer = new QTimer(this);
+    m_persistTimer->setSingleShot(true);
+    m_persistTimer->setInterval(400);
+    connect(m_persistTimer, &QTimer::timeout, this, [] {
+        KSharedConfig::openConfig(KWIN_CONFIG)->sync();
+    });
+
     reconfigure();
 }
 
@@ -251,6 +263,35 @@ void TilingController::onOutputAdded(LogicalOutput *output)
         setupLayoutEngine(output, manager, desktop, layoutKindFor(output, desktop));
     }
     applyGapSettingsToOutput(output);
+}
+
+void TilingController::onOutputRemoved(LogicalOutput *output)
+{
+    if (!output) {
+        return;
+    }
+    // The TileManager (and its engines) for this output are torn down by KWin.
+    // Drop the per-output reflow-context stack so a future LogicalOutput that
+    // reuses this heap address cannot inherit a stale context in the hot path.
+    m_reflowContextStacks.remove(output);
+
+    // Master pins are keyed by "<output name>/<desktop id>"; drop the ones for
+    // this output so we never try to reassert a pin onto a disconnected monitor.
+    const QString prefix = output->name() + QLatin1Char('/');
+    for (auto it = m_masterPins.begin(); it != m_masterPins.end();) {
+        if (it.key().startsWith(prefix)) {
+            it = m_masterPins.erase(it);
+        } else {
+            ++it;
+        }
+    }
+}
+
+void TilingController::schedulePersist()
+{
+    if (m_persistTimer) {
+        m_persistTimer->start();
+    }
 }
 
 void TilingController::setupLayoutEngine(LogicalOutput *output, TileManager *manager, VirtualDesktop *desktop,
@@ -490,6 +531,15 @@ void TilingController::onWindowAdded(Window *window)
     connect(window, &Window::minimizedChanged, this,
             [this, window]() { onWindowMinimizedChanged(window); });
 
+    // Defensive: if a window is ever torn down without routing through
+    // Workspace::removeWindow -> onWindowRemoved, still scrub the per-window
+    // state maps keyed by its (now-dangling) pointer. The pointer is only used
+    // as a hash key here, never dereferenced.
+    connect(window, &QObject::destroyed, this, [this, window]() {
+        m_activeMoves.remove(window);
+        m_activeResizes.remove(window);
+    });
+
     // Don't touch already-managed windows (e.g. on-all-desktops already handled).
     if (window->tilingState().mode != TilingState::Mode::Floating) {
         return;
@@ -643,7 +693,12 @@ void TilingController::removeWindowFromLayouts(Window *window)
                                 reflowScopeLayoutKind(output));
         for (VirtualDesktop *desktop : VirtualDesktopManager::self()->desktops()) {
             if (LayoutEngine *engine = manager->layoutEngine(desktop)) {
-                engine->removeWindow(window);
+                // A window lives in at most one engine, so only ask the engine
+                // that actually holds it to remove+reflow; the others would
+                // reflow needlessly for a window they never had.
+                if (engine->windows().contains(window)) {
+                    engine->removeWindow(window);
+                }
             }
         }
     }
@@ -971,7 +1026,7 @@ void TilingController::onWindowResizeFinished(Window *window, const RectF &start
     if (!output || !tilingGroup.group(QStringLiteral("Output %1").arg(output->name())).exists()) {
         m_masterRatio = ratio;
     }
-    config->sync();
+    schedulePersist();
 }
 
 void TilingController::onWindowMoveFinished(Window *window)
@@ -1569,7 +1624,7 @@ void TilingController::resizePrimary(qreal delta)
         if (!tilingGroup.group(QStringLiteral("Output %1").arg(output->name())).exists()) {
             m_masterRatio = sizing.masterRatio;
         }
-        config->sync();
+        schedulePersist();
     }
 }
 
@@ -1593,7 +1648,7 @@ void TilingController::adjustMasterCount(int delta)
     if (!tilingGroup.group(QStringLiteral("Output %1").arg(output->name())).exists()) {
         m_masterCount = sizing.masterCount;
     }
-    config->sync();
+    schedulePersist();
 }
 
 void TilingController::resizeActiveWindowHeight(qreal delta)
@@ -1631,7 +1686,7 @@ void TilingController::resetSizes()
     if (!output || !tilingGroup.group(QStringLiteral("Output %1").arg(output->name())).exists()) {
         m_masterRatio = kResetRatio;
     }
-    config->sync();
+    schedulePersist();
 }
 
 void TilingController::centerColumn()

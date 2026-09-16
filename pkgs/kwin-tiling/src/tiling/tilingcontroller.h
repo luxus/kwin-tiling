@@ -15,6 +15,7 @@
 #include <QHash>
 #include <QObject>
 #include <QPointer>
+#include <QTimer>
 #include <QVector>
 
 class KConfigGroup;
@@ -156,6 +157,9 @@ private Q_SLOTS:
     void onInteractiveMoveResizeStarted();
     void onInteractiveMoveResizeFinished();
     void onWindowDesktopsChanged(Window *window);
+    // A monitor was unplugged: drop per-output state keyed by that raw
+    // LogicalOutput* so a later reused address can't return a stale context.
+    void onOutputRemoved(LogicalOutput *output);
 
 private:
     bool shouldTile(const Window *window) const;
@@ -210,6 +214,11 @@ private:
     void suspendAllTiledWindows();
     void resumeSuspendedWindows();
 
+    // Coalesce kwinrc writes from interactive resize / master ratio+count edits:
+    // callers writeEntry() then schedule this instead of a blocking sync() per
+    // keypress; the shared config is flushed once the drag/keypress storm settles.
+    void schedulePersist();
+
     QPointer<Workspace> m_workspace;
     std::unique_ptr<TilingRules> m_rules;
     bool m_enabled = true;
@@ -237,6 +246,8 @@ private:
     QHash<QString, QPointer<Window>> m_masterPins;
     QHash<LogicalOutput *, QVector<ReflowContext>> m_reflowContextStacks;
     int m_nextReflowGroupId = 1;
+    // Debounces kwinrc sync() on the interactive sizing paths (see schedulePersist).
+    QTimer *m_persistTimer = nullptr;
 };
 
 } // namespace KWin
