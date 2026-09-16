@@ -76,10 +76,12 @@ App (Tiling)** (permanent class rule).
 | Default column width | Scrolling layout: width of new columns |
 | Gap margins | Left, right, top, bottom screen margins |
 | Gap between | Space between adjacent tiles |
-| Per-output overrides | Different layout or gap values per monitor |
+| Per-output overrides | Different layout, gaps, or sizing per monitor |
+| Per-desktop overrides | Layout and sizing (master ratio/count, column width) per (desktop, monitor) pair |
 
 Per-monitor overrides can be reset with the **Reset all per-monitor overrides**
-button in the KCM.
+button in the KCM. Per-desktop sizing can be cleared with **Use default sizes**
+on that pair.
 
 Settings are stored in `~/.config/kwinrc` under `[Tiling]`:
 
@@ -94,7 +96,8 @@ GapBetween=4
 GapLeft=8
 ```
 
-Per-monitor values live under `[Tiling][Output <name>]` subgroups.
+Per-monitor values live under `[Tiling][Output <name>]` subgroups. Per-desktop
+layout and sizing live under `[Tiling][DesktopOutput <n>:<output>]`.
 
 ## Layouts in practice
 
@@ -133,8 +136,6 @@ strongly recommended.
 
 ## Current limitations
 
-- Master ratio, count, and scrolling column width default globally; override per
-  monitor in the KCM (not per virtual desktop)
 - Divider drag gives an approximate ratio when gaps are non-zero
 
 See [Roadmap](roadmap) for planned improvements.

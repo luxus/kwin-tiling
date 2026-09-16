@@ -207,10 +207,16 @@ private:
 
     void setupLayoutEngine(LogicalOutput *output, TileManager *manager, VirtualDesktop *desktop,
                            LayoutEngine::LayoutKind kind);
-    // Seed a (new or live) engine's sizing from config: master ratio/count for
-    // MasterStack, default column width for Scrolling. Per-output overrides
-    // in [Tiling][Output name] win over the global [Tiling] defaults.
-    void seedEngineSizing(LogicalOutput *output, LayoutEngine *engine, LayoutEngine::LayoutKind kind);
+    // Seed a (new or live) engine's sizing from the config cache: master
+    // ratio/count for MasterStack, default column width for Scrolling.
+    // Per-(desktop, output) overrides win over per-output, which win over
+    // the global [Tiling] defaults.
+    void seedEngineSizing(LogicalOutput *output, VirtualDesktop *desktop, LayoutEngine *engine,
+                           LayoutEngine::LayoutKind kind);
+    // Persist a live master-ratio or master-count change to the most specific
+    // group (DesktopOutput when the pair is known) and update the cache.
+    void persistMasterRatio(LogicalOutput *output, VirtualDesktop *desktop, qreal ratio);
+    void persistMasterCount(LogicalOutput *output, VirtualDesktop *desktop, int count);
     LayoutEngine::LayoutKind resolveLayoutKind(LogicalOutput *output, VirtualDesktop *desktop = nullptr) const;
     // Per-(output, desktop) layout: a remembered manual choice (see
     // persistLayoutChoice) wins over resolveLayoutKind's config default, so a
@@ -226,7 +232,7 @@ private:
     // add/remove/migrate pass the affected desktop so sibling desktops are not
     // reflowed.
     void applyGapSettingsToOutput(LogicalOutput *output, VirtualDesktop *desktop = nullptr);
-    // Snapshot [Tiling] layout/gap entries so the hot path never reopens kwinrc.
+    // Snapshot [Tiling] layout/gap/sizing entries so the hot path never reopens kwinrc.
     void loadConfigCache(const KConfigGroup &tilingGroup);
 
     void setLayoutOn(LogicalOutput *output, VirtualDesktop *desktop, LayoutEngine::LayoutKind kind);
@@ -273,6 +279,23 @@ private:
     QHash<QString, LayoutEngine::LayoutKind> m_outputDefaultLayouts; // output name
     QHash<QString, LayoutEngine::LayoutKind> m_desktopOutputLayouts; // "N:output"
     QHash<QString, LayoutEngine::LayoutKind> m_desktopLayoutMemory; // "output/desktopId"
+    struct CachedSizing {
+        qreal masterRatio = 0.5;
+        int masterCount = 1;
+        qreal defaultColumnWidth = 0.5;
+    };
+    // Sizing overlays (optional keys). Empty override = inherit previous layer.
+    struct CachedSizingOverride {
+        bool hasMasterRatio = false;
+        qreal masterRatio = 0.5;
+        bool hasMasterCount = false;
+        int masterCount = 1;
+        bool hasDefaultColumnWidth = false;
+        qreal defaultColumnWidth = 0.5;
+    };
+    QHash<QString, CachedSizingOverride> m_outputSizing; // output name
+    QHash<QString, CachedSizingOverride> m_desktopOutputSizing; // "N:output"
+    CachedSizing resolvedSizing(LogicalOutput *output, VirtualDesktop *desktop) const;
 
     struct MoveContext {
         QPointer<LayoutEngine> engine;

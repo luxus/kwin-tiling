@@ -14,11 +14,10 @@
 
 // Pure config-resolution helpers for TilingController.
 // Layout-kind parsing, enabled-list fallback, remembered-vs-default
-// precedence, per-output sizing clamp, and smart-gap suppression — unit-tested
-// without Qt/KWin (tests/tilingconfig_test.cpp). TilingController loads KConfig
-// once in reconfigure() and consults the cache on the window add/remove/migrate
-// path. Sizing seed/write still reads KConfig; this header is the clamp +
-// override-if-present merge.
+// precedence, per-output sizing clamp, per-desktop sizing overlays, and
+// smart-gap suppression — unit-tested without Qt/KWin
+// (tests/tilingconfig_test.cpp). TilingController loads KConfig once in
+// reconfigure() and consults the cache on the window add/remove/migrate path.
 
 namespace KWin::tilingconfig
 {
@@ -196,7 +195,7 @@ inline bool shouldSuppressGaps(bool gapsSuppressed, int windowCount)
 
 // --- per-output sizing (MasterRatio / MasterCount / DefaultColumnWidth) ---
 // Same bounds TilingController and the KCM use. Override-if-present, else
-// the global default, then clamp either way.
+// the global default, then clamp either way. (#7 Part A)
 
 inline constexpr double kMinMasterRatio = 0.1;
 inline constexpr double kMaxMasterRatio = 0.9;
@@ -238,6 +237,45 @@ inline OutputSizing resolveOutputSizing(const OutputSizing &defaults, const Outp
     out.masterCount = clampMasterCount(override.masterCount.value_or(defaults.masterCount));
     out.defaultColumnWidth = clampColumnWidth(override.defaultColumnWidth.value_or(defaults.defaultColumnWidth));
     return out;
+}
+
+inline bool sizingOverrideEmpty(const OutputSizingOverride &o)
+{
+    return !o.masterRatio && !o.masterCount && !o.defaultColumnWidth;
+}
+
+/**
+ * Resolve sizing: global defaults, then per-output, then per-(desktop, output).
+ * The most specific present key wins. Built on resolveOutputSizing (#7 Part A).
+ */
+inline OutputSizing resolveSizing(const OutputSizing &global, const OutputSizingOverride &output,
+                                  const OutputSizingOverride &desktop)
+{
+    return resolveOutputSizing(resolveOutputSizing(global, output), desktop);
+}
+
+/**
+ * Where live MasterRatio / MasterCount writes go.
+ *
+ * A known (output, desktop) pair writes the DesktopOutput subgroup so each
+ * virtual desktop keeps its own sizing. Otherwise an existing Output
+ * subgroup if present, else the global [Tiling] group.
+ */
+enum class SizingWriteTarget {
+    Global,
+    Output,
+    DesktopOutput,
+};
+
+inline SizingWriteTarget sizingWriteTarget(bool hasOutput, bool outputGroupExists, bool hasDesktop)
+{
+    if (hasOutput && hasDesktop) {
+        return SizingWriteTarget::DesktopOutput;
+    }
+    if (hasOutput && outputGroupExists) {
+        return SizingWriteTarget::Output;
+    }
+    return SizingWriteTarget::Global;
 }
 
 } // namespace KWin::tilingconfig

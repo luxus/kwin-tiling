@@ -14,7 +14,7 @@ KCM.SimpleKCM {
     id: root
 
     implicitWidth: Kirigami.Units.gridUnit * 42
-    implicitHeight: Kirigami.Units.gridUnit * 34
+    implicitHeight: Kirigami.Units.gridUnit * 38
 
     // Layout choices shared by the default and per-monitor dropdowns.
     readonly property var layoutOptions: [
@@ -521,17 +521,17 @@ KCM.SimpleKCM {
         }
 
         // ====================================================================
-        // Per-Desktop layout overrides
+        // Per-Desktop layout + sizing overrides
         // ====================================================================
         Kirigami.FormLayout {
             Item {
                 Kirigami.FormData.isSection: true
-                Kirigami.FormData.label: i18n("Per-Desktop Layout Overrides")
+                Kirigami.FormData.label: i18n("Per-Desktop Overrides")
             }
 
             QQC2.Label {
                 Kirigami.FormData.label: i18nc("@info:placeholder", "Overrides:")
-                text: xi18nc("@info", "Each row is a virtual desktop. Each column is a connected monitor. Select a layout to override the global default for that (desktop, monitor) pair. Leave as <interface>Use default</interface> to fall back to the per-monitor or global setting.")
+                text: xi18nc("@info", "Each row is a virtual desktop. Each column is a connected monitor. Select a layout or set master ratio, count, or scrolling column width to override the global (or per-monitor) default for that pair. Leave as <interface>Use default</interface> / leave sizes untouched to inherit.")
                 wrapMode: Text.WordWrap
                 Layout.fillWidth: true
                 Layout.maximumWidth: Kirigami.Units.gridUnit * 40
@@ -611,9 +611,10 @@ KCM.SimpleKCM {
                         Repeater {
                             model: kcm.desktopLayoutOverridesModel.outputNames
 
-                            QQC2.ComboBox {
+                            ColumnLayout {
                                 Layout.preferredWidth: Kirigami.Units.gridUnit * 12
                                 Layout.fillWidth: true
+                                spacing: Kirigami.Units.smallSpacing
 
                                 property var perDesktopLayoutOptions: {
                                     const opts = [{ text: i18n("Use default"), value: "" }];
@@ -628,20 +629,80 @@ KCM.SimpleKCM {
                                     }
                                     return opts;
                                 }
-                                model: perDesktopLayoutOptions
-                                textRole: "text"
-                                valueRole: "value"
-
                                 property var entry: kcm.desktopLayoutOverridesModel.entryAt((desktopRow.desktopNumber - 1) * kcm.desktopLayoutOverridesModel.outputNames.length + index)
 
-                                currentIndex: {
-                                    const cur = entry ? entry.defaultLayout : "";
-                                    const idx = perDesktopLayoutOptions.findIndex(item => item.value === cur);
-                                    return idx >= 0 ? idx : 0;
+                                QQC2.ComboBox {
+                                    Layout.fillWidth: true
+                                    model: perDesktopLayoutOptions
+                                    textRole: "text"
+                                    valueRole: "value"
+
+                                    currentIndex: {
+                                        const cur = entry ? entry.defaultLayout : "";
+                                        const idx = perDesktopLayoutOptions.findIndex(item => item.value === cur);
+                                        return idx >= 0 ? idx : 0;
+                                    }
+                                    onActivated: {
+                                        if (entry) {
+                                            entry.defaultLayout = perDesktopLayoutOptions[currentIndex].value;
+                                        }
+                                    }
                                 }
-                                onActivated: {
-                                    if (entry) {
-                                        entry.defaultLayout = perDesktopLayoutOptions[currentIndex].value;
+
+                                QQC2.Label {
+                                    text: i18n("Master width (%):")
+                                    opacity: 0.7
+                                }
+                                QQC2.SpinBox {
+                                    id: ratioSpin
+                                    Layout.fillWidth: true
+                                    from: 10
+                                    to: 90
+                                    stepSize: 5
+                                    value: Math.round(((entry && entry.hasMasterRatio) ? entry.masterRatio : kcm.settings.masterRatio) * 100)
+                                    onValueModified: if (entry) entry.masterRatio = value / 100
+                                }
+
+                                QQC2.Label {
+                                    text: i18n("Master count:")
+                                    opacity: 0.7
+                                }
+                                QQC2.SpinBox {
+                                    id: countSpin
+                                    Layout.fillWidth: true
+                                    from: 1
+                                    to: 10
+                                    value: (entry && entry.hasMasterCount) ? entry.masterCount : kcm.settings.masterCount
+                                    onValueModified: if (entry) entry.masterCount = value
+                                }
+
+                                QQC2.Label {
+                                    text: i18n("Column width (%):")
+                                    opacity: 0.7
+                                }
+                                QQC2.SpinBox {
+                                    id: widthSpin
+                                    Layout.fillWidth: true
+                                    from: 10
+                                    to: 100
+                                    stepSize: 5
+                                    value: Math.round(((entry && entry.hasDefaultColumnWidth) ? entry.defaultColumnWidth : kcm.settings.defaultColumnWidth) * 100)
+                                    onValueModified: if (entry) entry.defaultColumnWidth = value / 100
+                                }
+
+                                QQC2.ToolButton {
+                                    Layout.alignment: Qt.AlignLeft
+                                    icon.name: "edit-reset"
+                                    text: i18n("Use default sizes")
+                                    visible: entry && (entry.hasMasterRatio || entry.hasMasterCount || entry.hasDefaultColumnWidth)
+                                    onClicked: {
+                                        if (!entry) {
+                                            return;
+                                        }
+                                        entry.clearSizing();
+                                        ratioSpin.value = Math.round(kcm.settings.masterRatio * 100);
+                                        countSpin.value = kcm.settings.masterCount;
+                                        widthSpin.value = Math.round(kcm.settings.defaultColumnWidth * 100);
                                     }
                                 }
                             }

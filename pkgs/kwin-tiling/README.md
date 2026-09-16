@@ -126,9 +126,12 @@ Read by the controller on `reconfigure`; also surfaced in the KCM
 | `GapLeft/Right/Top/Bottom` | int | `0` | outer gaps |
 | `GapBetween` | int | `0` | gap between tiles |
 | `Output <name>` subgroup | — | — | per-monitor layout, gap, and sizing overrides |
+| `DesktopOutput <desktop>:<output>` subgroup | — | — | per-(desktop, monitor) layout and sizing overrides (`DefaultLayout`, `MasterRatio`, `MasterCount`, `DefaultColumnWidth`) |
 
 Live changes to master ratio/count (keyboard or divider drag) are written back
-to `[Tiling]` so they persist across restart.
+to `[Tiling][DesktopOutput <desktop>:<output>]` so each virtual desktop keeps
+its own values (falling back to `[Tiling][Output <name>]` or global `[Tiling]`
+when that pair is unknown).
 
 ## Maintenance
 
@@ -157,8 +160,6 @@ KWin+Noctalia session packaging: [luxusAi](https://github.com/luxus/luxusAi)
 
 ## Known limitations / backlog
 
-- Master ratio/count and scrolling column width default globally; per-output
-  overrides live in `[Tiling][Output <name>]` (not per-desktop).
 - Divider-drag ratio is approximate when gaps are non-zero.
 - Per-app rules: always-tile + float/ignore via TilingRules. Class match is
   exact or trailing-`*` prefix (not substring). `[TilingRules] AssignOutput`
@@ -261,6 +262,8 @@ Maintenance above).
 - Per-output layout choice + cycle; full `TilingController` integration with
   KWin's move/resize/desktop signals.
 - KCM settings apply live on reload; per-monitor override UI with reset.
+- Per-desktop layout **and** sizing overrides (master ratio/count, scrolling
+  column width) via the same `DesktopOutput N:name` groups as layout choice.
 
 See the shipped list and roadmap for the complete current status.
 

@@ -3,7 +3,8 @@
     SPDX-License-Identifier: GPL-2.0-or-later
 
     Standalone self-check for tilingconfig.h (enabled-kinds parse, layout
-    precedence, per-output sizing clamp, smart-gap suppression).
+    precedence, per-output sizing clamp, per-desktop sizing overlays,
+    smart-gap suppression).
 */
 
 #include "../src/tiling/tilingconfig.h"
@@ -164,6 +165,51 @@ int main()
     assert(clampedOver.masterRatio == kMinMasterRatio);
     assert(clampedOver.masterCount == kMinMasterCount);
     assert(clampedOver.defaultColumnWidth == kMaxColumnWidth);
+
+    // Per-desktop overlay: missing keys keep the previous layer.
+    OutputSizingOverride outputSizing;
+    outputSizing.masterRatio = 0.6;
+    outputSizing.masterCount = 2;
+    OutputSizingOverride desktopSizing;
+    desktopSizing.masterCount = 3;
+    const OutputSizing resolved = resolveSizing(global, outputSizing, desktopSizing);
+    assert(resolved.masterRatio == 0.6); // output, desktop did not set it
+    assert(resolved.masterCount == 3); // desktop wins
+    assert(resolved.defaultColumnWidth == 0.5);
+
+    // Desktop overlay wins over output for the same key.
+    desktopSizing.masterRatio = 0.7;
+    const OutputSizing desktopWins = resolveSizing(global, outputSizing, desktopSizing);
+    assert(desktopWins.masterRatio == 0.7);
+    assert(desktopWins.masterCount == 3);
+
+    // Empty overlays: global unchanged (and still clamped).
+    const OutputSizing noOverride = resolveSizing(global, {}, OutputSizingOverride{});
+    assert(noOverride.masterRatio == 0.5);
+    assert(noOverride.masterCount == 1);
+    assert(noOverride.defaultColumnWidth == 0.5);
+    assert(sizingOverrideEmpty(OutputSizingOverride{}));
+    assert(!sizingOverrideEmpty(outputSizing));
+
+    // Desktop overlay clamps out-of-range values.
+    OutputSizingOverride wildDesktop;
+    wildDesktop.masterRatio = 0.05;
+    wildDesktop.masterCount = 0;
+    wildDesktop.defaultColumnWidth = 1.5;
+    const OutputSizing clampedDesktop = resolveSizing(global, {}, wildDesktop);
+    assert(clampedDesktop.masterRatio == kMinMasterRatio);
+    assert(clampedDesktop.masterCount == kMinMasterCount);
+    assert(clampedDesktop.defaultColumnWidth == kMaxColumnWidth);
+    wildDesktop.masterRatio = 1.5;
+    assert(resolveSizing(global, {}, wildDesktop).masterRatio == kMaxMasterRatio);
+
+    // Live writes: (output, desktop) → DesktopOutput so each desktop keeps its own.
+    assert(sizingWriteTarget(true, true, true) == SizingWriteTarget::DesktopOutput);
+    assert(sizingWriteTarget(true, false, true) == SizingWriteTarget::DesktopOutput);
+    assert(sizingWriteTarget(true, true, false) == SizingWriteTarget::Output);
+    assert(sizingWriteTarget(true, false, false) == SizingWriteTarget::Global);
+    assert(sizingWriteTarget(false, false, true) == SizingWriteTarget::Global);
+    assert(sizingWriteTarget(false, false, false) == SizingWriteTarget::Global);
 
     std::puts("tilingconfig_test: OK");
     return 0;
