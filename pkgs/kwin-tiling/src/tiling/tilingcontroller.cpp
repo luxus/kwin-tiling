@@ -545,8 +545,7 @@ void TilingController::onWindowAdded(Window *window)
         return;
     }
 
-    TilingState::Mode mode = m_rules->initialMode(window);
-    window->tilingState().mode = mode;
+    const TilingState::Mode mode = m_rules->initialMode(window);
 
     if (mode == TilingState::Mode::Tiled) {
         LogicalOutput *output = window->output() ? window->output() : m_workspace->activeOutput();
@@ -554,6 +553,11 @@ void TilingController::onWindowAdded(Window *window)
         // Per-app output assignment ([TilingRules] AssignOutput): pin this
         // window's class to a specific monitor if a rule matches and that
         // output is connected. Falls back to the normal output otherwise.
+        //
+        // Do this while the window is still Floating: sendToOutput emits
+        // outputChanged synchronously, and onWindowOutputChanged only migrates
+        // windows that are already Tiled — so doing it before we mark the mode
+        // avoids a double add (migrate + addWindowToLayout below).
         const QString assigned = m_rules->outputForWindow(window);
         if (!assigned.isEmpty()) {
             if (LogicalOutput *target = outputByName(assigned)) {
@@ -564,6 +568,7 @@ void TilingController::onWindowAdded(Window *window)
             }
         }
 
+        window->tilingState().mode = TilingState::Mode::Tiled;
         VirtualDesktop *desktop = window->desktops().isEmpty()
             ? VirtualDesktopManager::self()->currentDesktop(output)
             : window->desktops().constFirst();
@@ -571,6 +576,8 @@ void TilingController::onWindowAdded(Window *window)
         if (output) {
             applyGapSettingsToOutput(output);
         }
+    } else {
+        window->tilingState().mode = mode;
     }
 }
 
