@@ -50,6 +50,12 @@ void GridLayoutEngine::moveWindow(Window *window, int delta)
     reflow();
 }
 
+void GridLayoutEngine::reorderWindow(Window *window, int delta)
+{
+    m_column.moveByDelta(window, delta);
+    reflow();
+}
+
 void GridLayoutEngine::beginMoveWindow(Window *window)
 {
     m_column.beginMove(window);

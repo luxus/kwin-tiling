@@ -166,17 +166,32 @@ public:
         m_weights.remove(window);
     }
 
-    // Reorder within the column: swap the window with the one `delta` steps away
-    // (clamped). Matches the engines' original move semantics.
+    // Pairwise swap with the window `delta` steps away (clamped). Used by
+    // moveWindow so directional Meta+Alt moves trade places with a neighbour.
     void swapByDelta(Window *window, int delta)
     {
         const int idx = indexOf(window);
         if (idx < 0) {
             return;
         }
-        const int newIdx = std::clamp(idx + delta, 0, int(m_leaves.count()) - 1);
+        const int newIdx = columnmath::movedIndex(int(m_leaves.count()), idx, delta);
         if (newIdx != idx) {
             m_leaves.swapItemsAt(idx, newIdx);
+        }
+    }
+
+    // Reorder within the column: move the window `delta` steps (clamped) and
+    // shift the windows in between. promoteToMaster uses this so a deep-stack
+    // window becomes master without swapping with only the current master.
+    void moveByDelta(Window *window, int delta)
+    {
+        const int idx = indexOf(window);
+        if (idx < 0 || delta == 0) {
+            return;
+        }
+        const int newIdx = columnmath::movedIndex(int(m_leaves.count()), idx, delta);
+        if (newIdx != idx) {
+            m_leaves.move(idx, newIdx);
         }
     }
 

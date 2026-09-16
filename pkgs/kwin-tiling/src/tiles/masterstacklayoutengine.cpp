@@ -157,6 +157,19 @@ void MasterStackLayoutEngine::moveWindow(Window *window, int delta)
     reflow();
 }
 
+void MasterStackLayoutEngine::reorderWindow(Window *window, int delta)
+{
+    if (isCentered()) {
+        if (StackColumn *col = findColumn(window)) {
+            col->moveByDelta(window, delta);
+            reflow();
+        }
+        return;
+    }
+    m_column.moveByDelta(window, delta);
+    reflow();
+}
+
 void MasterStackLayoutEngine::beginMoveWindow(Window *window)
 {
     if (isCentered()) {

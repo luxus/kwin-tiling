@@ -72,8 +72,27 @@ public:
     /**
      * Move a window by a delta in the layout order.
      * Positive delta moves forward in the order.
+     *
+     * StackColumn-based engines pairwise-swap (swapByDelta) so directional
+     * Meta+Alt moves trade places with the neighbour. For a rotate that
+     * shifts the windows in between, use reorderWindow().
      */
     virtual void moveWindow(Window *window, int delta) = 0;
+
+    /**
+     * Re-order a window by a delta in the layout order: the window is moved
+     * to index+delta (clamped) and neighbours between the two positions shift
+     * to fill the gap. Used by promoteToMaster so a stack window becomes
+     * master without swapping with only the current master.
+     *
+     * Default forwards to moveWindow() (engines whose move is already a
+     * column-step, e.g. Scrolling). StackColumn-based engines override with
+     * StackColumn::moveByDelta.
+     */
+    virtual void reorderWindow(Window *window, int delta)
+    {
+        moveWindow(window, delta);
+    }
 
     /**
      * Called when an interactive move of a tiled window starts.
