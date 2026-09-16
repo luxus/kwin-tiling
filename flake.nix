@@ -128,6 +128,15 @@
                   prev.libei
                 ];
               });
+              # 6.8 portal: pkg_check_modules(libpipewire-0.3>=1.0.9) + xkbcommon;
+              # KPipeWire is optional but present in the 6.8 tree.
+              xdg-desktop-portal-kde = kprev.xdg-desktop-portal-kde.overrideAttrs (old: {
+                buildInputs = (old.buildInputs or [ ]) ++ [
+                  prev.pipewire
+                  prev.libxkbcommon
+                  kfinal.kpipewire
+                ];
+              });
               plasma-wayland-protocols = kprev.plasma-wayland-protocols.overrideAttrs (_: {
                 version = "1.22.0";
                 src = fetchurl {
