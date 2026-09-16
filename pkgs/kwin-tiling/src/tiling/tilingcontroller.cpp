@@ -550,6 +550,20 @@ void TilingController::onWindowAdded(Window *window)
 
     if (mode == TilingState::Mode::Tiled) {
         LogicalOutput *output = window->output() ? window->output() : m_workspace->activeOutput();
+
+        // Per-app output assignment ([TilingRules] AssignOutput): pin this
+        // window's class to a specific monitor if a rule matches and that
+        // output is connected. Falls back to the normal output otherwise.
+        const QString assigned = m_rules->outputForWindow(window);
+        if (!assigned.isEmpty()) {
+            if (LogicalOutput *target = outputByName(assigned)) {
+                if (target != output) {
+                    window->sendToOutput(target);
+                    output = target;
+                }
+            }
+        }
+
         VirtualDesktop *desktop = window->desktops().isEmpty()
             ? VirtualDesktopManager::self()->currentDesktop(output)
             : window->desktops().constFirst();
@@ -721,6 +735,19 @@ LayoutEngine *TilingController::activeLayoutEngine() const
     }
 
     return manager->layoutEngine();
+}
+
+LogicalOutput *TilingController::outputByName(const QString &name) const
+{
+    if (!m_workspace || name.isEmpty()) {
+        return nullptr;
+    }
+    for (LogicalOutput *output : m_workspace->outputs()) {
+        if (output && output->name().compare(name, Qt::CaseInsensitive) == 0) {
+            return output;
+        }
+    }
+    return nullptr;
 }
 
 LayoutEngine *TilingController::layoutEngineForWindow(Window *window, LogicalOutput **output, VirtualDesktop **desktop) const

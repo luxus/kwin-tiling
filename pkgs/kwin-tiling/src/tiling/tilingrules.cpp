@@ -30,6 +30,24 @@ void TilingRules::load(const KConfigGroup &group)
     m_floatDialog = group.readEntry("FloatDialog", true);
     m_floatTransient = group.readEntry("FloatTransient", true);
 
+    // AssignOutput: list of "classPattern:outputName" entries pinning a window
+    // class to a specific monitor (e.g. "firefox:DP-2"). The class pattern is
+    // matched like the float/ignore rules; the output name is split off after
+    // the first ':' and kept verbatim for the controller to resolve.
+    m_assignOutput.clear();
+    const QStringList assignEntries = group.readEntry("AssignOutput", QStringList());
+    for (const QString &entry : assignEntries) {
+        const int sep = entry.indexOf(QLatin1Char(':'));
+        if (sep <= 0 || sep >= entry.size() - 1) {
+            continue;
+        }
+        const QString pattern = entry.left(sep).trimmed().toLower();
+        const QString outputName = entry.mid(sep + 1).trimmed();
+        if (!pattern.isEmpty() && !outputName.isEmpty()) {
+            m_assignOutput.append(qMakePair(pattern, outputName));
+        }
+    }
+
     // Normalize class patterns: strip whitespace and lower-case for case-insensitive matching.
     auto normalize = [](QStringList &list) {
         for (QString &s : list) {
@@ -98,6 +116,19 @@ TilingState::Mode TilingRules::initialMode(const Window *window) const
         return TilingState::Mode::Floating;
     }
     return TilingState::Mode::Tiled;
+}
+
+QString TilingRules::outputForWindow(const Window *window) const
+{
+    if (!window || m_assignOutput.isEmpty()) {
+        return {};
+    }
+    for (const auto &rule : m_assignOutput) {
+        if (matchClass(window, QStringList{rule.first})) {
+            return rule.second;
+        }
+    }
+    return {};
 }
 
 bool TilingRules::matchClass(const Window *window, const QStringList &patterns) const
