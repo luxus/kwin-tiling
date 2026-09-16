@@ -1797,6 +1797,7 @@ void TilingController::onWindowClassChanged(Window *window)
             window->moveResize(preTileGeometry);
         }
     }
+    Q_EMIT tiledWindowsChanged();
 }
 
 void TilingController::sanitizeVideoBridgeSurface(Window *window)
@@ -1853,6 +1854,8 @@ void TilingController::vacateLayout(Window *window)
     if (out) {
         applyGapSettingsToOutput(out, desktop);
     }
+
+    Q_EMIT tiledWindowsChanged();
 }
 
 void TilingController::rejoinLayout(Window *window)
@@ -1868,6 +1871,7 @@ void TilingController::rejoinLayout(Window *window)
     if (output) {
         applyGapSettingsToOutput(output, desktop);
     }
+    Q_EMIT tiledWindowsChanged();
 }
 
 Window *TilingController::windowUnderCursorInEngine(LayoutEngine *engine) const

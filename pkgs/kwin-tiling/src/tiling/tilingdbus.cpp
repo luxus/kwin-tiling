@@ -6,11 +6,11 @@
 
 #include "tilingdbus.h"
 #include "tilingdbuspolicy.h"
-#include "tilingcontroller.h"
 
+#include "window.h"
+#include "tilingcontroller.h"
 #include "tiles/layoutengine.h"
 #include "virtualdesktops.h"
-#include "window.h"
 #include "workspace.h"
 
 #include <QDBusConnection>
