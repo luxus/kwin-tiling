@@ -134,7 +134,7 @@ Read by the controller on `reconfigure`; also surfaced in the KCM
 | `MasterRatio` | double | `0.5` | master column width fraction (0.1–0.9) |
 | `MasterCount` | int | `1` | windows in the master area |
 | `DefaultColumnWidth` | double | `0.5` | Scrolling: new column width fraction (0.1–1.0) |
-| `CenterFocusedColumn` | string | `never` | Scrolling: `never` (fit-scroll), `always` (center on focus; wide columns left-align), or `on-overflow` (center when the focused column and its neighbour do not both fit). `Meta+Shift+C` stays a one-shot center. Path A overflow (#40) lets peeking columns keep full width without migrating; fully off-viewport columns stay hidden until #41. |
+| `CenterFocusedColumn` | string | `never` | Scrolling: `never` (fit-scroll), `always` (center on focus; wide columns left-align), or `on-overflow` (center when the focused column and its neighbour do not both fit). `Meta+Shift+C` stays a one-shot center. Path A overflow (#40) plus W0-2 (#41) let peeking columns keep full width without migrating; fully off-viewport columns stay hidden. |
 | `ColumnWidthPresets` | list | `1/3,1/2,2/3,1` | Scrolling: cycle/reverse-cycle widths (fractions, `1/3`, or percents). Full width is a preset. |
 | `BorderlessWhenTiled` | bool | `false` | hide window decorations on tiled windows |
 | `NewWindowPlacement` | string | `end` | `master` promotes new windows to master (master-style layouts; respects an active master pin); `end` appends them |
@@ -187,10 +187,10 @@ KWin+Noctalia session packaging: [luxusAi](https://github.com/luxus/luxusAi)
 - Live `[Tiling] Enabled=false` detaches tiled windows and restores borders.
 - Directional focus/move continue onto the adjacent monitor at a layout edge.
 - Smart gaps basic (0 when ≤1 window); manual on/off toggle available.
-- Next: scrolling layout polish (consume/expel UX). Path A overflow (#40) is
-  in: peeking columns keep full width without migrating. Hide-for-offscreen
-  remains until #41. `center-focused-column` never/always/on-overflow is in
-  kcfg/KCM.
+- Next: scrolling layout polish (consume/expel UX). Path A overflow (#40) and
+  W0-2 (#41) are in: peeking columns keep full width without migrating;
+  fully off-viewport columns stay hidden. `center-focused-column`
+  never/always/on-overflow is in kcfg/KCM.
 - Session smoke checklist: `pkgs/kwin-tiling/scripts/session-smoke.md`
 
 ## Tests
@@ -286,7 +286,8 @@ Hooks sketch (scrolling-gated; files + conditions):
 
 Not a Hard no: KWin still composites by geometry, but `createStackingOrder`
 plus Wayland surface pin is enough to keep overflow off the neighbour without
-scene-graph work. Fully off-viewport columns remain `setHidden` until #41.
+scene-graph work. Fully off-viewport columns remain `setHidden` (#41 keeps
+that hide; peeking columns are shown at full `Column::width`).
 
 Regenerate `hooks.patch` from a matching KWin tree when rebasing (see
 Maintenance above).

@@ -22,14 +22,14 @@ class Window;
  * Windows live in columns placed left-to-right on a horizontal strip that may
  * be wider than the screen. The screen is a viewport that scrolls (via
  * m_scrollOffset, in view-width fractions) to keep the active column visible.
- * Peeking columns (overlap [0, 1]) are placed at colX - scrollOffset with
- * stored Column::width. Path A (`Tile::m_allowOverflow` on this root) skips
- * the CustomTile [0,1] clamp and windowGeometry() output intersect, and pins
- * the window to this TileManager output so a centre past the edge does not
- * migrate. Fully off-viewport columns are still *hidden* (Window::setHidden)
- * until #41; hide is also used for monocle. CenterFocusedColumn always/on-overflow
- * can therefore peek neighbours without migrating them. Do not interpolate
- * m_scrollOffset.
+ * Peeking columns (overlap [0, 1]) are placed at stripX - scrollOffset with
+ * stored Column::width (`viewportmath::placeColumns`). Path A
+ * (`Tile::m_allowOverflow` on this root) skips the CustomTile [0,1] clamp and
+ * windowGeometry() output intersect, and pins the window to this TileManager
+ * output so a centre past the edge does not migrate. Fully off-viewport
+ * columns stay *hidden* (`viewportmath::hideForOffscreen`); hide is also used
+ * for monocle. CenterFocusedColumn always/on-overflow can therefore peek
+ * neighbours without migrating them. Do not interpolate m_scrollOffset.
  *
  * Each column is a StackColumn (the shared vertical-stack primitive), so the
  * height splitting, weights and resize behave exactly like the other layouts.
