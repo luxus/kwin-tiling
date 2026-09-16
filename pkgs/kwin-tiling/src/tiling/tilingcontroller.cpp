@@ -578,9 +578,15 @@ void TilingController::onWindowAdded(Window *window)
             : window->desktops().constFirst();
         addWindowToLayout(window, output, desktop);
         // Opt-in ([Tiling] NewWindowPlacement=master): make the freshly opened
-        // window the master instead of appending it at the tail.
-        if (m_newWindowMaster) {
-            promoteToMaster(window);
+        // window the master instead of appending it at the tail. Skip when a
+        // master pin is active on this (output, desktop) so opening a window
+        // doesn't steal master from the pinned one. (No-op on layouts without a
+        // master concept, e.g. Scrolling.)
+        if (m_newWindowMaster && output && desktop) {
+            const bool pinActive = shouldTile(m_masterPins.value(pinKeyFor(output, desktop)));
+            if (!pinActive) {
+                promoteToMaster(window);
+            }
         }
         if (output) {
             applyGapSettingsToOutput(output);
