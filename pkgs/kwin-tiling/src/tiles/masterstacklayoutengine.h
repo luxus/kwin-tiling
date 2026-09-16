@@ -55,6 +55,7 @@ public:
     void setPrimarySplit(qreal ratio) override { setMasterRatio(ratio); }
     qreal primarySplit() const override { return m_masterRatio; }
     void setPrimaryCount(int count) override { setMasterCount(count); }
+    int primaryCount() const override { return m_masterCount; }
     void adjustWindowHeight(Window *window, qreal delta) override;
     void resetSizes() override;
     void flipMaster() override;

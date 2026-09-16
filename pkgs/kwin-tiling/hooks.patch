@@ -16,6 +16,7 @@ index a5eb835..88bf066 100644
      tiles/tile.cpp
      tiles/tilemanager.cpp
 +    tiling/tilingcontroller.cpp
++    tiling/tilingdbus.cpp
 +    tiling/tilingosd.cpp
 +    tiling/tilingreflow.cpp
 +    tiling/tilingrules.cpp

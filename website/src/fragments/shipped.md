@@ -16,6 +16,8 @@
 - **Tiling Reflow effect** — optional `kwin-effects-tiling-reflow` plugin; reads `WindowTilingReflowRole` when present
 - **Testable pure core** — column/grid/master-stack/scrolling math, slotlist, overflow Path A, layout/sizing
   precedence, scrolling drop-insert, scrollingmove, viewportmath, engineindex,
-  columnwidthpresets, scrollingcolumn, consume-or-expel matrix, move FSM, leaf
-  cancel rules without linking KWin
+  columnwidthpresets, scrollingcolumn, consume-or-expel matrix, D-Bus register
+  policy, move FSM, leaf cancel rules without linking KWin
 - **Session smoke** — `pkgs/kwin-tiling/scripts/session-smoke.md` for post-relogin checks
+- **D-Bus** — `org.kde.KWin.Tiling` at `/Tiling` so bars (e.g. Noctalia) can
+  display and drive the current layout

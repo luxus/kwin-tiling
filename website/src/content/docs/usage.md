@@ -164,6 +164,23 @@ Per-app output pinning lives under `[TilingRules]` as `AssignOutput` (e.g.
 
 Cycle between enabled layouts with the cycle action, or set a default in the KCM.
 
+## D-Bus (shell widgets)
+
+The compositor publishes `org.kde.KWin.Tiling` at `/Tiling` on the existing
+`org.kde.KWin` bus name. Noctalia's KineticWE layouts widget can talk to this
+path; kind names are this project's (`MasterStack`, `Stacked`, `Scrolling`,
+`Centered`, `Grid`, `Columns`).
+
+```sh
+qdbus-qt6 org.kde.KWin /Tiling org.kde.KWin.Tiling.currentLayout
+qdbus-qt6 org.kde.KWin /Tiling org.kde.KWin.Tiling.enabledLayouts
+qdbus-qt6 org.kde.KWin /Tiling org.kde.KWin.Tiling.setLayout Stacked
+qdbus-qt6 org.kde.KWin /Tiling org.kde.KWin.Tiling.cycleLayout
+```
+
+`currentLayout` is empty when tiling is disabled. Layout switches also emit
+`layoutChanged` so a bar can stay in sync with `Meta+Shift+T`.
+
 ## Automatic behaviour
 
 - Tiling is on by default once the module is active

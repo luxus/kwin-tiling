@@ -241,6 +241,7 @@ public:
     virtual void setPrimarySplit(qreal ratio) { Q_UNUSED(ratio) }
     virtual qreal primarySplit() const { return -1.0; }
     virtual void setPrimaryCount(int count) { Q_UNUSED(count) }
+    virtual int primaryCount() const { return 1; }
 
     /**
      * Width of newly opened columns for viewport layouts (Scrolling), as a

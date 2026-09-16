@@ -17,6 +17,7 @@
 #include <QList>
 #include <QObject>
 #include <QPointer>
+#include <QStringList>
 #include <QTimer>
 #include <QVector>
 
@@ -159,11 +160,33 @@ public:
 
     TilingRules *rules() const { return m_rules.get(); }
 
+    /**
+     * Snapshots for the D-Bus / scripting façade. currentLayoutName() is
+     * empty when tiling is disabled (Noctalia / KineticWE convention).
+     */
+    QString currentLayoutName() const;
+    QString currentLayoutDisplayName() const;
+    QStringList enabledLayoutNames() const;
+    QString layoutNameFor(const QString &outputName, const QString &desktopId) const;
+    qreal currentMasterRatio() const;
+    int currentMasterCount() const;
+    QStringList tiledWindowIds() const;
+    bool gapsEnabled() const { return !m_gapsSuppressed; }
+
     ReflowContext &reflowContextFor(LogicalOutput *output);
     ReflowContext reflowContextFor(LogicalOutput *output) const;
     void pushReflowContext(LogicalOutput *output, const ReflowContext &ctx);
     void popReflowContext(LogicalOutput *output);
     int nextReflowGroupId();
+
+    // D-Bus / scripting notifications. Public reflow helpers stay above this
+    // block — do not put them under Q_SIGNALS.
+Q_SIGNALS:
+    void layoutChanged();
+    void enabledLayoutsChanged();
+    void tiledWindowsChanged();
+    void enabledChanged();
+    void sizingChanged();
 
 private Q_SLOTS:
     void onInteractiveMoveResizeStarted();
