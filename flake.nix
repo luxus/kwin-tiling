@@ -53,10 +53,45 @@
               version = plasmaVersion;
             }
           ) plasmaHashes;
+          # 6.8 CMakeLists grew KF6 REQUIRED components nixpkgs' 6.7.5
+          # dependencies.json does not list. Append so find_package succeeds.
+          extraKf = {
+            aurorae = [ "kcolorscheme" ];
+            bluedevil = [ "ksvg" ];
+            krdp = [
+              "ki18n"
+              "kcoreaddons"
+              "kguiaddons"
+            ];
+            kscreen = [ "kcrash" ];
+            kscreenlocker = [
+              "kio"
+              "solid"
+            ];
+            ksshaskpass = [ "kconfig" ];
+            milou = [ "ksvg" ];
+            plasma-activities-stats = [
+              "kconfig"
+              "kcoreaddons"
+            ];
+            plasma-pa = [ "kdbusaddons" ];
+            plasma-workspace = [
+              "karchive"
+              "kidletime"
+              "ksvg"
+              "kdoctools"
+            ];
+            systemsettings = [ "kjobwidgets" ];
+            union = [
+              "kconfig"
+              "kguiaddons"
+            ];
+          };
         in
         {
           kdePackages = prev.kdePackages.overrideScope (
-            kfinal: kprev: {
+            kfinal: kprev:
+            {
               sources = kprev.sources // plasmaSources;
               plasma-wayland-protocols = kprev.plasma-wayland-protocols.overrideAttrs (_: {
                 version = "1.22.0";
@@ -87,6 +122,7 @@
                     })
                     ./pkgs/kwin-tiling/patches/plasma-workspace-6.8-fontconfig.patch
                   ];
+                buildInputs = (old.buildInputs or [ ]) ++ map (n: kfinal.${n}) extraKf.plasma-workspace;
               });
               kwin = import ./pkgs/kwin-tiling {
                 inherit (prev) lib fetchurl libcap;
@@ -95,6 +131,12 @@
                 };
               };
             }
+            // lib.mapAttrs (
+              name: extras:
+              kprev.${name}.overrideAttrs (old: {
+                buildInputs = (old.buildInputs or [ ]) ++ map (n: kfinal.${n}) extras;
+              })
+            ) (builtins.removeAttrs extraKf [ "plasma-workspace" ])
           );
           kwin-effects-tiling-reflow = prev.callPackage ./pkgs/kwin-effects-tiling-reflow { };
         };
