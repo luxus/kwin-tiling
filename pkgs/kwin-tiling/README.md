@@ -59,7 +59,7 @@ KWin's `Tile`/`TileManager`; engines only set relative geometry.
 
 - Pure, KWin-free arithmetic (unit-tested): `columnmath`, `masterstackmath`,
   `gridmath`, `directionmath`, `slotlist`, `movestate`, `leafcolumn`, `movefsm`,
-  `sizingpolicy`, `suspendpolicy`, `tilingconfig`.
+  `sizingpolicy`, `suspendpolicy`, `tilingconfig`, `scrollingmove`.
 - Kind switch **replaces** the engine and re-adds windows; durable layout
   memory is keyed by output/desktop id, not engine pointer.
 - Cross-monitor moves: cancel source leaf, drop on destination — no phantoms.
@@ -92,6 +92,11 @@ in *System Settings → Shortcuts → KWin*.
 | Scrolling: center column / cycle column width | `Meta+Shift+C` / `Meta+Shift+V` |
 | Scrolling: consume / expel window into-column | `Meta+Shift+[` / `Meta+Shift+]` |
 | Switch to MasterStack / Stacked / Scrolling / Centered / Grid | unbound |
+
+In **Scrolling**, `Meta+Alt+Up/Down` reorders the window **inside its column**
+(niri `move-window-up/down`) and does not slide columns. `Meta+Alt+Left/Right`
+slides the **whole column** along the strip (niri `move-column-left/right`).
+Consume/expel stays `Meta+Shift+[` / `]` and is a different action.
 
 > KGlobalAccel only applies a code default when the combo is free **and** the
 > action is new in `kglobalshortcutsrc`. An action that previously shipped

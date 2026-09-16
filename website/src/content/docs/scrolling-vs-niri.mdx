@@ -248,7 +248,7 @@ Legend: **Have** / **Partial** / **Missing**.
 | Camera pan with peeking columns at constant size | Viewport is `m_scrollOffset` in view-width fractions. Columns that **overlap** `[0,1]` are placed with possibly negative `colX`. `CustomTile::setRelativeGeometry` **intersects with `[0,1]`**, and `Tile::windowGeometry()` **intersects the output**. Overlapping peek columns are **resized to the visible sliver**, not cropped. Fully off-screen columns are **hidden**, not translated | P0 |
 | `center-focused-column` never / always / on-overflow | Only fit-scroll + a one-shot center + “center the whole strip if it fits” | P1 |
 | Consume/expel | Two one-way actions; no consume-or-expel; no consume-from-next-column | P1 |
-| Move column vs move window | `moveWindow` **always reorders the column** (sign of delta only). `Meta+Alt+Up/Down` therefore moves the column instead of the window inside it | P1 (bug-shaped) |
+| Move column vs move window | `moveWindow` slides the column (sign of delta). `Meta+Alt+Up/Down` uses `moveWindowInColumn` so stacked windows swap in-column; `Meta+Alt+Left/Right` still slides the column | Landed (#42) |
 | Interactive move insert (new column **or** into column) | Drop on another window **swaps**. Drop on empty space uses base `dropWindow` → `addWindow` (new column next to **active**, not drop index). No insert hint | P1 |
 | Preset widths | Have a cycle; includes 1.0; no reverse; not configurable in KCM | P2 |
 | Gaps / outer insets | `GapLeft/Right/Top/Bottom` + `GapBetween`. No struts-as-peek | P2 |
@@ -377,13 +377,12 @@ feel like “i3 but sideways.”
 
 ### P1 — core UX parity (portable in the engine, some need the camera)
 
-1. **Directional move is wrong in Scrolling**
+1. **Directional move in Scrolling**
    `TilingController::moveInDirection` uses flattened `windows()` indices, then
-   `ScrollingLayoutEngine::moveWindow` moves the **column**. `Meta+Alt+Up/Down`
-   should move the window inside the column (niri `move-window-up/down`).
-   `Meta+Alt+Left/Right` should consume-or-expel **or** move the column — pick
-   one and document it; niri splits these across `Mod+Ctrl` (move) vs `Mod+[`
-   (consume-or-expel).
+   `ScrollingLayoutEngine::moveWindow` moved the **column**. `Meta+Alt+Up/Down`
+   now calls `moveWindowInColumn` (niri `move-window-up/down`).
+   `Meta+Alt+Left/Right` slides the column (niri `move-column-left/right`);
+   consume-or-expel stays `Meta+Shift+[` / `]` until W1-2.
 
 2. **consume-or-expel left and right**
    niri `Mod+[/]`: if the window is alone, merge into that neighbour; if stacked,
@@ -640,8 +639,12 @@ lands.
 
 #### W1-1. Scrolling: Meta+Alt Up/Down must move the window inside the column
 
+**Landed** in #42. `moveWindowInColumn` reorders inside the column; `Meta+Alt+Up/Down`
+uses it. `Meta+Alt+Left/Right` slides the whole column (niri `move-column-left/right`);
+consume/expel stays `Meta+Shift+[` / `]`.
+
 `ScrollingLayoutEngine::moveWindow` reorders **columns**. Combined with
-`moveInDirection`, `Meta+Alt+Up/Down` moves the column. niri uses
+`moveInDirection`, `Meta+Alt+Up/Down` used to move the column. niri uses
 `move-window-up/down` for that axis.
 
 **Acceptance:** two stacked windows in one column; `Meta+Alt+Down` swaps their
@@ -765,8 +768,8 @@ Engine exposes the target rect; drawing is QML/effect (same split as #6).
 | Action | niri default | kwin-tiling default |
 | --- | --- | --- |
 | Focus column / window | `Mod+Arrows` | `Meta+Arrows` (same idea) |
-| Move column | `Mod+Ctrl+Left/Right` | `Meta+Shift+Left/Right` **or** `Meta+Alt+Left/Right` (both hit `moveWindow` → column) |
-| Move window in column | `Mod+Ctrl+Up/Down` | **Broken** (`Meta+Alt+Up/Down` moves the column) |
+| Move column | `Mod+Ctrl+Left/Right` | `Meta+Shift+Left/Right` **and** `Meta+Alt+Left/Right` (`moveWindow` → column) |
+| Move window in column | `Mod+Ctrl+Up/Down` | `Meta+Alt+Up/Down` (`moveWindowInColumn`) |
 | Consume-or-expel | `Mod+[/]` | `Meta+Shift+[` consume left; `Meta+Shift+]` expel right |
 | Consume into / expel from | `Mod+,/.` | Missing as distinct actions |
 | Preset width | `Mod+R` | `Meta+Shift+V` |

@@ -1469,7 +1469,14 @@ void TilingController::moveInDirection(LayoutEngine::FocusDirection direction)
         int cur = wins.indexOf(window);
         int tgt = wins.indexOf(target);
         if (cur >= 0 && tgt >= 0) {
-            engine->moveWindow(window, tgt - cur);
+            // Scrolling: Up/Down reorder inside the column; Left/Right slide it.
+            // Other engines' moveWindowInColumn defaults to moveWindow.
+            if (direction == LayoutEngine::FocusDirection::Up
+                || direction == LayoutEngine::FocusDirection::Down) {
+                engine->moveWindowInColumn(window, tgt - cur);
+            } else {
+                engine->moveWindow(window, tgt - cur);
+            }
         }
         return;
     }

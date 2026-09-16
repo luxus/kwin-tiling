@@ -32,6 +32,10 @@ class Window;
  * height splitting, weights and resize behave exactly like the other layouts.
  * Only the horizontal placement, viewport scrolling and column consume/expel
  * are specific to this engine.
+ *
+ * Directional Meta+Alt: Up/Down reorders inside the focused column
+ * (`moveWindowInColumn`); Left/Right slides the whole column (`moveWindow`).
+ * Consume/expel stays Meta+Shift+[ / ].
  */
 class KWIN_EXPORT ScrollingLayoutEngine : public LayoutEngine
 {
@@ -46,6 +50,7 @@ public:
     void addWindow(Window *window) override;
     void removeWindow(Window *window) override;
     void moveWindow(Window *window, int delta) override;
+    void moveWindowInColumn(Window *window, int delta) override;
     void beginMoveWindow(Window *window) override;
     bool endMoveWindow(Window *window, Window *target) override;
     void cancelMoveWindow(Window *window) override;

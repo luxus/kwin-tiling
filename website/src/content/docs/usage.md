@@ -42,6 +42,12 @@ KGlobalAccel only applies a default when the shortcut is free **and** the
 action is new in your profile. If an action was previously unbound, assign it
 once in Settings (or remove its stale entry from `kglobalshortcutsrc`).
 
+In **Scrolling**, `Meta+Alt+Up/Down` reorders the focused window **inside its
+column** (niri `move-window-up/down`) — two stacked windows swap vertical order
+and stay in the same column. `Meta+Alt+Left/Right` slides that **whole column**
+along the strip (niri `move-column-left/right`). It does **not** consume or
+expel; those stay `Meta+Shift+[` / `]`.
+
 ## Mouse
 
 - Drag the **master/stack divider** to set the master column width
@@ -102,6 +108,8 @@ Per-monitor values live under `[Tiling][Output <name>]` subgroups.
   the other. Best for a main app plus side apps.
 - **Stacked** — single column, full width, windows stacked vertically.
 - **Scrolling** — horizontal strip of columns; viewport scrolls to the active one.
+  `Meta+Alt+Up/Down` moves the window inside the column; `Meta+Alt+Left/Right`
+  slides the column. Consume/expel is `Meta+Shift+[` / `]`.
 - **Centered** — master window in the centre, others in left/right stacks.
 
 Cycle between enabled layouts with the cycle action, or set a default in the KCM.

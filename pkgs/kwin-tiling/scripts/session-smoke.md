@@ -66,6 +66,20 @@ bash pkgs/kwin-tiling/tests/run.sh
 - [ ] `Meta+Shift+C` / `Meta+Shift+V` center / cycle column width
 - [ ] `Meta+Shift+[` / `Meta+Shift+]` consume / expel (UX may still be rough)
 
+### 6a. Directional move (issue #42)
+
+Three-column fixture: open **three** windows (each in its own column), then
+`Meta+Shift+[` on the middle one so the left column has **two stacked** windows
+and a neighbour column remains.
+
+- [ ] Focus the **upper** window of the stacked pair; `Meta+Alt+Down`
+- [ ] Expected: the two windows **swap vertical order**; the column stays put
+      (neighbour columns do not move; the pair is still the same column)
+- [ ] `Meta+Alt+Up` restores the previous vertical order
+- [ ] `Meta+Alt+Left` / `Meta+Alt+Right` **slides the whole column** along the
+      strip (niri `move-column-left/right`). Does **not** consume or expel —
+      those stay `Meta+Shift+[` / `]`
+
 ## 7. Promote to master (reorder, not swap)
 
 - [ ] Open **4** tiled windows in **MasterStack** (order A master, then B, C, D in the stack)

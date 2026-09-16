@@ -89,7 +89,8 @@ public:
     void moveWindowNext();
     void moveWindowPrevious();
 
-    // Directional move/swap within layout (reuses windowInDirection + moveWindow).
+    // Directional move within layout (windowInDirection, then Up/Down
+    // moveWindowInColumn and Left/Right moveWindow).
     void moveLeft();
     void moveRight();
     void moveUp();
