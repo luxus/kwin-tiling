@@ -7,6 +7,7 @@
 #include "tilingcontroller.h"
 
 #include "core/output.h"
+#include "tiling/tilingconfig.h"
 #include "tiling/tilingreflow.h"
 #include "core/rect.h"
 #include "cursor.h"
@@ -34,6 +35,10 @@
 #include <QDBusPendingCall>
 #include <QStandardPaths>
 #include <QtGlobal>
+
+#include <optional>
+#include <string>
+#include <vector>
 
 namespace KWin
 {
@@ -112,6 +117,53 @@ KConfigGroup sizingWriteGroup(KConfigGroup &tilingGroup, LogicalOutput *output)
     return tilingGroup;
 }
 
+tilingconfig::LayoutKind toCfgKind(LayoutEngine::LayoutKind kind)
+{
+    return static_cast<tilingconfig::LayoutKind>(kind);
+}
+
+LayoutEngine::LayoutKind fromCfgKind(tilingconfig::LayoutKind kind)
+{
+    return static_cast<LayoutEngine::LayoutKind>(kind);
+}
+
+std::vector<tilingconfig::LayoutKind> toCfgKinds(const QList<LayoutEngine::LayoutKind> &kinds)
+{
+    std::vector<tilingconfig::LayoutKind> out;
+    out.reserve(static_cast<size_t>(kinds.size()));
+    for (LayoutEngine::LayoutKind k : kinds) {
+        out.push_back(toCfgKind(k));
+    }
+    return out;
+}
+
+tilingconfig::LayoutKindInputs layoutKindInputs(LayoutEngine::LayoutKind globalDefault,
+                                                 const QList<LayoutEngine::LayoutKind> &enabled,
+                                                 const QHash<QString, LayoutEngine::LayoutKind> &desktopLayoutMemory,
+                                                 const QHash<QString, LayoutEngine::LayoutKind> &desktopOutputLayouts,
+                                                 const QHash<QString, LayoutEngine::LayoutKind> &outputDefaultLayouts,
+                                                 LogicalOutput *output, VirtualDesktop *desktop)
+{
+    tilingconfig::LayoutKindInputs in;
+    in.globalDefault = toCfgKind(globalDefault);
+    in.enabled = toCfgKinds(enabled);
+    if (!output || !desktop) {
+        return in;
+    }
+    const QString memKey = output->name() + QLatin1Char('/') + desktop->id();
+    if (desktopLayoutMemory.contains(memKey)) {
+        in.remembered = toCfgKind(desktopLayoutMemory.value(memKey));
+    }
+    const QString combinedKey = QStringLiteral("%1:%2").arg(desktop->x11DesktopNumber()).arg(output->name());
+    if (desktopOutputLayouts.contains(combinedKey)) {
+        in.desktopOutput = toCfgKind(desktopOutputLayouts.value(combinedKey));
+    }
+    if (outputDefaultLayouts.contains(output->name())) {
+        in.outputDefault = toCfgKind(outputDefaultLayouts.value(output->name()));
+    }
+    return in;
+}
+
 } // namespace
 
 TilingController::TilingController(Workspace *workspace)
@@ -163,10 +215,6 @@ void TilingController::reconfigure()
     m_enabled = tilingGroup.readEntry("Enabled", true);
     m_defaultLayout = LayoutEngine::layoutKindFromString(
         tilingGroup.readEntry("DefaultLayout", QStringLiteral("MasterStack")));
-    // Whitelist of layouts the user wants available. Order in the list also
-    // defines the cycle order used by cycleLayout().
-    m_enabledLayouts = tilingGroup.readEntry("EnabledLayouts",
-        QStringList{QLatin1String("MasterStack"), QLatin1String("Stacked"), QLatin1String("Scrolling"), QLatin1String("Centered")});
     m_masterRatio = qBound(0.1, tilingGroup.readEntry("MasterRatio", 0.5), 0.9);
     m_defaultColumnWidth = qBound(0.1, tilingGroup.readEntry("DefaultColumnWidth", 0.5), 1.0);
     m_masterCount = qMax(1, tilingGroup.readEntry("MasterCount", 1));
@@ -177,6 +225,7 @@ void TilingController::reconfigure()
     m_newWindowMaster = tilingGroup.readEntry("NewWindowPlacement", QStringLiteral("end"))
                             .compare(QLatin1String("master"), Qt::CaseInsensitive) == 0;
     m_rules->load(rulesGroup);
+    loadConfigCache(tilingGroup);
 
     const auto enabledTransition = suspendpolicy::classifyEnabledChange(wasEnabled, m_enabled);
     if (!m_enabled) {
@@ -344,54 +393,87 @@ LayoutEngine::LayoutKind TilingController::globalDefaultLayoutKind() const
     return m_defaultLayout;
 }
 
+void TilingController::loadConfigCache(const KConfigGroup &tilingGroup)
+{
+    // EnabledLayouts: parse once so isLayoutEnabled / cycleLayout don't rebuild
+    // the list with case-insensitive compares on every window add/remove.
+    const QStringList enabledNames = tilingGroup.readEntry("EnabledLayouts",
+        QStringList{QLatin1String("MasterStack"), QLatin1String("Stacked"), QLatin1String("Scrolling"), QLatin1String("Centered")});
+    std::vector<std::string> names;
+    names.reserve(static_cast<size_t>(enabledNames.size()));
+    for (const QString &name : enabledNames) {
+        names.push_back(name.toStdString());
+    }
+    const std::vector<tilingconfig::LayoutKind> parsed =
+        tilingconfig::parseEnabledKinds(names, toCfgKind(m_defaultLayout));
+    m_enabledLayoutKinds.clear();
+    m_enabledLayoutKinds.reserve(int(parsed.size()));
+    for (tilingconfig::LayoutKind k : parsed) {
+        m_enabledLayoutKinds.append(fromCfgKind(k));
+    }
+
+    m_gapDefaults.gapBetween = tilingGroup.readEntry("GapBetween", 0.0);
+    m_gapDefaults.gapLeft = tilingGroup.readEntry("GapLeft", 0);
+    m_gapDefaults.gapRight = tilingGroup.readEntry("GapRight", 0);
+    m_gapDefaults.gapTop = tilingGroup.readEntry("GapTop", 0);
+    m_gapDefaults.gapBottom = tilingGroup.readEntry("GapBottom", 0);
+
+    m_outputGaps.clear();
+    m_outputDefaultLayouts.clear();
+    m_desktopOutputLayouts.clear();
+    m_desktopLayoutMemory.clear();
+
+    const QString outputPrefix = QStringLiteral("Output ");
+    const QString desktopOutputPrefix = QStringLiteral("DesktopOutput ");
+    for (const QString &sub : tilingGroup.groupList()) {
+        if (sub.startsWith(outputPrefix)) {
+            const QString outputName = sub.mid(outputPrefix.size());
+            if (outputName.isEmpty()) {
+                continue;
+            }
+            const KConfigGroup outputGroup = tilingGroup.group(sub);
+            CachedGaps gaps = m_gapDefaults;
+            gaps.gapBetween = outputGroup.readEntry("GapBetween", m_gapDefaults.gapBetween);
+            gaps.gapLeft = outputGroup.readEntry("GapLeft", m_gapDefaults.gapLeft);
+            gaps.gapRight = outputGroup.readEntry("GapRight", m_gapDefaults.gapRight);
+            gaps.gapTop = outputGroup.readEntry("GapTop", m_gapDefaults.gapTop);
+            gaps.gapBottom = outputGroup.readEntry("GapBottom", m_gapDefaults.gapBottom);
+            m_outputGaps.insert(outputName, gaps);
+            if (outputGroup.hasKey("DefaultLayout")) {
+                m_outputDefaultLayouts.insert(outputName,
+                    LayoutEngine::layoutKindFromString(outputGroup.readEntry("DefaultLayout", QString())));
+            }
+        } else if (sub.startsWith(desktopOutputPrefix)) {
+            const KConfigGroup combinedGroup = tilingGroup.group(sub);
+            if (combinedGroup.hasKey("DefaultLayout")) {
+                m_desktopOutputLayouts.insert(sub.mid(desktopOutputPrefix.size()),
+                    LayoutEngine::layoutKindFromString(combinedGroup.readEntry("DefaultLayout", QString())));
+            }
+        }
+    }
+
+    const KConfigGroup mem(&tilingGroup, QStringLiteral("DesktopLayouts"));
+    for (const QString &key : mem.keyList()) {
+        m_desktopLayoutMemory.insert(key,
+            LayoutEngine::layoutKindFromString(mem.readEntry(key, QString())));
+    }
+}
+
 LayoutEngine::LayoutKind TilingController::resolveLayoutKind(LogicalOutput *output, VirtualDesktop *desktop) const
 {
-    KSharedConfigPtr config = KSharedConfig::openConfig(KWIN_CONFIG);
-    KConfigGroup tilingGroup(config, QStringLiteral("Tiling"));
-    LayoutEngine::LayoutKind kind = globalDefaultLayoutKind();
-
-    if (desktop && output) {
-        const KConfigGroup combinedGroup(&tilingGroup,
-                                         QStringLiteral("DesktopOutput %1:%2").arg(desktop->x11DesktopNumber()).arg(output->name()));
-        if (combinedGroup.hasKey("DefaultLayout")) {
-            kind = LayoutEngine::layoutKindFromString(combinedGroup.readEntry("DefaultLayout", QString()));
-        }
-    }
-
-    if (desktop && output && kind == globalDefaultLayoutKind()) {
-        const KConfigGroup outputGroup(&tilingGroup, QStringLiteral("Output %1").arg(output->name()));
-        if (outputGroup.hasKey("DefaultLayout")) {
-            kind = LayoutEngine::layoutKindFromString(outputGroup.readEntry("DefaultLayout", QString()));
-        }
-    }
-    // If the configured default is not currently enabled, fall back to the
-    // first enabled layout so the monitor is always in a usable state.
-    if (!isLayoutEnabled(kind)) {
-        const QList<LayoutEngine::LayoutKind> enabled = enabledLayoutKinds();
-        if (!enabled.isEmpty()) {
-            kind = enabled.first();
-        }
-    }
-    return kind;
+    tilingconfig::LayoutKindInputs in = layoutKindInputs(m_defaultLayout, m_enabledLayoutKinds,
+                                                          m_desktopLayoutMemory, m_desktopOutputLayouts,
+                                                          m_outputDefaultLayouts, output, desktop);
+    in.remembered.reset();
+    return fromCfgKind(tilingconfig::resolveConfigDefault(in.globalDefault, in.enabled,
+                                                           in.desktopOutput, in.outputDefault));
 }
 
 LayoutEngine::LayoutKind TilingController::layoutKindFor(LogicalOutput *output, VirtualDesktop *desktop) const
 {
-    if (output && desktop) {
-        KSharedConfigPtr config = KSharedConfig::openConfig(KWIN_CONFIG);
-        KConfigGroup tilingGroup(config, QStringLiteral("Tiling"));
-        const KConfigGroup mem(&tilingGroup, QStringLiteral("DesktopLayouts"));
-        const QString key = output->name() + QLatin1Char('/') + desktop->id();
-        if (mem.hasKey(key)) {
-            const LayoutEngine::LayoutKind kind = LayoutEngine::layoutKindFromString(mem.readEntry(key, QString()));
-            // Honour the remembered choice only while it is still an enabled
-            // layout; otherwise fall through to the config default.
-            if (isLayoutEnabled(kind)) {
-                return kind;
-            }
-        }
-    }
-    return resolveLayoutKind(output, desktop);
+    return fromCfgKind(tilingconfig::layoutKindFor(
+        layoutKindInputs(m_defaultLayout, m_enabledLayoutKinds, m_desktopLayoutMemory,
+                          m_desktopOutputLayouts, m_outputDefaultLayouts, output, desktop)));
 }
 
 void TilingController::persistLayoutChoice(LogicalOutput *output, VirtualDesktop *desktop, LayoutEngine::LayoutKind kind)
@@ -404,93 +486,67 @@ void TilingController::persistLayoutChoice(LogicalOutput *output, VirtualDesktop
     KSharedConfigPtr config = KSharedConfig::openConfig(KWIN_CONFIG);
     KConfigGroup tilingGroup(config, QStringLiteral("Tiling"));
     KConfigGroup mem(&tilingGroup, QStringLiteral("DesktopLayouts"));
-    mem.writeEntry(output->name() + QLatin1Char('/') + desktop->id(), LayoutEngine::layoutKindToString(kind));
+    const QString key = output->name() + QLatin1Char('/') + desktop->id();
+    mem.writeEntry(key, LayoutEngine::layoutKindToString(kind));
+    m_desktopLayoutMemory.insert(key, kind);
     config->sync();
 }
 
 QList<LayoutEngine::LayoutKind> TilingController::enabledLayoutKinds() const
 {
-    QList<LayoutEngine::LayoutKind> result;
-    for (const QString &name : m_enabledLayouts) {
-        // Only include kinds the controller actually knows how to build.
-        if (name.compare(QLatin1String("MasterStack"), Qt::CaseInsensitive) == 0) {
-            result.append(LayoutEngine::LayoutKind::MasterStack);
-        } else if (name.compare(QLatin1String("Stacked"), Qt::CaseInsensitive) == 0) {
-            result.append(LayoutEngine::LayoutKind::Stacked);
-        } else if (name.compare(QLatin1String("Scrolling"), Qt::CaseInsensitive) == 0) {
-            result.append(LayoutEngine::LayoutKind::Scrolling);
-        } else if (name.compare(QLatin1String("Centered"), Qt::CaseInsensitive) == 0) {
-            result.append(LayoutEngine::LayoutKind::Centered);
-        } else if (name.compare(QLatin1String("Grid"), Qt::CaseInsensitive) == 0) {
-            result.append(LayoutEngine::LayoutKind::Grid);
-        }
-    }
-    if (result.isEmpty()) {
-        // The user has disabled everything; fall back to the global default so
-        // we always have at least one layout available.
-        result.append(globalDefaultLayoutKind());
-    }
-    return result;
+    return m_enabledLayoutKinds;
 }
 
 bool TilingController::isLayoutEnabled(LayoutEngine::LayoutKind kind) const
 {
-    return enabledLayoutKinds().contains(kind);
+    return m_enabledLayoutKinds.contains(kind);
 }
 
-void TilingController::applyGapSettingsToOutput(LogicalOutput *output)
+void TilingController::applyGapSettingsToOutput(LogicalOutput *output, VirtualDesktop *desktop)
 {
     if (!m_workspace || !output) {
         return;
     }
 
     const ReflowScope scope(this, output, ReflowContext::Reason::GapChange,
-                            reflowScopeLayoutKind(output));
+                            reflowScopeLayoutKind(output, desktop));
 
     TileManager *manager = m_workspace->tileManager(output);
     if (!manager) {
         return;
     }
 
-    KSharedConfigPtr config = KSharedConfig::openConfig(KWIN_CONFIG);
-    KConfigGroup tilingGroup(config, QStringLiteral("Tiling"));
+    const CachedGaps gaps = m_outputGaps.value(output->name(), m_gapDefaults);
+    const QMarginsF gapMargins(gaps.gapLeft, gaps.gapTop, gaps.gapRight, gaps.gapBottom);
 
-    // Defaults from the [Tiling] group.
-    const qreal defaultGapBetween = tilingGroup.readEntry("GapBetween", 0.0);
-    const int defaultGapLeft = tilingGroup.readEntry("GapLeft", 0);
-    const int defaultGapRight = tilingGroup.readEntry("GapRight", 0);
-    const int defaultGapTop = tilingGroup.readEntry("GapTop", 0);
-    const int defaultGapBottom = tilingGroup.readEntry("GapBottom", 0);
-
-    // Per-output override in the [Tiling][Output "name"] sub-group, if any.
-    // Entries fall back to the defaults above when not present in the override.
-    const QString outputKey = QStringLiteral("Output %1").arg(output->name());
-    KConfigGroup outputGroup(&tilingGroup, outputKey);
-
-    const qreal gapBetween = outputGroup.readEntry("GapBetween", defaultGapBetween);
-    const int gapLeft = outputGroup.readEntry("GapLeft", defaultGapLeft);
-    const int gapRight = outputGroup.readEntry("GapRight", defaultGapRight);
-    const int gapTop = outputGroup.readEntry("GapTop", defaultGapTop);
-    const int gapBottom = outputGroup.readEntry("GapBottom", defaultGapBottom);
-    const QMarginsF gapMargins(gapLeft, gapTop, gapRight, gapBottom);
-
-    for (VirtualDesktop *desktop : VirtualDesktopManager::self()->desktops()) {
-        if (RootTile *root = manager->rootTile(desktop)) {
-            LayoutEngine *eng = manager->layoutEngine(desktop);
-            int n = eng ? eng->windows().count() : 0;
-            if (m_gapsSuppressed || n <= 1) {
+    auto applyToDesktop = [&](VirtualDesktop *desk) {
+        if (!desk) {
+            return;
+        }
+        if (RootTile *root = manager->rootTile(desk)) {
+            LayoutEngine *eng = manager->layoutEngine(desk);
+            const int n = eng ? eng->windows().count() : 0;
+            if (tilingconfig::shouldSuppressGaps(m_gapsSuppressed, n)) {
                 // No gaps: either the user toggled them off, or smart gaps
                 // (no indent/between for a single or empty layout).
                 root->setGapBetween(0);
                 root->setGapMargins({});
             } else {
-                root->setGapBetween(gapBetween);
+                root->setGapBetween(gaps.gapBetween);
                 root->setGapMargins(gapMargins);
             }
             if (eng) {
                 eng->reflow();
             }
         }
+    };
+
+    if (desktop) {
+        applyToDesktop(desktop);
+        return;
+    }
+    for (VirtualDesktop *desk : VirtualDesktopManager::self()->desktops()) {
+        applyToDesktop(desk);
     }
 }
 
@@ -589,7 +645,7 @@ void TilingController::onWindowAdded(Window *window)
             }
         }
         if (output) {
-            applyGapSettingsToOutput(output);
+            applyGapSettingsToOutput(output, desktop);
         }
     } else {
         window->tilingState().mode = mode;
@@ -614,11 +670,13 @@ void TilingController::onWindowRemoved(Window *window)
         }
     }
     LogicalOutput *out = window->output();
+    VirtualDesktop *desktop = nullptr;
+    layoutEngineForWindow(window, nullptr, &desktop);
     removeWindowFromLayouts(window);
     if (out) {
-        applyGapSettingsToOutput(out);
-        for (VirtualDesktop *desktop : VirtualDesktopManager::self()->desktops()) {
-            reassertMasterPin(out, desktop);
+        applyGapSettingsToOutput(out, desktop);
+        for (VirtualDesktop *desk : VirtualDesktopManager::self()->desktops()) {
+            reassertMasterPin(out, desk);
         }
     }
 }
@@ -693,15 +751,19 @@ void TilingController::migrateWindow(Window *window, LogicalOutput *newOutput, V
         const ReflowScope removeScope(this, oldOutput, ReflowContext::Reason::Remove, oldEngine->layoutKind());
         oldEngine->removeWindow(window);
     }
-    if (oldOutput && oldOutput != newOutput) {
-        applyGapSettingsToOutput(oldOutput);
+    // Smart-gaps on the source desktop even when the output did not change
+    // (desktop-only migrate). Previously applyGapSettingsToOutput(newOutput)
+    // reflowed every desktop on the destination, which covered the source as a
+    // side effect; now each call is scoped to one desktop.
+    if (oldOutput && oldDesktop) {
+        applyGapSettingsToOutput(oldOutput, oldDesktop);
     }
     {
         const ReflowScope migrateScope(this, newOutput, ReflowContext::Reason::Migrate,
                                        layoutKindFor(newOutput, newDesktop));
         addWindowToLayout(window, newOutput, newDesktop);
     }
-    applyGapSettingsToOutput(newOutput);
+    applyGapSettingsToOutput(newOutput, newDesktop);
 
     if (pinFollows && shouldTile(window)) {
         m_masterPins.insert(pinKeyFor(newOutput, newDesktop), window);
@@ -1125,7 +1187,7 @@ void TilingController::onWindowMoveFinished(Window *window)
             if (!layoutEngineForWindow(window)) {
                 addWindowToLayout(window, currentOutput, desktop);
             }
-            applyGapSettingsToOutput(currentOutput);
+            applyGapSettingsToOutput(currentOutput, desktop);
             window->setGeometryRestore(context.originalGeometryRestore);
             return;
         }
@@ -1225,9 +1287,11 @@ void TilingController::onWindowMinimizedChanged(Window *window)
         // the freed slot (same path as closing the window). Capture the output
         // first so the smart-gaps update targets the right monitor.
         LogicalOutput *out = window->output();
+        VirtualDesktop *desktop = nullptr;
+        layoutEngineForWindow(window, nullptr, &desktop);
         removeWindowFromLayouts(window);
         if (out) {
-            applyGapSettingsToOutput(out);
+            applyGapSettingsToOutput(out, desktop);
         }
     } else if (!layoutEngineForWindow(window)) {
         // Restored and not already tiled: re-tile it on its own output/desktop,
@@ -1240,7 +1304,7 @@ void TilingController::onWindowMinimizedChanged(Window *window)
             : window->desktops().constFirst();
         addWindowToLayout(window, output, desktop);
         if (output) {
-            applyGapSettingsToOutput(output);
+            applyGapSettingsToOutput(output, desktop);
         }
     }
 }
@@ -1813,13 +1877,17 @@ void TilingController::onWindowOutputChanged(Window *window, LogicalOutput *oldO
     // this is safe even if the drag/shortcut path already cleaned up.
     TileManager *manager = m_workspace->tileManager(oldOutput);
     if (manager) {
+        VirtualDesktop *oldDesktop = nullptr;
+        if (!window->isOnAllDesktops() && window->desktops().size() == 1) {
+            oldDesktop = window->desktops().constFirst();
+        }
         for (VirtualDesktop *desktop : VirtualDesktopManager::self()->desktops()) {
             if (LayoutEngine *engine = manager->layoutEngine(desktop)) {
                 engine->removeWindow(window); // if the window is still in a leaf
                 engine->pruneEmpty();         // if KWin left an empty leaf behind
             }
         }
-        applyGapSettingsToOutput(oldOutput);
+        applyGapSettingsToOutput(oldOutput, oldDesktop);
     }
 
     // For non-interactive output changes (e.g. menu "move to screen", direct
@@ -1847,7 +1915,7 @@ void TilingController::onWindowOutputChanged(Window *window, LogicalOutput *oldO
     }
 
     migrateWindow(window, newOutput, desktop);
-    applyGapSettingsToOutput(newOutput);
+    applyGapSettingsToOutput(newOutput, desktop);
 }
 
 void TilingController::retile()
