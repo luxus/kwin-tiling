@@ -117,6 +117,14 @@
               ./leafcolumn-test
               touch $out
             '';
+        overflowmath =
+          pkgs.runCommand "kwin-tiling-overflowmath-test" { nativeBuildInputs = [ pkgs.gcc ]; }
+            ''
+              g++ -std=c++20 -O2 -Wall -Wextra -o overflowmath-test \
+                ${./pkgs/kwin-tiling}/tests/overflowmath_test.cpp
+              ./overflowmath-test
+              touch $out
+            '';
         movefsm =
           pkgs.runCommand "kwin-tiling-movefsm-test" { nativeBuildInputs = [ pkgs.gcc ]; }
             ''

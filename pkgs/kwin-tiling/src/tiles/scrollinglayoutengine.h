@@ -22,11 +22,14 @@ class Window;
  * Windows live in columns placed left-to-right on a horizontal strip that may
  * be wider than the screen. The screen is a viewport that scrolls (via
  * m_scrollOffset, in view-width fractions) to keep the active column visible.
- * Columns scrolled out of the [0, 1] viewport are *hidden* (Window::setHidden),
- * not positioned past the screen edge: KWin tiles use global coordinates and a
- * window belongs to the output under its centre, so an off-screen position
- * would spill onto — and be migrated to — the adjacent monitor. Hiding keeps
- * scrolling confined to a single output (multi-monitor scrolling is not a goal).
+ *
+ * Path A (`Tile::m_allowOverflow` on this root): overlapping / peeking columns
+ * keep their full relative width even when part of the rect is past the output
+ * edge. They are pinned to this TileManager's output (hooks.patch) so they do
+ * not migrate or paint on a neighbour. Columns that miss the [0, 1] viewport
+ * entirely are still *hidden* (`Window::setHidden`) until W0-2; hide also
+ * remains the monocle path. Instant jump-scroll; do not interpolate
+ * m_scrollOffset here.
  *
  * Each column is a StackColumn (the shared vertical-stack primitive), so the
  * height splitting, weights and resize behave exactly like the other layouts.

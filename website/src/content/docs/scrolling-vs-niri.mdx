@@ -508,12 +508,23 @@ enables the plugin; do not grow `hooks.patch`). Watch for fights with
 ### Layer 2 — feasible as a bounded patch, not a fork (luxusAi#128 Path A + pin)
 
 This **is** the deferred v3 from luxusAi#128, not a new architecture. v1
-intentionally jumped. Current hide-to-avoid-migration is what blocks v3.
+intentionally jumped. Hide-for-fully-off-viewport still blocks a true camera
+pan (W0-2); peeking overflow is Path A.
 
 **Goal:** Scrolling windows may have frame geometry that extends past (or sits
 beside) the output, while remaining assigned to that output.
 
-Sketch (implementation is a future issue, not this PR):
+**Status (W0-1 / #40):** Path A is implemented. `ScrollingLayoutEngine::attach`
+sets `Tile::m_allowOverflow` on the root (inherited by leaves). `hooks.patch`
+gates `CustomTile` `[0,1]` + floating-parent intersect, skips the
+`windowGeometry()` output intersect, pins `output()` / `wl_output` to the
+`TileManager` output, rejects neighbour hit-testing, and adds a
+`SceneView::addWindowFilter` so neighbour views omit the window (KWin otherwise
+paints by geometry intersection). Instant jump-scroll stays; fully off-viewport
+columns are still `setHidden` until W0-2. Do not interpolate `scrollOffset` in
+the engine.
+
+Sketch (now landed; W0-2 still open):
 
 1. **`m_allowOverflow`** on the scrolling root; skip `windowGeometry()` output
    intersect (luxusAi#128 Path A; the line already lives in `hooks.patch`).

@@ -21,6 +21,36 @@ index a5eb835..88bf066 100644
      touch_input.cpp
      useractionprompt.cpp
      useractions.cpp
+diff --git a/src/compositor.cpp b/src/compositor.cpp
+index a1b2c3d..d4e5f6a 100644
+--- a/src/compositor.cpp
++++ b/src/compositor.cpp
+@@ -34,6 +34,7 @@
+ #include "scene/surfaceitem.h"
+ #include "scene/surfaceitem_wayland.h"
+ #include "scene/workspacescene.h"
++#include "scene/scene.h"
+ #include "utils/common.h"
+ #include "utils/envvar.h"
+ #include "wayland/surface.h"
+@@ -1077,6 +1077,17 @@ void Compositor::assignOutputLayers(LogicalOutput *logicalOutput, BackendOutput *backendOutput)
+     } else {
+         sceneView = std::make_unique<SceneView>(kwinApp()->scene(), logicalOutput, backendOutput, primaryLayer, m_primaryDevice);
+         sceneView->setScale(backendOutput->scale());
++        // Path A: overflow-tiled Scrolling windows keep frame geometry past
++        // the output edge. WorkspaceScene paints by viewport intersection, so
++        // hide them on every view that is not their pinned TileManager output.
++        SceneView *view = sceneView.get();
++        view->addWindowFilter([view](Window *window) {
++            if (!window) {
++                return false;
++            }
++            LogicalOutput *pinned = window->pinnedTilingOutput();
++            return pinned && pinned != view->logicalOutput();
++        });
+         sceneView->setRenderOffset(backendOutput->deviceOffset());
+         const auto updateViewport = [view = sceneView.get(), logicalOutput, backendOutput]() {
+             // this matches how the renderer snaps elements to the pixel grid
 diff --git a/src/effect/effecthandler.h b/src/effect/effecthandler.h
 index c0ad976..a5076f6 100644
 --- a/src/effect/effecthandler.h
@@ -110,6 +140,47 @@ index bb9909e..11807bb 100644
      };
      enum EasingCurve {
          GaussianCurve = 128,
+diff --git a/src/tiles/customtile.cpp b/src/tiles/customtile.cpp
+index b2c3d4e..e5f6a7b 100644
+--- a/src/tiles/customtile.cpp
++++ b/src/tiles/customtile.cpp
+@@ -58,10 +58,11 @@ void CustomTile::setRelativeGeometry(const RectF &geom)
+         return;
+     }
+ 
+-    RectF finalGeom = geom.intersected(RectF(0, 0, 1, 1));
++    const bool overflow = allowOverflow();
++    RectF finalGeom = overflow ? geom : geom.intersected(RectF(0, 0, 1, 1));
+     finalGeom.setWidth(std::max(finalGeom.width(), minimumSize().width()));
+     finalGeom.setHeight(std::max(finalGeom.height(), minimumSize().height()));
+     // We couldn't set the minimum size and still remain in boundaries, do nothing
+-    if (finalGeom.right() > 1 || finalGeom.bottom() > 1) {
++    if (!overflow && (finalGeom.right() > 1 || finalGeom.bottom() > 1)) {
+         return;
+     }
+@@ -132,7 +133,11 @@ void CustomTile::setRelativeGeometry(const RectF &geom)
+             }
+         }
+     } else if (parentT && parentT->layoutDirection() == LayoutDirection::Floating) {
+-        finalGeom = geom.intersected(parentT->relativeGeometry());
++        if (!overflow) {
++            finalGeom = geom.intersected(parentT->relativeGeometry());
++        }
++        // Overflow leaves keep the requested geom (min-size already applied)
++        // so a peeking Scrolling column is not clipped to the root [0, 1].
+     }
+ 
+     const auto childrenT = childTiles();
+@@ -141,6 +146,8 @@ void CustomTile::setRelativeGeometry(const RectF &geom)
+     for (auto t : childrenT) {
+         auto childGeom = t->relativeGeometry();
+-        childGeom = childGeom.intersected(finalGeom);
++        if (!overflow) {
++            childGeom = childGeom.intersected(finalGeom);
++        }
+         if (layoutDirection() == LayoutDirection::Horizontal) {
+             childGeom.setTop(finalGeom.top());
+             childGeom.setBottom(finalGeom.bottom());
 diff --git a/src/tiles/tile.cpp b/src/tiles/tile.cpp
 index 510917e..a9bbdad 100644
 --- a/src/tiles/tile.cpp
@@ -122,12 +193,13 @@ index 510917e..a9bbdad 100644
  #include "tilemanager.h"
  #include "virtualdesktops.h"
  #include "window.h"
-@@ -29,6 +30,8 @@ Tile::Tile(TileManager *tiling, Tile *parent)
+@@ -29,6 +30,9 @@ Tile::Tile(TileManager *tiling, Tile *parent)
          m_padding = m_parentTile->padding();
          m_minimumSize = m_parentTile->m_minimumSize;
          m_desktop = m_parentTile->desktop();
 +        m_gapBetween = m_parentTile->gapBetween();
 +        m_gapMargins = m_parentTile->gapMargins();
++        m_allowOverflow = m_parentTile->allowOverflow();
      }
      connect(Workspace::self(), &Workspace::configChanged, this, &Tile::windowGeometryChanged);
      connect(Workspace::self(), &Workspace::windowRemoved, this, &Tile::unmanage);
@@ -140,9 +212,7 @@ index 510917e..a9bbdad 100644
          }
      }
  }
-@@ -170,12 +173,13 @@ RectF Tile::absoluteGeometryInScreen() const
- 
- RectF Tile::windowGeometry() const
+@@ -171,11 +175,17 @@ RectF Tile::windowGeometry() const
  {
 -    // Apply half padding between tiles and full against the screen edges
 +    // Apply half of the between-tile gap on shared edges and the configured
@@ -158,8 +228,15 @@ index 510917e..a9bbdad 100644
 +    effectiveMargins.setBottom(m_relativeGeometry.bottom() < 1.0 ? m_gapBetween / 2.0 : m_gapMargins.bottom());
  
      const auto geom = absoluteGeometry();
-     return geom.intersected(m_tiling->output()->geometryF()) - effectiveMargins;
-@@ -246,7 +250,7 @@ void Tile::setPadding(qreal padding)
+-    return geom.intersected(m_tiling->output()->geometryF()) - effectiveMargins;
++    // Path A: overflow tiles keep full absolute size so peeking Scrolling
++    // columns are not resized to the visible sliver / collapsed to empty.
++    if (m_allowOverflow) {
++        return geom - effectiveMargins;
++    }
++    return geom.intersected(m_tiling->output()->geometryF()) - effectiveMargins;
+ }
+@@ -246,7 +255,7 @@ void Tile::setPadding(qreal padding)
      if (isActive()) {
          for (auto *w : std::as_const(m_windows)) {
              // Resize only if we are the currently managing tile for that window
@@ -168,7 +245,7 @@ index 510917e..a9bbdad 100644
          }
      }
  
-@@ -254,6 +258,58 @@ void Tile::setPadding(qreal padding)
+@@ -254,6 +263,83 @@ void Tile::setPadding(qreal padding)
      Q_EMIT windowGeometryChanged();
  }
  
@@ -224,6 +301,31 @@ index 510917e..a9bbdad 100644
 +    Q_EMIT windowGeometryChanged();
 +}
 +
++bool Tile::allowOverflow() const
++{
++    return m_allowOverflow;
++}
++
++void Tile::setAllowOverflow(bool allow)
++{
++    if (m_allowOverflow == allow) {
++        return;
++    }
++
++    m_allowOverflow = allow;
++
++    for (auto *t : std::as_const(m_children)) {
++        t->setAllowOverflow(allow);
++    }
++    if (isActive()) {
++        for (auto *w : std::as_const(m_windows)) {
++            w->tilingMoveResize(windowGeometry(), m_tiling);
++        }
++    }
++
++    Q_EMIT windowGeometryChanged();
++}
++
  QSizeF Tile::minimumSize() const
  {
      return m_minimumSize;
@@ -239,7 +341,7 @@ index 973b92e..0b11d77 100644
  #include <QObject>
  
  namespace KWin
-@@ -148,6 +149,12 @@ public:
+@@ -148,6 +149,15 @@ public:
      qreal padding() const;
      void setPadding(qreal padding);
  
@@ -248,6 +350,9 @@ index 973b92e..0b11d77 100644
 +
 +    QMarginsF gapMargins() const;
 +    void setGapMargins(const QMarginsF &margins);
++
++    bool allowOverflow() const;
++    void setAllowOverflow(bool allow);
 +
      QSizeF minimumSize() const;
      void setMinimumSize(const QSizeF &size);
@@ -261,12 +366,13 @@ index 973b92e..0b11d77 100644
      void minimumSizeChanged(const QSizeF &size);
      void rowChanged(int row);
      void isLayoutChanged(bool isLayout);
-@@ -248,6 +257,8 @@ protected:
+@@ -248,6 +260,9 @@ protected:
      QSizeF m_minimumSize = QSizeF(0.15, 0.15);
      QuickTileMode m_quickTileMode = QuickTileFlag::None;
      qreal m_padding = 4.0;
 +    qreal m_gapBetween = 0.0;
 +    QMarginsF m_gapMargins;
++    bool m_allowOverflow = false;
  };
  
  } // namespace KWin
@@ -705,7 +811,7 @@ index 559a334..00203ed 100644
  #include "wayland/surface.h"
  #include "wayland_server.h"
  #include "workspace.h"
-@@ -155,6 +156,23 @@ void WaylandWindow::updateClientOutputs()
+@@ -155,6 +156,34 @@ void WaylandWindow::updateClientOutputs()
          return;
      }
  
@@ -726,10 +832,21 @@ index 559a334..00203ed 100644
 +        }
 +    }
 +
++    if (LogicalOutput *pinned = pinnedTilingOutput()) {
++        // Path A: overflow Scrolling tiles must not get a wl_output on the
++        // neighbour, or the client (and scene) treat them as spanning monitors.
++        for (auto *waylandOutput : waylandServer()->display()->outputs()) {
++            if (waylandOutput->handle() == pinned) {
++                surface()->setOutputs({waylandOutput}, waylandOutput);
++                return;
++            }
++        }
++    }
++
      surface()->setOutputs(waylandServer()->display()->outputsIntersecting(rect),
                            waylandServer()->display()->largestIntersectingOutput(rect));
  }
-@@ -236,7 +254,18 @@ void WaylandWindow::updateGeometry(const RectF &rect)
+@@ -236,7 +265,20 @@ void WaylandWindow::updateGeometry(const RectF &rect)
          return;
      }
  
@@ -743,24 +860,77 @@ index 559a334..00203ed 100644
 +        // a large window across multiple outputs does not leave it assigned
 +        // to an intermediate output.
 +        m_output = moveResizeOutput();
++    } else if (LogicalOutput *pinned = pinnedTilingOutput()) {
++        m_output = pinned;
 +    } else {
 +        m_output = workspace()->outputAt(rect.center());
 +    }
      updateWindowRules(Rules::Position | Rules::Size);
  
      if (changedGeometries & WaylandGeometryBuffer) {
+diff --git a/src/x11window.cpp b/src/x11window.cpp
+index a3b4c5d..b6c7d8e 100644
+--- a/src/x11window.cpp
++++ b/src/x11window.cpp
+@@ -3432,7 +3432,11 @@ void X11Window::moveResizeInternal
+     m_clientGeometry = clientGeometry;
+     m_bufferGeometry = bufferGeometry;
+     m_bufferScale = bufferScale;
+-    m_output = workspace()->outputAt(frameGeometry.center());
++    if (LogicalOutput *pinned = pinnedTilingOutput()) {
++        m_output = pinned;
++    } else {
++        m_output = workspace()->outputAt(frameGeometry.center());
++    }
+ 
+     if (!areGeometryUpdatesBlocked()) {
+         configure(Xcb::toXNative(m_bufferGeometry));
+@@ -3859,6 +3863,10 @@ void X11Window::associate(XwaylandSurfaceV1Interface *shellSurface)
+ void X11Window::checkOutput()
+ {
+-    setOutput(workspace()->outputAt(frameGeometry().center()));
++    if (LogicalOutput *pinned = pinnedTilingOutput()) {
++        setOutput(pinned);
++    } else {
++        setOutput(workspace()->outputAt(frameGeometry().center()));
++    }
+ }
+ 
+ void X11Window::getWmOpaqueRegion()
 diff --git a/src/window.cpp b/src/window.cpp
 index 7e6594d..d5e11b9 100644
 --- a/src/window.cpp
 +++ b/src/window.cpp
-@@ -29,6 +29,7 @@
+@@ -29,6 +29,8 @@
  #include "scene/workspacescene.h"
  #include "screenedge.h"
  #include "shadow.h"
 +#include "tiling/tilingreflow.h"
++#include "tiles/tile.h"
  #include "tiles/tilemanager.h"
  #include "useractions.h"
  #include "virtualdesktops.h"
+@@ -230,4 +232,7 @@ bool Window::isOnActiveOutput() const
+ bool Window::isOnOutput(LogicalOutput *output) const
+ {
+-    return output->geometry().intersects(frameGeometry().toRect());
++    if (LogicalOutput *pinned = pinnedTilingOutput()) {
++        return pinned == output;
++    }
++    return output->geometry().intersects(frameGeometry().toRect());
+ }
+@@ -347,6 +352,11 @@ bool Window::hitTest(const QPointF &point) const
+ {
++    if (LogicalOutput *pinned = pinnedTilingOutput()) {
++        if (!pinned->geometryF().contains(point)) {
++            return false;
++        }
++    }
+     if (isDecorated()) {
+         if (m_decoration.inputRegion.contains(mapToFrame(point))) {
+             return true;
+         }
+     }
 @@ -1229,6 +1230,12 @@ void Window::updateInteractiveMoveResize(const QPointF &global, Qt::KeyboardModi
                  }
              }
@@ -774,7 +944,7 @@ index 7e6594d..d5e11b9 100644
              move(nextMoveResizeGeom.topLeft());
              Q_EMIT interactiveMoveResizeStepped(nextMoveResizeGeom);
          }
-@@ -3442,7 +3449,15 @@ RectF Window::moveResizeGeometry() const
+@@ -3442,7 +3456,20 @@ RectF Window::moveResizeGeometry() const
  void Window::setMoveResizeGeometry(const RectF &geo)
  {
      m_moveResizeGeometry = geo;
@@ -785,13 +955,18 @@ index 7e6594d..d5e11b9 100644
 +        // updateInteractiveMoveResize(); recomputing it from the window's
 +        // center here would clobber that and re-introduce the bug where
 +        // dragging a large window across multiple outputs leaves it on an
-+        // intermediate output.
-+        setMoveResizeOutput(workspace()->outputAt(geo.center()));
++        // intermediate output. Overflow Scrolling tiles stay on their
++        // TileManager output so a center past the edge does not migrate.
++        if (LogicalOutput *pinned = pinnedTilingOutput()) {
++            setMoveResizeOutput(pinned);
++        } else {
++            setMoveResizeOutput(workspace()->outputAt(geo.center()));
++        }
 +    }
  }
  
  LogicalOutput *Window::moveResizeOutput() const
-@@ -3907,6 +3922,34 @@ void Window::setTileCompatibility(Tile *tile)
+@@ -3907,6 +3935,50 @@ void Window::setTileCompatibility(Tile *tile)
      }
  }
  
@@ -823,6 +998,22 @@ index 7e6594d..d5e11b9 100644
 +    moveResize(geom);
 +}
 +
++LogicalOutput *Window::pinnedTilingOutput() const
++{
++    if (m_tilingState.mode != TilingState::Mode::Tiled) {
++        return nullptr;
++    }
++    if (isInteractiveMove()) {
++        return nullptr;
++    }
++    Tile *t = m_tile;
++    if (!t || !t->allowOverflow()) {
++        return nullptr;
++    }
++    TileManager *manager = t->manager();
++    return manager ? manager->output() : nullptr;
++}
++
  void Window::doSetQuickTileMode()
  {
  }
@@ -839,12 +1030,14 @@ index 4523cd4..07a81a1 100644
  #include "utils/common.h"
  #include "utils/gravity.h"
  
-@@ -1330,6 +1332,12 @@ public:
+@@ -1330,6 +1332,14 @@ public:
      void forgetTile(Tile *tile);
      void setTileCompatibility(Tile *tile);
  
 +    TilingState &tilingState();
 +    const TilingState &tilingState() const;
++
++    LogicalOutput *pinnedTilingOutput() const;
 +
 +    void tilingMoveResize(const RectF &geom, TileManager *manager);
 +    void tilingMoveResize(const RectF &geom, const ReflowHint &hint);

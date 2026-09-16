@@ -59,7 +59,7 @@ KWin's `Tile`/`TileManager`; engines only set relative geometry.
 
 - Pure, KWin-free arithmetic (unit-tested): `columnmath`, `masterstackmath`,
   `gridmath`, `directionmath`, `slotlist`, `movestate`, `leafcolumn`, `movefsm`,
-  `sizingpolicy`, `suspendpolicy`, `tilingconfig`, `scrollingmove`.
+  `sizingpolicy`, `suspendpolicy`, `tilingconfig`, `scrollingmove`, `overflowmath`.
 - Kind switch **replaces** the engine and re-adds windows; durable layout
   memory is keyed by output/desktop id, not engine pointer.
 - Cross-monitor moves: cancel source leaf, drop on destination — no phantoms.
@@ -237,6 +237,14 @@ actions). Design choices documented here so they survive the next rebase:
   geometry changes on invisible desktops do not push Wayland configure round-trips
   to hidden windows (and quick-tile users are unaffected). The desktop-activation
   resync above is the paired fix.
+- **Scrolling Path A overflow** — `Tile::m_allowOverflow` on the Scrolling root
+  (inherited by leaves) skips the `windowGeometry()` output intersect and the
+  `CustomTile` `[0,1]` clamp so peeking columns keep full width. Tiled overflow
+  windows are pinned to their `TileManager` output (`window.cpp` /
+  `waylandwindow.cpp` / `x11window.cpp`); `SceneView::addWindowFilter` hides
+  them on neighbour views so they do not paint or take input there. Fully
+  off-viewport columns are still `setHidden` (W0-2). Instant jump-scroll; the
+  engine does not interpolate `scrollOffset`.
 - **`windowToDesktop` / `activeWindowToDesktop`** — honors
   `options->isRollOverDesktops()` instead of hardcoding wrap-around. The
   i3/dwm-style "moved window takes focus on the new desktop" behavior runs only

@@ -33,6 +33,11 @@ void ScrollingLayoutEngine::attach(RootTile *root)
 {
     m_root = root;
     takeOwnershipOfRoot(m_root);
+    // Path A (luxusAi#128 / #40): leaves may sit outside [0, 1]. Inherited by
+    // createChildAt so peeking columns keep Column::width instead of clamping.
+    if (m_root) {
+        m_root->setAllowOverflow(true);
+    }
 }
 
 void ScrollingLayoutEngine::addWindow(Window *window)
@@ -283,10 +288,9 @@ void ScrollingLayoutEngine::reflow()
     for (int c = 0; c < m_columns.count(); ++c) {
         Column &col = m_columns[c];
         const qreal colX = x - m_scrollOffset;
-        // A column that does not overlap the [0, 1] viewport is scrolled fully
-        // off-screen: hide it instead of letting its tile clamp to the screen
-        // edge or spill onto the neighbouring monitor. The active window is
-        // never hidden (it is always scrolled into view).
+        // Peeking columns that overlap [0, 1] keep full width (Path A overflow
+        // on the root). Columns that miss the viewport entirely are still
+        // hidden until W0-2; the active window is never hidden.
         const bool offscreen = (colX >= 1.0) || (colX + col.width <= 0.0);
         col.stack.fill(RectF(colX, 0.0, col.width, 1.0), offscreen, m_activeWindow);
         x += col.width;

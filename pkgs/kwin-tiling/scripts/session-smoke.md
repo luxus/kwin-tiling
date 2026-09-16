@@ -63,6 +63,10 @@ bash pkgs/kwin-tiling/tests/run.sh
 
 - [ ] Switch to Scrolling; open several windows
 - [ ] Focus moves columns without permanently losing windows (off-viewport hide OK)
+- [ ] Peeking neighbour keeps full column width (not a sliver) when ~40% hangs
+      past the output edge
+- [ ] Two monitors: that hanging column must **not** appear on the neighbour and
+      must not change `output()` (Path A pin)
 - [ ] `Meta+Shift+C` / `Meta+Shift+V` center / cycle column width
 - [ ] `Meta+Shift+[` / `Meta+Shift+]` consume / expel (UX may still be rough)
 

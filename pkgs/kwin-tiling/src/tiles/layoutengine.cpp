@@ -46,6 +46,9 @@ void LayoutEngine::takeOwnershipOfRoot(RootTile *root)
         }
     }
     root->setLayoutDirection(Tile::LayoutDirection::Floating);
+    // MasterStack/Stacked/Grid must not inherit a leftover Scrolling overflow
+    // flag; ScrollingLayoutEngine::attach turns it back on after this.
+    root->setAllowOverflow(false);
     root->setRelativeGeometry(RectF(0, 0, 1, 1));
 }
 
