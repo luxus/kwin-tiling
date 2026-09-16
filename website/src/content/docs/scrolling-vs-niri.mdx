@@ -1,0 +1,792 @@
+---
+title: Scrolling vs niri
+description: Analysis of niri’s scrolling UX against kwin-tiling Scrolling — what we have, what we can port, and what needs an effect plugin. No feature work; issue fodder for Ada.
+---
+
+This is an **analysis-only** document. It does not ship features. Ada can file GitHub
+issues from the [proposed issue wave](#proposed-issue-wave). Constraint: stay
+patch-based on `kdePackages.kwin`. We will not fork KWin into a niri clone.
+
+**niri snapshot:** shallow clone of
+[`niri-wm/niri`](https://github.com/niri-wm/niri) at
+`02fdd8e7586110d6aa79d94f388756a3479091b6` (2026-09-16). Wiki pages live under
+`docs/wiki/` in that tree (published at
+[niri-wm.github.io/niri](https://niri-wm.github.io/niri/)).
+
+**Related issues already open:** [#6](https://github.com/luxus/kwin-tiling/issues/6)
+(reflow animation via desktop effect), [#4](https://github.com/luxus/kwin-tiling/issues/4)
+task 2 (Scrolling drag-swap — **implemented** in current `ScrollingLayoutEngine`),
+[#32](https://github.com/luxus/kwin-tiling/issues/32) (Columns layout, distinct from
+Scrolling), [#33](https://github.com/luxus/kwin-tiling/issues/33) (Overview wallpaper
+on Noctalia). Historical design:
+[luxusAi#128](https://github.com/luxus/luxusAi/issues/128) (closed when tiling
+moved here) — v1 is **instant jump-scroll**; smooth camera is **v3**. Do not
+re-file those; this page extends them with a niri-specific gap list.
+
+## Why niri feels smooth
+
+niri is a compositor built around one camera. The horizontal strip is not “windows
+that happen to sit in a row.” It is a `ScrollingSpace` with a `view_offset` relative
+to the active column (`src/layout/scrolling.rs`). Off-screen columns stay in the
+scene at their real sizes. Focus, gestures, and open/close **animate the camera**,
+not a hide/show of tiles.
+
+Three design principles from
+[`docs/wiki/Development:-Design-Principles.md`](https://niri-wm.github.io/niri/Development:-Design-Principles.html)
+are the feel bar:
+
+1. **Opening a new window never resizes existing windows.**
+2. **The focused window does not move on its own** (opens/closes/resizes to its
+   left must not shove it).
+3. **Actions apply immediately** — input goes to the final target while the spring
+   is still playing.
+
+The smoothness people notice is compositor-owned:
+
+| Channel | Default | What it animates | Source |
+| --- | --- | --- | --- |
+| `horizontal-view-movement` | spring stiffness 800 | camera scroll (focus off-screen, gesture settle, new window off-screen) | `docs/wiki/Configuration:-Animations.md` |
+| `window-movement` | spring stiffness 800 | column reorder, consume/expel, neighbors making room | same |
+| `window-resize` | spring stiffness 800 | preset width / maximize-column; **also drives the camera when a resize causes scroll** | “Synchronized Animations” in the same page |
+| `window-open` / `window-close` | easing 150 ms | open/close (+ optional custom GLSL) | same |
+| `workspace-switch` | spring stiffness 1000 | vertical workspace strip, including after a 3-finger swipe | same |
+| `overview-open-close` | spring stiffness 800 | overview zoom | `docs/wiki/Overview.md` |
+
+Springs take **gesture release velocity** (`src/animation/mod.rs`). That is why a
+touchpad flick settles like a physical camera, not a 250 ms `OutExpo` tween.
+Timing is aligned to the next monitor refresh via `LazyClock`
+(`docs/wiki/Development:-Animation-Timing.md`).
+
+kwin-tiling cannot copy that architecture inside `ScrollingLayoutEngine`. The engine
+sets relative geometry on KWin `CustomTile`s; KWin owns output assignment, the scene
+graph, and effects. The honest split is the one already chosen in #6:
+
+> Layout computes final geometry; effects own motion; core publishes hints.
+
+What #6 does **not** yet say, and what this page adds: niri’s camera is **not**
+the same problem as “animate `moveResize`.” Scrolling smoothness is mostly
+**panning a strip whose windows keep their sizes**, including windows that are
+only partly on the output. That collides with KWin’s tile + output model. See
+[Animation feasibility](#animation-feasibility).
+
+## What luxusAi already wires (do not reinvent)
+
+The kwin-noctalia (and Plasma) hjem profiles in
+[`luxus/luxusAi`](https://github.com/luxus/luxusAi) already install and enable
+KWin effects. Analysis and issues in **this** repo must consume that stack, not
+propose a second one.
+
+### Installed today (`hjem/profiles/kwin-noctalia.nix` imports)
+
+| Module | Package | What it does | Enabled on session start? |
+| --- | --- | --- | --- |
+| `hjem.kwin-niri-shaders` | `pkgs.kwin-niri-shaders` (`pkgs/kwin-niri-shaders/default.nix`) | Installs **all** `kwin6_effect_*` packages from [mj0x0/kwin-niri-shaders-port](https://github.com/mj0x0/kwin-niri-shaders-port) `@5dc70f19` — GLSL ports of niri experimental open/close (and some minimize) shaders | **Only `kwin6_effect_glass_warp`**. Stock Scale / Fade / Glide open-close are **turned off** so they do not fight it (`kwin-niri-shaders-config.service`) |
+| `hjem.kde-rounded-corners` | `pkgs.kde-rounded-corners` | `kwin4_effect_shapecorners` — compositor outlines on CSD/frameless windows | **Yes.** Defaults: corner radius 0 (outline only), 2 px active / 1 px inactive, palette colors. `[Round-Corners]` is seeded once so KCM tweaks survive |
+
+glass-warp is the niri `window-open` / `window-close` channel, approximated for
+KWin: niri uses springs; the port uses `OutQuint` ~600 ms open and `OutCubic`
+~1150 ms close (KWin `animate()` has no spring). Other shaders in the same package
+(ripple, morph, dissolve, …) stay **available** in *System Settings → Animations*
+but are not the default.
+
+### Not installed (still a feel gap)
+
+| niri channel | luxusAi / kwin-tiling today |
+| --- | --- |
+| `horizontal-view-movement` (camera pan + gesture settle) | **Missing.** v1 Scrolling is jump-scroll (luxusAi#128). No effect can pan a column that was `setHidden` |
+| `window-movement` / `window-resize` (consume, reorder, width) | **Missing.** This is #6 + geometry_change. luxusAi does **not** package geometry_change |
+| `workspace-switch` spring | Plasma/KWin Slide / desktop animations — different object |
+| `overview-open-close` | Plasma Overview (#33 is wallpaper, not niri zoom) |
+| Focus ring / shadows | rounded-corners outlines. Not niri’s behind-window focus ring |
+
+**Do not file** “port niri open/close shaders” or “bake rounded corners into
+KWin.” Those are done in luxusAi as optional plugins — the same pattern as #6.
+
+**Do file** geometry_change (or a tiling-aware fork) as a luxusAi hjem module
+*after* #6 Phase 0, analogous to `kwin-niri-shaders.nix`. Keep the package out of
+`hooks.patch`.
+
+## Feature inventory (niri)
+
+Ownership: **Layout** = geometry/focus math a tiling engine can approximate.
+**Compositor** = scene, gestures, protocol, or global input.
+
+### Layout model
+
+| Feature | Behavior | Ref | Owner |
+| --- | --- | --- | --- |
+| Infinite horizontal strip | Columns go to the right; the screen is a viewport | README; `ScrollingSpace` in `src/layout/scrolling.rs` | Layout |
+| Per-output strips | Each monitor has its own strip; windows never overflow onto a neighbour | README “About”; `src/layout/mod.rs` module docs | Layout + output lifecycle |
+| Camera `view_offset` | Offset from the active column; gaps and left exclusive zone are absorbed here so fullscreen can ignore padding | `scrolling.rs` `view_offset` / `view_pos()` | Layout + compositor animation |
+| Off-screen windows stay real | Scrolled-away columns remain focusable, movable, fullscreenable | Design principles; Fullscreen wiki | Layout + compositor |
+| Working area vs parent area | Exclusive zones + struts vs maximize-to-edges | `compute_working_area` | Layout |
+
+### Focus, move, consume/expel
+
+Default binds from `resources/default-config.kdl` (QWERTY, `Mod` = Super).
+
+| Feature | Bind | Behavior | Code |
+| --- | --- | --- | --- |
+| Focus column | `Mod+Left/Right` | Focus adjacent column (same visual row) | `focus-column-left/right` |
+| Focus window in column | `Mod+Up/Down` | Vertical neighbour | `focus-window-up/down` |
+| Move column | `Mod+Ctrl+Left/Right` | Reorder the whole column | `move-column-left/right` |
+| Move window in column | `Mod+Ctrl+Up/Down` | Reorder tiles inside the column | `move-window-up/down` |
+| Consume-or-expel | `Mod+[/]` | Solo window merges into the neighbour; already stacked → expel that way | `consume-or-expel-window-left/right` ~1795–1993 in `scrolling.rs` |
+| Consume into column | `Mod+,` | Pull first tile of the **next** column into this one (bottom) | `consume-window-into-column` |
+| Expel from column | `Mod+.` | Push the focused (or bottom) tile out as a new column to the right | `expel-window-from-column` |
+| First/last column | `Mod+Home/End` | Jump / `Mod+Ctrl` moves there | default-config |
+| Focus by index | `Mod+1–9` workspaces are **positional**, not identity | `Workspaces.md` | Layout |
+
+### Resize, maximize, fullscreen, float
+
+| Feature | Behavior | Ref | Owner |
+| --- | --- | --- | --- |
+| `preset-column-widths` | Cycle `proportion` 1/3, 1/2, 2/3 (default); reverse exists | `switch-preset-column-width` (`Mod+R`) | Layout |
+| `default-column-width` | New columns; default `proportion 0.5`; `{}` means “let the client pick” | Layout wiki | Layout |
+| Incremental width/height | `Mod+/-/=` width ±10%; Shift variants for height | default-config | Layout |
+| `maximize-column` | `Mod+F` = `proportion 1.0`; keeps gaps/borders/struts | `Fullscreen-and-Maximize.md` | Layout |
+| `expand-column-to-available-width` | Grow into unused space among fully visible columns; if alone, toggle full width | `Mod+Ctrl+F` | Layout |
+| `maximize-window-to-edges` | DE maximize; no gaps/borders; window-aware; `Mod+M` | same wiki, since 25.11 | Layout + xdg |
+| Fullscreen in the strip | Normal tile; you can scroll away without leaving fullscreen; black backdrop; covers floats + top layer only when stationary and focused | Design principles; Fullscreen wiki | Layout + compositor |
+| Windowed fullscreen | Tell the client it is fullscreen without covering the monitor | `toggle-windowed-fullscreen` | Compositor |
+| Reset height | `Mod+Ctrl+R`; also double-click top/bottom resize edge | Gestures wiki | Layout + compositor |
+| Double-click left/right edge | Toggle full column width | Gestures wiki | Compositor |
+| Floating | Per-workspace stack on top; does not scroll; auto-float parented/fixed-size; `Mod+V` | `Floating-Windows.md` | Layout |
+| Resize animation threshold | ≤10 logical px skip animation | `RESIZE_ANIMATION_THRESHOLD` in `src/layout/mod.rs` | Compositor |
+
+### Viewport / center modes / peek
+
+| Feature | Behavior | Ref |
+| --- | --- | --- |
+| `center-focused-column "never"` (default) | Scroll just enough to fit; if already fully visible, **do not move the camera** | `compute_new_view_offset` |
+| `"always"` | Always center the active column (wide columns left-align) | Layout wiki |
+| `"on-overflow"` | Center only if active + neighbour do not fit together | Layout wiki |
+| `always-center-single-column` | Center when ≤1 column | `is_centering_focused_column()` |
+| `center-column` | One-shot center (`Mod+C`) | default-config |
+| `center-visible-columns` | Center the block of fully visible columns (`Mod+Ctrl+C`) | default-config |
+| Partial columns | Neighbours often peek; left/right **struts** force a peek | Layout wiki `struts` |
+| Gesture snap | On 3-finger release, project velocity and snap to column-aligned rest positions | `view_offset_gesture_end` |
+| View-offset memory | One remembered offset per workspace for unfullscreen; forgotten on focus change | Design principles “invisible state” |
+
+### Gestures
+
+From `docs/wiki/Gestures.md` and `Configuration:-Gestures.md`. All **compositor**.
+
+- Touchpad 3-finger vertical → workspace switch; 3-finger horizontal → view scroll.
+- Touchpad 4-finger vertical → overview (since 25.05).
+- `Mod+LMB` interactive move with **insert hint**; right-click while moving toggles float/tile (25.01).
+- `Mod+RMB` interactive resize.
+- `Mod+MMB` (or wheel) drag: horizontal = view; vertical = workspace.
+- DnD against the monitor edge scrolls the view (`dnd-edge-view-scroll`); in overview, vertical workspace scroll.
+- DnD hold-to-activate window/workspace.
+- Hot corner (default top-left) toggles overview.
+- Touch: `Mod`-drag a tiled window horizontally scrolls the view instead of moving it.
+
+### Overview, workspaces, tabs, chrome
+
+| Feature | Behavior | Owner |
+| --- | --- | --- |
+| Overview | Zoom out all workspaces on the monitor; drag windows between them; no Mod required for pointing | **Compositor** (`Overview.md`, since 25.05) |
+| Dynamic vertical workspaces | Per-monitor stack; empty middles vanish; always one empty at the bottom | Layout (`Workspaces.md`) — **different model from Plasma VDs** |
+| Named workspaces | Persist empty; address by name | Layout |
+| Original-output restore | Workspaces remember which monitor they came from | Layout |
+| Tabbed column | All tiles share size; `Mod+W`; can fullscreen with multiple windows | Layout + compositor draw (`Tabs.md`) |
+| Insert hint | Colored drop target: new column vs into column | Compositor overlay + layout geometry |
+| Focus ring | Drawn around the active window; does **not** shrink the client | Compositor |
+| Border | **Does** shrink client geometry; optional Oklab/Oklch gradients | Layout + compositor |
+| Shadows | Optional shader; off by default (perf) | Compositor |
+| Recent windows | Delayed MRU switcher with live previews (25.11) | **Compositor** |
+| Open/close shaders | Custom GLSL | **Compositor** |
+| Background blur / xray | `ext-background-effect` + window rules | Compositor (`Window-Effects.md`) |
+
+### Window open/close
+
+New tiled windows open as a **new column** (typically right of active) at
+`default-column-width`. Existing columns keep their widths. The camera may scroll
+(`horizontal-view-movement`). Closing animates neighbours (`window-movement`)
+without resizing them.
+
+This is the product claim. kwin-tiling Scrolling already follows the **placement**
+half (new column to the right of active — see `ScrollingLayoutEngine::addWindow`).
+It does **not** follow the **camera / constant-size** half once the viewport
+moves. See mapping below.
+
+## Map to current kwin-tiling Scrolling
+
+Code: `pkgs/kwin-tiling/src/tiles/scrollinglayoutengine.{h,cpp}`, shared
+`StackColumn`, controller actions in `tilingcontroller.cpp`, shortcuts in
+`hooks.patch` / [Usage](usage).
+
+Legend: **Have** / **Partial** / **Missing**.
+
+### Have
+
+| niri | kwin-tiling today |
+| --- | --- |
+| Horizontal strip of columns, new window = new column to the right of active | `addWindow` inserts at `activeColumnIndex() + 1` with `m_defaultColWidth` |
+| Per-output isolation (do not spill to the next monitor) | **Have, by hiding.** Off-viewport columns call `Window::setHidden` instead of sitting past the edge (`scrollinglayoutengine.h` comment). Isolation is real; the method is the feel problem |
+| Fit-scroll: don’t move the camera if the active column is already fully visible | `scrollActiveIntoView` — “don’t move unless off-screen” |
+| Center active column | `Meta+Shift+C` → `centerActiveColumn()` |
+| Width presets | `Meta+Shift+V` cycles 1/3, 1/2, 2/3, **1.0** (niri’s default cycle is 1/3, 1/2, 2/3; full width is `maximize-column`) |
+| Default column width | `[Tiling] DefaultColumnWidth` + KCM; per-output override |
+| Consume into left column / expel to the right | `Meta+Shift+[` / `Meta+Shift+]` — **one direction each**, not niri’s consume-or-expel |
+| Vertical stack inside a column, height weights, mouse splitters | `StackColumn` shared with other layouts |
+| Focus left/right/up/down | `Meta+Arrows` → `windowInDirection` |
+| Drag-to-swap onto another tiled window | Implemented (`begin/end/cancelMoveWindow`); was the #4 task 2 gap |
+| Keyboard grow/shrink active column | `Meta+Ctrl+L/H` via `setPrimarySplit` |
+| Mouse drag vertical border → column width | `applyResize` width path |
+| Gaps (between + edge margins), smart gaps | KWin tile gap machinery; not niri struts |
+| Float / ignore rules, auto-float dialogs | `TilingRules`; `Meta+W` |
+| Monocle zoom | `Meta+Shift+Z` hides siblings — **not** niri fullscreen-in-strip |
+| Reflow hints for effects | `WindowTilingReflowRole` + `tilingMoveResize` (`tilingreflow.h`, `hooks.patch`). Layout metadata exists; **no in-tree effect consumes it** |
+| Borderless when tiled | KCM `BorderlessWhenTiled` (decoration hide, not a niri focus ring) |
+
+### Partial
+
+| niri | kwin-tiling | Gap |
+| --- | --- | --- |
+| Camera pan with peeking columns at constant size | Viewport is `m_scrollOffset` in view-width fractions. Columns that **overlap** `[0,1]` are placed with possibly negative `colX`. `CustomTile::setRelativeGeometry` **intersects with `[0,1]`**, and `Tile::windowGeometry()` **intersects the output**. Overlapping peek columns are **resized to the visible sliver**, not cropped. Fully off-screen columns are **hidden**, not translated | P0 |
+| `center-focused-column` never / always / on-overflow | Only fit-scroll + a one-shot center + “center the whole strip if it fits” | P1 |
+| Consume/expel | Two one-way actions; no consume-or-expel; no consume-from-next-column | P1 |
+| Move column vs move window | `moveWindow` **always reorders the column** (sign of delta only). `Meta+Alt+Up/Down` therefore moves the column instead of the window inside it | P1 (bug-shaped) |
+| Interactive move insert (new column **or** into column) | Drop on another window **swaps**. Drop on empty space uses base `dropWindow` → `addWindow` (new column next to **active**, not drop index). No insert hint | P1 |
+| Preset widths | Have a cycle; includes 1.0; no reverse; not configurable in KCM | P2 |
+| Gaps / outer insets | `GapLeft/Right/Top/Bottom` + `GapBetween`. No struts-as-peek | P2 |
+| Fullscreen / maximize | Plasma/KWin fullscreen + tiling zoom. Fullscreen is **not** a tile you can scroll away from | Hard / different layer |
+| Focus last | `Meta+U` last window, not niri recent-windows UI | OK / different |
+| Animations | Instant `moveResize`. Optional third-party **geometry_change** (see #6). No springs, no gesture velocity, no camera channel | P0 + #6 |
+
+### Missing
+
+| niri | Notes |
+| --- | --- |
+| Touchpad 3-finger view scroll with velocity snap | KWin has desktop-grid / overview swipes; nothing drives `m_scrollOffset` |
+| `Mod+MMB` view pan | Missing |
+| DnD edge-scroll of the strip | Missing; without a real camera it would just hide/show |
+| Overview zoom of the strip + workspaces | Plasma Overview is a different object (see #33). Not a niri clone |
+| Vertical dynamic workspace strips | Plasma virtual desktops + optional per-output desktops. Do not reimplement niri’s workspace model in the tiling engine |
+| Tabbed columns + tab indicator | Missing. Closest: a column of stacked windows, all visible |
+| Insert-hint overlay | Missing. Effect or QML overlay, not engine math |
+| `expand-column-to-available-width` | Missing |
+| Preset window heights | Height weights + `Meta+Ctrl+K/J` only |
+| `always-center-single-column` as a mode | Strip-fits-viewport already centers the **whole** strip (`scrollActiveIntoView` when `total <= 1`) |
+| Configurable `center-focused-column` | Missing |
+| Focus/move column first/last, by index | Missing |
+| `Mod+Wheel` focus/move column | Missing (KWin has desktop-wheel commands; not column) |
+| Gesture-synced springs | Compositor / effect (not in glass-warp; that is open/close only) |
+| Custom open/close shaders | **Already in luxusAi** (`kwin-niri-shaders` / glass-warp). Do not re-port |
+| Recent-windows live preview | Hard no (use KWin TabBox / a shell) |
+| niri screenshot UI, screencast block-out, named workspaces | Out of scope for this repo |
+
+### Architectural mismatch (read this before filing “make it scroll like niri”)
+
+kwin-tiling documents the constraint in `scrollinglayoutengine.h`:
+
+> Columns scrolled out of the `[0, 1]` viewport are *hidden* (`Window::setHidden`),
+> not positioned past the screen edge: KWin tiles use global coordinates and a
+> window belongs to the output under its centre, so an off-screen position would
+> spill onto — and be migrated to — the adjacent monitor.
+
+Upstream `CustomTile::setRelativeGeometry` then does
+`geom.intersected(RectF(0, 0, 1, 1))`. `Tile::windowGeometry()` (even after our
+gaps hunk) still `intersected` the output rectangle.
+
+Together that means:
+
+1. You cannot keep a 50%-off-screen column at **full width**. It will clamp and
+   **resize**.
+2. You cannot park a column past the edge without either **hiding** it or
+   **migrating** it.
+3. `geometry_change` can tween on-output `moveResize`. It cannot tween a window
+   that was `setHidden(true)` into view as a camera pan — the window was never
+   in the scene at its strip position.
+
+This is the same global-coordinate fight that made the niri author write a
+compositor instead of another PaperWM
+(`README.md` “Inspiration”). PaperWM on GNOME, and
+[karousel](https://github.com/peterfajdiga/karousel) as a KWin *script*, both live
+in that fight. We should not pretend a layout engine on `CustomTile` is a camera.
+
+**This hide path is a v1 shortcut, not the original plan.**
+[luxusAi#128](https://github.com/luxus/luxusAi/issues/128) recommended **Path A**:
+keep `CustomTile` + `setRelativeGeometry`, allow `x` outside `[0,1]`, add
+`Tile::m_allowOverflow`, and **skip the `windowGeometry()` output intersect**
+(already in `hooks.patch` for gaps). Karousel was cited as proof that KWin
+paints off-screen tiled windows. v1 was explicitly **instant jump-scroll**;
+smooth `scrollOffset` animation was **v3** (“only if wanted”). The shipped
+engine instead **hides** off-viewport columns to avoid adjacent-monitor
+migration — that is the feel regression versus Path A, and it is why
+geometry_change cannot look like a camera yet.
+
+**Portable path (not a fork):** resume Path A, plus the migration issue #128
+under-specified:
+
+1. `m_allowOverflow` on the scrolling root (inherit to leaves); skip output
+   intersect in `windowGeometry()`.
+2. Confirm whether current KWin `CustomTile::setRelativeGeometry` still
+   `intersected(RectF(0,0,1,1))` — if yes, gate that too for overflow leaves.
+3. Pin tiled scrolling windows to their `TileManager` output so a center past
+   the edge does not migrate. #128 noted `updateClientOutputs()` /
+   `outputsIntersecting` may pause client rendering for fully off-screen
+   windows (“no worse than karousel”) — acceptable; **painting on the neighbour
+   monitor is not**.
+4. Stop `setHidden` for off-viewport columns once (1–3) work. Keep hide for
+   monocle zoom.
+5. **Animate** in an effect (geometry_change or a strip-aware fork). Do **not**
+   interpolate `m_scrollOffset` on a timer inside the engine (luxusAi#128 v3
+   temptation). Springs stay in the effect; glass-warp already covers open/close.
+
+That is still patch-based KWin. It is **not** “add a few lines to
+`scrollActiveIntoView`.”
+
+## Prioritized gap list
+
+### P0 — feel (animation / latency / input)
+
+These are what make niri feel like niri. Layout-only polish without these will still
+feel like “i3 but sideways.”
+
+1. **Camera vs hide/show (architecture)**
+   Today: `setHidden` + tile clamp. Need: windows keep size; viewport motion is a
+   translation of the strip; visual position = input position.
+   Layer: **hooks.patch (output pin + clamp bypass) + effect**. Not engine-only.
+   See issues W0-1, W0-2.
+
+2. **In-viewport reflow animation**
+   Consume, expel, column reorder, width cycle, open/close of **on-screen**
+   windows. `moveResize` is instant. `WindowTilingReflowRole` is already published
+   (`tilingreflow.h`).
+   Layer: **effect plugin** (try
+   [geometry_change](https://github.com/peterfajdiga/kwin4_effect_geometry_change)
+   first — this is #6). Do not put curves in `LayoutEngine`.
+
+3. **Do not resize windows when the viewport moves**
+   Even a 1-frame clamp of a peeking column to a sliver fights niri principle 1–2.
+   Depends on (1). Proof: focus a 1/3-width column with a neighbour overlapping the
+   edge; neighbour width in `frameGeometry()` must stay at the column width, not
+   collapse to the visible pixels.
+
+4. **Input during motion**
+   niri routes keys to the **final** focused window while the spring runs. KWin
+   already focuses immediately (`setActiveWindow` then `reflow`). Keep it that
+   way. If an effect animates, do not delay `activateWindow` until the tween ends.
+
+5. **Interactive drag must stay instant**
+   geometry_change already skips `window.move` / `window.resize`. Preserve that.
+   Scrolling drag-swap is compositor interactive move, then one reflow.
+
+### P1 — core UX parity (portable in the engine, some need the camera)
+
+1. **Directional move is wrong in Scrolling**
+   `TilingController::moveInDirection` uses flattened `windows()` indices, then
+   `ScrollingLayoutEngine::moveWindow` moves the **column**. `Meta+Alt+Up/Down`
+   should move the window inside the column (niri `move-window-up/down`).
+   `Meta+Alt+Left/Right` should consume-or-expel **or** move the column — pick
+   one and document it; niri splits these across `Mod+Ctrl` (move) vs `Mod+[`
+   (consume-or-expel).
+
+2. **consume-or-expel left and right**
+   niri `Mod+[/]`: if the window is alone, merge into that neighbour; if stacked,
+   expel that direction. Ours is consume-left / expel-right only.
+
+3. **consume-into-column / expel-from-column**
+   niri `Mod+,/.` — pull the next column’s first window in; push this window out.
+   Ours `expelWindow` always takes the **active** window; niri’s named action
+   takes the bottom tile of the focused column. Match niri; keep our shortcuts
+   or add aliases.
+
+4. **Drop: insert into column, not only swap**
+   niri shows an insert hint (new column vs in-column). We only swap on window
+   drop. Empty-space drop should use cursor X to pick the column index, not always
+   `active+1`.
+
+5. **Viewport modes**
+   Config + KCM: `never` (current fit), `always`, `on-overflow`, plus keep the
+   one-shot center action. Needs a working camera to look right; the **policy**
+   can land in `scrollActiveIntoView` first.
+
+6. **Peek without resize**
+   Struts or a configurable “always show N px of the next column.” Blocked on P0
+   clamp bypass.
+
+7. **Fullscreen / zoom vs strip**
+   `Meta+Shift+Z` monocle is fine as a **temporary zoom**. Do not advertise it as
+   niri fullscreen. Plasma fullscreen should remain Plasma fullscreen. Optional
+   later: “fullscreen tile stays in the strip” is **hard** (layer-shell, backdrop,
+   output-sized configure) — see Hard no.
+
+### P2 — nice-to-have
+
+- Configurable preset widths (and reverse cycle); optional preset heights.
+- `expand-column-to-available-width`.
+- First/last column focus + move.
+- `Mod+Wheel` column focus (careful with existing KWin desktop-wheel).
+- 3-finger swipe → scroll offset (KWin swipe gesture → engine; **hooks** +
+  camera). Springs/velocity = effect.
+- `Mod+MMB` pan.
+- DnD edge-scroll (needs camera; otherwise it is hide/show thrash).
+- Tabbed column display (layout math is doable; the **indicator** is an effect or
+  decoration).
+- Insert-hint overlay (QML/effect).
+- `always-center-single-column` as an explicit option (behavior partly exists).
+- Double-click side edge → full width; double-click top/bottom → reset height
+  (input.cpp / options, hooks).
+
+### Hard no / different layer
+
+Do **not** file these as tiling-engine issues. If Ada wants them, they are
+separate plugins, shell features, or a compositor fork (out of scope).
+
+| Want | Why not in `ScrollingLayoutEngine` | Where it could live |
+| --- | --- | --- |
+| niri Overview (zoom the strip + workspace stack, drag between) | Global scene transform, remapped input, backdrop, layer-shell rules | Plasma **Overview** effect is the closest stock object (#33 is wallpaper, not niri-zoom). A custom fullscreen effect could mimic zoom; it is not a layout PR |
+| Vertical dynamic workspace strips | KWin/Plasma virtual desktops are a different product | Stay on Plasma VDs / per-output desktops |
+| Spring physics, gesture velocity, refresh-aligned `LazyClock` | Needs an animation clock in the compositor or effect | Effect plugin (#6). Not `hooks.patch` curves |
+| Custom open/close/resize GLSL in the tiling patch | niri render graph; **already ported** as `kwin-niri-shaders` (glass-warp enabled) | luxusAi hjem module. Do not duplicate |
+| Focus ring / gradient borders / shadows as compositor chrome | **Already** `kde-rounded-corners` on noctalia/Plasma profiles | Keep that pattern |
+| Recent-windows live preview switcher | niri UI | KWin TabBox / shell |
+| True per-output infinite coordinate space for **all** windows | Founding reason niri exists; fighting this globally is a fork | Scrolling-only output **pin** is the bounded alternative |
+| Immediate scanout-quality camera with off-output input | Same | Pin + effect, with documented limits |
+| niri screenshot UI, portal cast block-out, named workspaces | Not tiling | Out of repo |
+| Karousel-style script on top of this patch | Different category (`design.mdx` vs kwilt) | Not this flake |
+
+## Animation feasibility (without forking)
+
+### What already landed (do not redo)
+
+From #6 and the current tree:
+
+- **Choke point:** `Window::tilingMoveResize` in `hooks.patch` (`window.cpp`) +
+  `Tile::setRelativeGeometry` / gap setters / desktop resync.
+- **Hints:** `ReflowHint` `{ reason, direction, layout, groupId, staggerIndex }`
+  published on `EffectWindow` as `WindowTilingReflowRole` (`tilingreflow.cpp`).
+- **Policy:** no animation timing in engines. `#6` Phase 0 is still: **try
+  geometry_change empirically** on a live session (checklist is on the issue).
+
+That path animates **on-output geometry changes**. It is the right tool for
+MasterStack/Stacked/Grid/Centered. For Scrolling it is necessary but
+**not sufficient**.
+
+### Three layers of “smooth Scrolling”
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│ 3. Overview / workspace zoom / 4-finger                    │  fullscreen effect
+│    (niri overview-open-close)                               │  ≠ tiling engine
+├─────────────────────────────────────────────────────────────┤
+│ 2. Camera: translate the strip, peek, gesture settle       │  output-pin hooks
+│    (niri horizontal-view-movement + springs)                │  + optional effect
+├─────────────────────────────────────────────────────────────┤
+│ 1. In-tile reflow: consume, expel, width, heights, open     │  geometry_change
+│    (niri window-movement / window-resize / open-close)      │  + existing hints
+└─────────────────────────────────────────────────────────────┘
+     LayoutEngine only sets target rectangles ───────────────►
+```
+
+### Layer 1 — feasible now (effect, no new engine math)
+
+Enable [kwin4_effect_geometry_change](https://github.com/peterfajdiga/kwin4_effect_geometry_change)
+v1.5+ on Plasma 6 Wayland. Run the #6 Phase 0 table **plus Scrolling rows**:
+
+- Open 4+ columns, focus left/right (expect: hidden columns pop; on-screen ones
+  may tween if their tiles actually `moveResize`).
+- Consume / expel / cycle width / center column.
+- Confirm user drag is not tweened.
+
+**Expected limitation:** focus-changing to an off-screen column will **pop**
+(unhide + snap), not pan. That is not a geometry_change bug.
+
+If Phase 0 is good enough for MasterStack, document it in [Usage](usage) and keep
+#6 open only for the Scrolling camera. If JS `windowFrameGeometryChanged` does not
+fire on `tilingMoveResize`, that is a #6 Phase 2 bug (signal), not a niri port.
+
+A later fork of geometry_change should read `WindowTilingReflowRole` for
+direction + stagger (`groupId` / `staggerIndex`). Still an effect. Package in
+**luxusAi** like `kwin-niri-shaders.nix` / `kde-rounded-corners.nix` (oneshot
+enables the plugin; do not grow `hooks.patch`). Watch for fights with
+**glass-warp** (open/close exclusive category) and **shapecorners**.
+
+### Layer 2 — feasible as a bounded patch, not a fork (luxusAi#128 Path A + pin)
+
+This **is** the deferred v3 from luxusAi#128, not a new architecture. v1
+intentionally jumped. Current hide-to-avoid-migration is what blocks v3.
+
+**Goal:** Scrolling windows may have frame geometry that extends past (or sits
+beside) the output, while remaining assigned to that output.
+
+Sketch (implementation is a future issue, not this PR):
+
+1. **`m_allowOverflow`** on the scrolling root; skip `windowGeometry()` output
+   intersect (luxusAi#128 Path A; the line already lives in `hooks.patch`).
+2. **Gate `CustomTile` `[0,1]` intersect** if present on KWin 6.8 (verify; #128
+   thought only size was clamped).
+3. **Output pin.** Skip center-based output migration for tiled Scrolling
+   windows (`window.cpp` / `waylandwindow.cpp` — we already hook some of this
+   for interactive move). Fully off-screen clients may pause (`outputsIntersecting`)
+   — #128 called that acceptable, matching karousel.
+4. **Stop `setHidden` for off-viewport columns** once overflow works. Keep hide
+   for monocle.
+5. **Animate in an effect**, not by interpolating `m_scrollOffset` in the engine.
+   If every column translates by the same Δx, geometry_change looks like a camera
+   even without a camera node. glass-warp continues to own open/close.
+
+**Risks (call them in the issue):**
+
+- Wayland configure of a window whose rect is partly off-output is legal; some
+  clients may not like a position they cannot see.
+- Multi-monitor: must **never** paint or take input on the neighbour. Pin is not
+  enough if the scene still composites the overflow onto the next screen.
+  Empirical test on two adjacent monitors is mandatory.
+- Grows `hooks.patch` (rebase surface). Keep it scrolling-gated and tiny.
+- Does not give springs or flick velocity. That stays in the effect.
+
+If pin + overflow compositing proves impossible without scene-graph work, **stop**
+and document “Scrolling stays hide/show; niri camera is a Hard no.” Do not start
+a render-backend fork. KineticWE already showed that cost (`design.mdx`).
+
+### Layer 3 — effect-only camera (visual ≠ input) — discourage
+
+An effect could translate `EffectWindow`s while leaving the real window rect on
+the output. Looks like niri; clicks miss. niri’s principle is visual = input.
+Skip this unless it is a purely cosmetic “reduce pop” during hide/unhide.
+
+### What KWin already has (do not reinvent)
+
+| Stock / ecosystem | Use for Scrolling? |
+| --- | --- |
+| **`kwin-niri-shaders` / glass-warp** (luxusAi) | **Already the open/close shader.** Do not reimplement. Other `kwin6_effect_*` are installed, opt-in in Animations |
+| **`kde-rounded-corners` / shapecorners** (luxusAi) | **Already the outline.** Unrelated to camera |
+| **geometry_change** (JS effect) | Layer 1 reflow; **not** in luxusAi yet. First try for consume/width (#6). Will fight hide/show Scrolling |
+| **Slide** effect | Desktop/activity transitions, not tile reflow |
+| **Maximize** effect | Can fight geometry_change; already noted in #6 |
+| **Overview / Desktop Grid / Present Windows** | Not a niri overview. Keep using them as Plasma. #33 is wallpaper |
+| **QML `SceneEffect`** | Custom reflow effect if JS is insufficient ([KDE docs](https://develop.kde.org/docs/plasma/kwineffect/)) |
+| **KWin swipe gestures** | Could drive a viewport action (hooks); not springs |
+| **karousel** | KWin *script* scrolling; #128 used it as proof off-screen `frameGeometry` works |
+
+### Recommended decision
+
+1. **Do not** interpolate `m_scrollOffset` inside `ScrollingLayoutEngine` (luxusAi#128
+   already deferred that to v3; timers in the hot path, no refresh alignment,
+   fights interactive move).
+2. **Do not** port niri open/close GLSL again — glass-warp is on.
+3. **Do** finish #6 Phase 0 on a **kwin-noctalia** session (glass-warp already
+   enabled) and write the Usage sentence. If geometry_change is enough for
+   in-tile reflow, package it in luxusAi like the other two effects.
+4. **Do** file W0-1 as **resume Path A** (`m_allowOverflow` + pin), not as a
+   greenfield camera. If it fails, Scrolling stays jump-scroll; spend P1 budget
+   on consume/expel and the move-direction bug instead of fake pans.
+5. **Do not** put niri Overview, workspace strips, or new GLSL shaders on the
+   tiling roadmap.
+
+## Proposed issue wave
+
+Copy-paste titles and bodies. Each body is short on purpose: acceptance + proof.
+Group as GitHub milestones or a meta-issue checklist. Skip anything already
+covered by #4 / #6 / #32 / #33.
+
+### Wave 0 — feel (file first)
+
+#### W0-1. Scrolling: resume luxusAi#128 Path A (`m_allowOverflow`) + output pin
+
+v1 hid off-viewport columns to avoid monitor migration. That blocks niri-like
+pans. Resume the original plan: `Tile::m_allowOverflow`, skip
+`windowGeometry()` output intersect, gate any `CustomTile` `[0,1]` clamp, and
+pin tiled Scrolling windows to their `TileManager` output. Instant jump-scroll
+can stay until an effect tweens the `moveResize`. Do not interpolate
+`scrollOffset` in the engine. Do not start a render-backend fork.
+
+**Acceptance:** a written go/no-go: either a minimal hooks sketch (files +
+conditions) that keeps a column at full width while 40% of it is past the output
+edge without migrating to the neighbour, or a documented Hard no with the
+failing KWin invariant. **Proof:** two-monitor kwin-noctalia session; column
+hanging off the right of the left monitor must not appear on the right monitor
+and must not change `output()`.
+
+#### W0-2. Scrolling: stop resizing peeking columns (depends on W0-1)
+
+Once overflow geometry is legal, `reflow()` should place overlapping columns at
+`colX - scrollOffset` with **unchanged** `Column::width`. Delete hide-for-offscreen
+for those columns (keep hide for monocle). Fit-scroll policy stays.
+
+**Acceptance:** with default width 1/3, focusing along a 5-column strip never
+changes an unfocused column’s width; neighbours peek at full size. **Proof:** log
+or on-screen ruler; `frameGeometry().width()` of a peeking column equals its
+on-screen fully-visible width.
+
+#### W0-3. Docs + empirical: Geometry Change on native tiling (extends #6, do not duplicate)
+
+Run the #6 Phase 0 table on a **kwin-noctalia** session (glass-warp +
+shapecorners already on) with native tiling, including Scrolling
+focus-across-hidden-columns. Record which actions tween vs pop, and whether
+geometry_change fights glass-warp.
+
+**Acceptance:** Usage docs name the effect, suggested duration/easing, and
+explicitly state that Scrolling **camera** pans will not appear until W0-1.
+If the effect is a keeper, add a luxusAi hjem oneshot (same pattern as
+`kwin-niri-shaders.nix`) — not a kwin-tiling patch. **Proof:** checklist
+comment on #6; no new animation code in `src/tiles/`.
+
+#### W0-4. Scrolling reflow hints: treat Hide/Unhide as first-class (only if W0-1 is no-go)
+
+If we must keep `setHidden`, publish a reflow reason so an effect can fade instead
+of pop. This is a consolation prize, not niri parity.
+
+**Acceptance:** focusing an off-screen column emits a hint an effect can read;
+optional fade in a test effect. **Proof:** 20-line JS effect log. Skip if W0-1
+lands.
+
+### Wave 1 — engine UX (can start in parallel with W0-3)
+
+#### W1-1. Scrolling: Meta+Alt Up/Down must move the window inside the column
+
+`ScrollingLayoutEngine::moveWindow` reorders **columns**. Combined with
+`moveInDirection`, `Meta+Alt+Up/Down` moves the column. niri uses
+`move-window-up/down` for that axis.
+
+**Acceptance:** two stacked windows in one column; `Meta+Alt+Down` swaps their
+vertical order and does not change column index. Left/right either move the
+column or consume-or-expel — pick one, document, add a smoke line to
+`session-smoke.md`. **Proof:** three-column fixture in session smoke (or a pure
+test of a new `moveWindowInColumn` helper).
+
+#### W1-2. Scrolling: consume-or-expel left and right (niri Mod+[ ])
+
+If the active window is the only tile in its column, merge it into the neighbour
+in that direction. If the column has multiple tiles, expel the active window into
+a new column on that side. Keep today’s `Meta+Shift+[` / `]` or remap to match
+niri; do not break existing bindings silently (KGlobalAccel caveat).
+
+**Acceptance:** documented matrix (solo vs stacked × left vs right) matching
+niri `consume-or-expel-window-left/right`. **Proof:** session smoke section 6
+extended; no crash on first/last column.
+
+#### W1-3. Scrolling: consume-into-column and expel-from-column
+
+niri `consume-window-into-column` pulls the first window of the **next** column
+in; `expel-window-from-column` pushes a tile out to the right. Implement as engine
+methods (may alias today’s consume/expel). Existing windows must not change width
+(principle 1).
+
+**Acceptance:** next-column first window moves into the focused column; source
+column disappears if emptied. **Proof:** two columns of one window each; consume
+into column → one stacked column.
+
+#### W1-4. Scrolling: drop on a window can insert into that column
+
+Swap-on-drop stays. Add an insert path: dropping on the top/bottom half of a
+target (or a modifier) **consumes** into that column at that index, niri-style.
+Empty-space drop uses cursor X to choose the strip index (`dropWindow` override).
+
+**Acceptance:** drop onto the lower half of a single-window column yields a
+2-high column; drop on the gap between columns inserts a new column there.
+**Proof:** session smoke mouse subsection; no ghost tiles (`cancelMove` /
+`pruneEmpty`).
+
+#### W1-5. Scrolling: `center-focused-column` modes
+
+Add `never` (current fit), `always`, `on-overflow` to kcfg/KCM, default `never`.
+Keep `Meta+Shift+C` as one-shot center. Without W0-1, `always` will still hide
+off-screen columns — acceptable if documented.
+
+**Acceptance:** with `always`, focusing any column recenters it (wide columns
+left-aligned). **Proof:** KCM round-trip + session; `nix flake check` for any new
+pure helper.
+
+### Wave 2 — polish
+
+#### W2-1. Scrolling: expand column to available width
+
+niri `expand-column-to-available-width`: grow the focused column into unused space
+among fully visible columns; if it is alone, toggle full width.
+
+**Acceptance:** two 1/3 columns with empty space → focused column grows to fill
+visible remainder; existing neighbour width unchanged. **Proof:** session with
+default 0.5 then 1/3 presets.
+
+#### W2-2. Configurable column-width presets (and reverse)
+
+Replace the hardcoded `{1/3, 1/2, 2/3, 1.0}` with kcfg; add reverse cycle. Full
+width can stay a preset or a dedicated maximize-column alias of `setPrimarySplit(1.0)`.
+
+**Acceptance:** KCM list; cycle/reverse visit only those values. **Proof:** set
+presets to `0.25, 0.5` and cycle twice.
+
+#### W2-3. Scrolling mouse: double-click side edge toggles full width
+
+niri toggles full width on double-click of a left/right resize edge. Map to
+`setPrimarySplit(1.0)` / restore previous width. Hooks/input, not a new layout
+kind.
+
+**Acceptance:** double-click the vertical splitter of a 0.5 column → width 1.0;
+again restores 0.5. **Proof:** session; does not fire on MasterStack divider.
+
+#### W2-4. 3-finger swipe / Mod+MMB to scroll the Scrolling viewport
+
+Bind KWin swipe / `Mod+middle-drag` to a `scrollBy(delta)` on the active
+Scrolling engine. Without W0-1 this will hide/show; still useful if W0-1 lands.
+Do **not** implement spring settle in C++ — if it feels dead, that is the
+effect’s job.
+
+**Acceptance:** a documented bind moves `m_scrollOffset` and focuses the column
+that owns the viewport center. **Proof:** session on a touchpad or mouse;
+MasterStack ignores the action.
+
+#### W2-5. Insert-hint overlay (effect or OSD)
+
+During interactive move in Scrolling, show new-column vs in-column target.
+Engine exposes the target rect; drawing is QML/effect (same split as #6).
+
+**Acceptance:** a visible hint follows the cursor; drop matches the hint.
+**Proof:** screenshot in the PR; no extra `hooks.patch` if possible.
+
+### Already tracked — do not re-file
+
+| Issue | Why it stays there |
+| --- | --- |
+| #6 | Layer 1 animation + hint API |
+| #4 task 2 | Drag-swap — done in tree; close the task when verified |
+| #32 | Columns layout is **not** Scrolling |
+| #33 | Plasma Overview wallpaper on Noctalia |
+| #20 | Per-desktop sizing (column width) |
+| #21 | D-Bus / scripting — useful later for an effect to query layout kind |
+| luxusAi#128 | Original Scrolling design (Path A overflow, v1 jump, v3 smooth). Closed when work moved here — **do not re-open there**; W0-1 is the continuation |
+
+### Suggested filing order for Ada
+
+1. W0-3 (comment on #6) — no code, unblocks “is geometry_change enough?”
+2. W1-1, W1-2, W1-3 — engine-only, high leverage, no camera.
+3. W0-1 (investigation). Gate W0-2, W2-4, peek/struts on the go/no-go.
+4. W1-4, W1-5, Wave 2 as capacity allows.
+5. Never a “implement niri Overview in the tiling patch” issue.
+
+## Appendix: shortcut cheat sheet
+
+| Action | niri default | kwin-tiling default |
+| --- | --- | --- |
+| Focus column / window | `Mod+Arrows` | `Meta+Arrows` (same idea) |
+| Move column | `Mod+Ctrl+Left/Right` | `Meta+Shift+Left/Right` **or** `Meta+Alt+Left/Right` (both hit `moveWindow` → column) |
+| Move window in column | `Mod+Ctrl+Up/Down` | **Broken** (`Meta+Alt+Up/Down` moves the column) |
+| Consume-or-expel | `Mod+[/]` | `Meta+Shift+[` consume left; `Meta+Shift+]` expel right |
+| Consume into / expel from | `Mod+,/.` | Missing as distinct actions |
+| Preset width | `Mod+R` | `Meta+Shift+V` |
+| Center column | `Mod+C` | `Meta+Shift+C` |
+| Maximize column | `Mod+F` | Cycle includes 1.0; no dedicated action |
+| Overview | `Mod+O` | Plasma Overview (different) |
+| Float | `Mod+V` | `Meta+W` |
+| Tabbed column | `Mod+W` | Missing (`Meta+W` is float) |
+
+## Appendix: code map
+
+| Area | kwin-tiling | niri |
+| --- | --- | --- |
+| Strip + viewport | `scrollinglayoutengine.cpp` `reflow` / `scrollActiveIntoView` | `src/layout/scrolling.rs` `ScrollingSpace` |
+| Vertical stack | `stackcolumn.h` | `Column` + `Tile` |
+| Consume/expel | `consumeWindow` / `expelWindow` | `consume_or_expel_*`, `consume_into_column`, `expel_from_column` |
+| Controller actions | `tilingcontroller.cpp` `centerColumn`, `cycleColumnWidth`, `consumeWindow`, `expelWindow`, `moveInDirection` | `src/layout/mod.rs` `Layout` |
+| Reflow → effects | `tilingreflow.{h,cpp}`, `hooks.patch` `tilingMoveResize` | built-in `src/animation/` |
+| Gaps | `Tile::gapBetween/gapMargins` in `hooks.patch` | `layout { gaps; struts }` |
+| Hide off-screen | `StackColumn::fill(..., offscreen)` | not applicable (camera) |
+
+niri clone used for this write-up was not committed; re-clone
+`https://github.com/niri-wm/niri.git` at `02fdd8e` if you need to quote further.

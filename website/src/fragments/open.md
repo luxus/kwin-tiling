@@ -1,1 +1,1 @@
-- **Scrolling polish** — basic horizontal-strip layout works, but consume/expel UX and behavior still need tightening
+- **Scrolling polish** — basic horizontal-strip layout works, but consume/expel UX and behavior still need tightening. Analysis and proposed issues: [Scrolling vs niri](scrolling-vs-niri)
