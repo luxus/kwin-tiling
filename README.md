@@ -70,7 +70,7 @@ Enabled=true
 
 ```sh
 nix build .#kwin-tiling     # the patched compositor (long: compiles KWin)
-nix flake check             # fast: pure geometry/move self-checks, no KWin build
+nix flake check             # fast: pure geometry/config/slotlist self-checks, no KWin build
 bash pkgs/kwin-tiling/tests/run.sh   # same pure suite via g++
 ```
 

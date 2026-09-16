@@ -31,8 +31,9 @@ Layouts are **thin arrangement engines** over one vertical primitive:
 - **`StackColumn`** — ordered, weighted vertical stack (insert, drag/swap,
   height fill). Used by every kind.
 - **Pure math / policy headers** — `columnmath`, `masterstackmath`, `gridmath`,
-  `directionmath`, `movestate`, `leafcolumn`, `movefsm`, `sizingpolicy` — tested
-  without linking KWin (`nix flake check` / `tests/run.sh`).
+  `directionmath`, `slotlist`, `movestate`, `leafcolumn`, `movefsm`,
+  `sizingpolicy`, `tilingconfig` — tested without linking KWin (`nix flake check`
+  / `tests/run.sh`).
 - **`LayoutEngine` base** — zoom/monocle reflow, resize gate, no-op knobs for
   layout-specific actions.
 - **Scrolling** is deliberately separate (viewport, column widths, consume/expel)

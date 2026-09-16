@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include <algorithm>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -13,9 +14,11 @@
 
 // Pure config-resolution helpers for TilingController.
 // Layout-kind parsing, enabled-list fallback, remembered-vs-default
-// precedence, and smart-gap suppression — unit-tested without Qt/KWin
-// (tests/tilingconfig_test.cpp). TilingController loads KConfig once in
-// reconfigure() and consults the cache on the window add/remove/migrate path.
+// precedence, per-output sizing clamp, and smart-gap suppression — unit-tested
+// without Qt/KWin (tests/tilingconfig_test.cpp). TilingController loads KConfig
+// once in reconfigure() and consults the cache on the window add/remove/migrate
+// path. Sizing seed/write still reads KConfig; this header is the clamp +
+// override-if-present merge.
 
 namespace KWin::tilingconfig
 {
@@ -189,6 +192,52 @@ inline GapSettings mergeGaps(const GapSettings &defaults, const GapOverride &ove
 inline bool shouldSuppressGaps(bool gapsSuppressed, int windowCount)
 {
     return gapsSuppressed || windowCount <= 1;
+}
+
+// --- per-output sizing (MasterRatio / MasterCount / DefaultColumnWidth) ---
+// Same bounds TilingController and the KCM use. Override-if-present, else
+// the global default, then clamp either way.
+
+inline constexpr double kMinMasterRatio = 0.1;
+inline constexpr double kMaxMasterRatio = 0.9;
+inline constexpr double kMinColumnWidth = 0.1;
+inline constexpr double kMaxColumnWidth = 1.0;
+inline constexpr int kMinMasterCount = 1;
+
+inline double clampMasterRatio(double v)
+{
+    return std::clamp(v, kMinMasterRatio, kMaxMasterRatio);
+}
+
+inline int clampMasterCount(int v)
+{
+    return std::max(kMinMasterCount, v);
+}
+
+inline double clampColumnWidth(double v)
+{
+    return std::clamp(v, kMinColumnWidth, kMaxColumnWidth);
+}
+
+struct OutputSizing {
+    double masterRatio = 0.5;
+    int masterCount = 1;
+    double defaultColumnWidth = 0.5;
+};
+
+struct OutputSizingOverride {
+    std::optional<double> masterRatio;
+    std::optional<int> masterCount;
+    std::optional<double> defaultColumnWidth;
+};
+
+inline OutputSizing resolveOutputSizing(const OutputSizing &defaults, const OutputSizingOverride &override = {})
+{
+    OutputSizing out;
+    out.masterRatio = clampMasterRatio(override.masterRatio.value_or(defaults.masterRatio));
+    out.masterCount = clampMasterCount(override.masterCount.value_or(defaults.masterCount));
+    out.defaultColumnWidth = clampColumnWidth(override.defaultColumnWidth.value_or(defaults.defaultColumnWidth));
+    return out;
 }
 
 } // namespace KWin::tilingconfig
