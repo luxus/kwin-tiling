@@ -216,6 +216,7 @@ private:
     // Shared leave/rejoin used by minimize and maximize. vacate always
     // remove+prune on the home engine (maximize may already have forgotten
     // the leaf, so shouldHandleRemove is false and we must not walk others).
+    // rejoin no-ops if the window is still minimized or still maximized.
     void vacateLayout(Window *window);
     void rejoinLayout(Window *window);
     void focusInDirection(LayoutEngine::FocusDirection direction);

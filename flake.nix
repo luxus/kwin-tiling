@@ -251,6 +251,14 @@
               ./tilingdbuspolicy-test
               touch $out
             '';
+        ghosttile =
+          pkgs.runCommand "kwin-tiling-ghosttile-test" { nativeBuildInputs = [ pkgs.gcc ]; }
+            ''
+              g++ -std=c++20 -O2 -Wall -Wextra -o ghosttile-test \
+                ${./pkgs/kwin-tiling}/tests/ghosttile_test.cpp
+              ./ghosttile-test
+              touch $out
+            '';
         # Single entry that runs the whole pure suite (same as tests/run.sh).
         pure-suite =
           pkgs.runCommand "kwin-tiling-pure-suite" { nativeBuildInputs = [ pkgs.gcc pkgs.bash ]; }
