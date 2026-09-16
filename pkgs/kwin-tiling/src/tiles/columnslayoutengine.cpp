@@ -278,7 +278,7 @@ void ColumnsLayoutEngine::moveWindow(Window *window, int delta)
     }
     const QList<Window *> ws = windows();
     const int flat = ws.indexOf(window);
-    const int dest = std::clamp(flat + delta, 0, ws.count() - 1);
+    const int dest = std::clamp(flat + delta, 0, int(ws.count()) - 1);
     if (dest == flat) {
         return;
     }
@@ -307,7 +307,7 @@ void ColumnsLayoutEngine::reorderWindow(Window *window, int delta)
         return;
     }
     const int flat = flatIndex(c, l);
-    const int total = windows().count();
+    const int total = int(windows().count());
     const int newFlat = std::clamp(flat + delta, 0, total - 1);
     if (newFlat == flat) {
         return;
