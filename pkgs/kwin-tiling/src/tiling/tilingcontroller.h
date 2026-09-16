@@ -108,12 +108,14 @@ public:
     // its column (master or stack). Transient — not persisted.
     void resizeActiveWindowHeight(qreal delta);
 
-    // QoL actions: reset sizing to defaults; Scrolling centre/width-preset; and
-    // monocle (zoom the active window full-screen, toggle to restore).
+    // QoL actions: reset sizing to defaults; Scrolling centre/width-preset/
+    // expand-to-available-width; and monocle (zoom the active window full-screen,
+    // toggle to restore).
     void resetSizes();
     void centerColumn();
     void cycleColumnWidth();
     void cycleColumnWidthReverse();
+    void expandColumnToAvailableWidth();
     void toggleZoom();
     // Scrolling: niri consume-into-column / expel-from-column. consumeWindow /
     // expelWindow alias those methods so existing shortcuts keep working.

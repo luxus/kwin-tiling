@@ -36,6 +36,7 @@ All shortcuts are registered as KWin actions. Rebind them in *System Settings
 | Toggle gaps | `Meta+Shift+G` |
 | Scrolling: center column / cycle column width | `Meta+Shift+C` / `Meta+Shift+V` |
 | Scrolling: reverse cycle column width | `Meta+Ctrl+Shift+V` |
+| Scrolling: expand column to available width | `Meta+Ctrl+F` |
 | Scrolling: consume into column / expel from column | `Meta+Shift+[` / `Meta+Shift+]` |
 | Switch to MasterStack / Stacked / Scrolling / Centered / Grid | *(unbound)* |
 

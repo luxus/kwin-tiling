@@ -83,11 +83,13 @@ public:
     void setColumnWidthPresets(const QList<qreal> &presets) override;
 
     // QoL: reset every column to the default width; centre the active column in
-    // the viewport; cycle the active column through width presets.
+    // the viewport; cycle the active column through width presets; grow the
+    // focused column into unused visible space (niri expand-column-to-available-width).
     void resetSizes() override;
     void centerActiveColumn() override;
     void cycleColumnWidth() override;
     void cycleColumnWidthReverse() override;
+    void expandColumnToAvailableWidth() override;
     // niri consume-into-column / expel-from-column. consumeWindow / expelWindow
     // alias these so Meta+Shift+[ / ] keep working (KGlobalAccel).
     void consumeWindow() override;
@@ -102,11 +104,13 @@ private:
     struct Column
     {
         StackColumn stack;  // the vertical stack of windows in this column
-        qreal width = 0.5;  // fraction of the view width
+        qreal width = 0.5;  // fraction of the view width (ignored while isFullWidth)
+        bool isFullWidth = false; // toggle: occupy the whole viewport, keep width
     };
 
     bool findWindow(Window *window, int *colIdx, int *leafIdx) const;
     int activeColumnIndex() const;
+    qreal effectiveColumnWidth(const Column &col) const;
     void scrollActiveIntoView();
     QList<CustomTile *> allLeaves() const;
 

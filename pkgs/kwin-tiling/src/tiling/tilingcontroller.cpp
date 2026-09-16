@@ -2247,6 +2247,15 @@ void TilingController::cycleColumnWidthReverse()
     }
 }
 
+void TilingController::expandColumnToAvailableWidth()
+{
+    Window *window = activeTiledWindow();
+    LayoutEngine *engine = window ? layoutEngineForWindow(window) : activeLayoutEngine();
+    if (engine) {
+        engine->expandColumnToAvailableWidth();
+    }
+}
+
 void TilingController::toggleZoom()
 {
     Window *window = activeTiledWindow();

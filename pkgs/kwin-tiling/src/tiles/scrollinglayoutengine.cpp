@@ -360,13 +360,13 @@ void ScrollingLayoutEngine::reflow()
     std::vector<double> widths;
     widths.reserve(static_cast<size_t>(m_columns.count()));
     for (const Column &col : m_columns) {
-        widths.push_back(col.width);
+        widths.push_back(effectiveColumnWidth(col));
     }
     const auto placed = viewportmath::placeColumns(widths, m_scrollOffset);
     for (int c = 0; c < m_columns.count(); ++c) {
         const auto &p = placed[static_cast<size_t>(c)];
-        // Full Column::width at stripX - scrollOffset. Hide only fully
-        // off-viewport columns (Path A coexistence); peeking stays shown.
+        // Full stored (or full-width-toggle) width at stripX - scrollOffset.
+        // Hide only fully off-viewport columns (Path A coexistence); peeking stays shown.
         const bool offscreen = viewportmath::hideForOffscreen(p);
         m_columns[c].stack.fill(RectF(p.x, 0.0, p.width, 1.0), offscreen, m_activeWindow);
     }
@@ -379,7 +379,7 @@ void ScrollingLayoutEngine::scrollActiveIntoView()
     std::vector<double> widths;
     widths.reserve(static_cast<size_t>(m_columns.count()));
     for (const Column &col : m_columns) {
-        widths.push_back(col.width);
+        widths.push_back(effectiveColumnWidth(col));
     }
     const int ac = activeColumnIndex();
     m_scrollOffset = viewportmath::scrollOffsetForFocus(
@@ -458,10 +458,12 @@ void ScrollingLayoutEngine::setPrimarySplit(qreal ratio)
     if (ac < 0 || ac >= m_columns.count()) {
         return;
     }
-    if (qFuzzyCompare(m_columns[ac].width, ratio)) {
+    Column &col = m_columns[ac];
+    if (!col.isFullWidth && qFuzzyCompare(col.width, ratio)) {
         return;
     }
-    m_columns[ac].width = ratio;
+    col.isFullWidth = false;
+    col.width = ratio;
     reflow();
 }
 
@@ -471,7 +473,7 @@ qreal ScrollingLayoutEngine::primarySplit() const
     if (ac < 0 || ac >= m_columns.count()) {
         return m_defaultColWidth;
     }
-    return m_columns[ac].width;
+    return effectiveColumnWidth(m_columns[ac]);
 }
 
 void ScrollingLayoutEngine::setDefaultColumnWidth(qreal width)
@@ -502,6 +504,7 @@ void ScrollingLayoutEngine::setColumnWidthPresets(const QList<qreal> &presets)
 void ScrollingLayoutEngine::resetSizes()
 {
     for (Column &col : m_columns) {
+        col.isFullWidth = false;
         col.width = m_defaultColWidth;
         col.stack.clearWeights();
     }
@@ -516,12 +519,12 @@ void ScrollingLayoutEngine::centerActiveColumn()
     }
     qreal left = 0.0;
     for (int i = 0; i < ac; ++i) {
-        left += m_columns[i].width;
+        left += effectiveColumnWidth(m_columns[i]);
     }
     // One-shot centre (Meta+Shift+C), independent of CenterFocusedColumn.
     // never/on-overflow fit-scroll in reflow() leaves a fully visible column
     // where it is; always re-centers to the same offset.
-    m_scrollOffset = viewportmath::centerScrollOffset(left, m_columns[ac].width);
+    m_scrollOffset = viewportmath::centerScrollOffset(left, effectiveColumnWidth(m_columns[ac]));
     reflow();
 }
 
@@ -546,11 +549,52 @@ void ScrollingLayoutEngine::cycleColumnWidthBy(int direction)
     for (const qreal p : m_columnWidthPresets) {
         presets.push_back(double(p));
     }
-    const qreal next = qreal(columnwidthpresets::cycle(double(m_columns[ac].width), presets, direction));
-    if (qFuzzyCompare(m_columns[ac].width, next)) {
+    const qreal cur = effectiveColumnWidth(m_columns[ac]);
+    const qreal next = qreal(columnwidthpresets::cycle(double(cur), presets, direction));
+    if (!m_columns[ac].isFullWidth && qFuzzyCompare(m_columns[ac].width, next)) {
         return;
     }
+    m_columns[ac].isFullWidth = false;
     m_columns[ac].width = next;
+    reflow();
+}
+
+void ScrollingLayoutEngine::expandColumnToAvailableWidth()
+{
+    const int ac = activeColumnIndex();
+    if (ac < 0 || ac >= m_columns.count()) {
+        return;
+    }
+
+    std::vector<double> widths;
+    widths.reserve(static_cast<size_t>(m_columns.count()));
+    for (const Column &col : m_columns) {
+        widths.push_back(effectiveColumnWidth(col));
+    }
+
+    const auto plan = scrollingmath::expandToAvailableWidth(widths, ac, m_scrollOffset);
+    switch (plan.action) {
+    case scrollingmath::ExpandAction::None:
+        return;
+    case scrollingmath::ExpandAction::ToggleFullWidth: {
+        Column &col = m_columns[ac];
+        const qreal shown = effectiveColumnWidth(col);
+        if (shown >= 1.0 - 0.01) {
+            col.isFullWidth = false;
+            if (col.width >= 1.0 - 0.01) {
+                col.width = m_defaultColWidth;
+            }
+        } else {
+            col.isFullWidth = true;
+        }
+        break;
+    }
+    case scrollingmath::ExpandAction::Grow:
+        m_columns[ac].isFullWidth = false;
+        m_columns[ac].width = std::clamp(plan.newWidth, 0.1, 1.0);
+        m_scrollOffset = plan.scrollOffset;
+        break;
+    }
     reflow();
 }
 
@@ -650,6 +694,7 @@ bool ScrollingLayoutEngine::applyResize(Window *window, const RectF &area, bool 
     }
 
     if (widthChanged && area.width() > 0 && geom.width() > 0) {
+        m_columns[c].isFullWidth = false;
         m_columns[c].width = std::clamp(geom.width() / area.width(), 0.1, 1.0);
     }
 
@@ -684,6 +729,11 @@ int ScrollingLayoutEngine::activeColumnIndex() const
         }
     }
     return 0;
+}
+
+qreal ScrollingLayoutEngine::effectiveColumnWidth(const Column &col) const
+{
+    return col.isFullWidth ? 1.0 : col.width;
 }
 
 } // namespace KWin
