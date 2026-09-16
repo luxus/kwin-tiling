@@ -143,7 +143,8 @@
                     let
                       n = baseNameOf (toString p);
                     in
-                    n != "dependency-paths.patch" && n != "fontconfig.patch"
+                    # store basename is <hash>-dependency-paths.patch
+                    !(lib.hasInfix "dependency-paths.patch" n) && !(lib.hasInfix "fontconfig.patch" n)
                   ) (old.patches or [ ]))
                   ++ [
                     (prev.replaceVars ./pkgs/kwin-tiling/patches/plasma-workspace-6.8-dependency-paths.patch {
