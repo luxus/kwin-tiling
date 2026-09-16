@@ -75,7 +75,7 @@ App (Tiling)** (permanent class rule).
 | Setting | What it does |
 | --- | --- |
 | Enable tiling | Global on/off switch |
-| Available layouts | Which layouts appear in the cycle (MasterStack, Stacked, Scrolling, Centered) |
+| Available layouts | Which layouts appear in the cycle (MasterStack, Stacked, Scrolling, Centered; Grid is opt-in) |
 | Default layout | Layout used on new monitor/desktop pairs |
 | Master width | Master column as a fraction of screen width (0.1–0.9) |
 | Master count | How many windows sit in the master area |
@@ -85,6 +85,7 @@ App (Tiling)** (permanent class rule).
 | Gap between | Space between adjacent tiles |
 | Per-output overrides | Different layout, gaps, or sizing per monitor |
 | Per-desktop overrides | Layout and sizing (master ratio/count, column width) per (desktop, monitor) pair |
+| New window placement | `kwinrc` only: `NewWindowPlacement=end` (default) appends; `master` promotes new windows to master |
 
 Per-monitor overrides can be reset with the **Reset all per-monitor overrides**
 button in the KCM. Per-desktop sizing can be cleared with **Use default sizes**
@@ -101,12 +102,16 @@ MasterRatio=0.5
 MasterCount=1
 DefaultColumnWidth=0.5
 CenterFocusedColumn=never
+NewWindowPlacement=end
 GapBetween=4
 GapLeft=8
 ```
 
 Per-monitor values live under `[Tiling][Output <name>]` subgroups. Per-desktop
 layout and sizing live under `[Tiling][DesktopOutput <n>:<output>]`.
+
+Per-app output pinning lives under `[TilingRules]` as `AssignOutput` (e.g.
+`AssignOutput=firefox:DP-2`). It is not in the KCM yet.
 
 ## Layouts in practice
 
@@ -121,6 +126,8 @@ layout and sizing live under `[Tiling][DesktopOutput <n>:<output>]`.
   ([#40](https://github.com/luxus/kwin-tiling/issues/40) Path A), `always` still
   hides off-screen columns.
 - **Centered** — master window in the centre, others in left/right stacks.
+- **Grid** — opt-in smoothly scaling grid (not in the default `EnabledLayouts`
+  list; enable it in the KCM or add `Grid` to `EnabledLayouts`).
 
 Cycle between enabled layouts with the cycle action, or set a default in the KCM.
 

@@ -3,8 +3,8 @@ title: KWin Tiling
 description: Native dynamic tiling patched into KWin — overview and design.
 ---
 
-Dynamic tiling for KDE Plasma — master-stack, stacked, scrolling, and centred
-layouts, adjustable gaps, float/ignore rules, and a settings panel — built
+Dynamic tiling for KDE Plasma — master-stack, stacked, scrolling, centred, and
+grid layouts, adjustable gaps, float/ignore rules, and a settings panel — built
 **into** stock KWin, not as a separate compositor.
 
 ![Tiled desktop with master-stack layout on the left monitor and stacked layout on the right](/images/desktop-tiling-demo.webp)
@@ -21,7 +21,7 @@ KWin script API allows — without maintaining a renamed compositor fork. We pat
 stock KWin with vendored source and a small hooks patch instead of carrying a
 full compositor fork like
 [KineticWE](https://gitlab.com/theblackdon/kineticwe) did. See
-[Design](design) for the comparison — **37 files** touched here vs **123**
+[Design](design) for the comparison — **62 files** touched here vs **123**
 diverging `src/` files in the fork, and none of its QPainter backend or install
 scaffolding.
 
@@ -81,4 +81,5 @@ After any host rebuild that replaces KWin, **relogin** and optionally run
 `pkgs/kwin-tiling/scripts/session-smoke.md`.
 
 For packaging details and source layout, see `pkgs/kwin-tiling/README.md` in the
-repository. Tracked against stock **KWin 6.7.x** (e.g. 6.7.3).
+repository. Tracked against **KWin 6.8 beta (6.7.90)** (nixpkgs stable KWin is
+still 6.7.x; this flake overrides the compositor to the beta).
