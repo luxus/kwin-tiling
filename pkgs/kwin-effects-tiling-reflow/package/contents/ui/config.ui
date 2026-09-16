@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>TilingReflowEffectConfig</class>
+ <widget class="QWidget" name="TilingReflowEffectConfig">
+  <layout class="QFormLayout" name="formLayout">
+   <item row="1" column="0">
+    <widget class="QLabel" name="label_Duration">
+     <property name="text">
+      <string>Duration:</string>
+     </property>
+    </widget>
+   </item>
+   <item row="1" column="1">
+    <widget class="QSpinBox" name="kcfg_Duration">
+     <property name="sizePolicy">
+      <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+       <horstretch>0</horstretch>
+       <verstretch>0</verstretch>
+      </sizepolicy>
+     </property>
+     <property name="suffix">
+      <string> milliseconds</string>
+     </property>
+     <property name="maximum">
+      <number>9999</number>
+     </property>
+     <property name="singleStep">
+      <number>5</number>
+     </property>
+    </widget>
+   </item>
+
+   <item row="2" column="0">
+    <widget class="QLabel" name="label_ExcludedWindowClasses">
+     <property name="text">
+      <string>Excluded window classes:</string>
+     </property>
+    </widget>
+   </item>
+   <item row="2" column="1">
+    <widget class="QLineEdit" name="kcfg_ExcludedWindowClasses">
+     <property name="sizePolicy">
+      <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+       <horstretch>0</horstretch>
+       <verstretch>0</verstretch>
+      </sizepolicy>
+     </property>
+    </widget>
+   </item>
+
+   <item row="3" column="1">
+    <widget class="QCheckBox" name="kcfg_CrossFade">
+     <property name="sizePolicy">
+      <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+       <horstretch>0</horstretch>
+       <verstretch>0</verstretch>
+      </sizepolicy>
+     </property>
+     <property name="text">
+      <string>Cross-fade (also forced on layout switch)</string>
+     </property>
+    </widget>
+   </item>
+
+   <item row="4" column="1">
+    <widget class="QCheckBox" name="kcfg_PreferHints">
+     <property name="sizePolicy">
+      <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+       <horstretch>0</horstretch>
+       <verstretch>0</verstretch>
+      </sizepolicy>
+     </property>
+     <property name="text">
+      <string>Use tiling reflow hints when present</string>
+     </property>
+    </widget>
+   </item>
+
+   <item row="5" column="0">
+    <widget class="QLabel" name="label_StaggerMs">
+     <property name="text">
+      <string>Stagger per window:</string>
+     </property>
+    </widget>
+   </item>
+   <item row="5" column="1">
+    <widget class="QSpinBox" name="kcfg_StaggerMs">
+     <property name="sizePolicy">
+      <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+       <horstretch>0</horstretch>
+       <verstretch>0</verstretch>
+      </sizepolicy>
+     </property>
+     <property name="suffix">
+      <string> milliseconds</string>
+     </property>
+     <property name="maximum">
+      <number>250</number>
+     </property>
+     <property name="singleStep">
+      <number>1</number>
+     </property>
+    </widget>
+   </item>
+  </layout>
+ </widget>
+ <resources/>
+ <connections/>
+</ui>

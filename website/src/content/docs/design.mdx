@@ -51,7 +51,10 @@ Architecture.
 
 For rounded corners and focus outlines on frameless windows, use the separate
 [`kde-rounded-corners`](https://github.com/matinlotfali/KDE-Rounded-Corners)
-effect — a normal KWin plugin, not baked into the compositor.
+effect — a normal KWin plugin, not baked into the compositor. Animated tiled
+reflow is the same pattern: `kwin-effects-tiling-reflow` in this flake, which
+reads `WindowTilingReflowRole` hints from the patch and never puts timing in
+`LayoutEngine`.
 
 Scrolling layout is PaperWM/niri-inspired, but we are not a niri clone: KWin
 tiles live in per-output coordinates, so off-viewport columns are hidden rather

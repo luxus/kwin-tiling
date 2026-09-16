@@ -70,9 +70,16 @@ Enabled=true
 
 ```sh
 nix build .#kwin-tiling     # the patched compositor (long: compiles KWin)
+nix build .#kwin-effects-tiling-reflow  # optional reflow animation effect
 nix flake check             # fast: pure geometry/config/slotlist self-checks, no KWin build
 bash pkgs/kwin-tiling/tests/run.sh   # same pure suite via g++
 ```
+
+Animated reflow is a **separate** KWin effect (`kwin-effects-tiling-reflow`),
+forked from [geometry_change](https://github.com/peterfajdiga/kwin4_effect_geometry_change)
+so it can read `WindowTilingReflowRole` when the patched compositor publishes
+it. Off by default; enable *Tiling Reflow* in Desktop Effects. See
+`pkgs/kwin-effects-tiling-reflow/README.md`.
 
 Tracks **KWin 6.8 beta (6.7.90)** — `pkgs/kwin-tiling/default.nix` overrides
 `kdePackages.kwin` (and its matching Plasma-versioned deps) to the beta from
@@ -107,4 +114,5 @@ in `hooks.patch`) and skip its
 QPainter backend, hand-rolled borders, install scripts, and binary rename. For
 rounded corners use the separate
 [kde-rounded-corners](https://github.com/matinlotfali/KDE-Rounded-Corners)
-effect.
+effect. For tiled reflow animation use this flake's
+`kwin-effects-tiling-reflow` (same plugin pattern — not a compositor fork).

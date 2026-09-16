@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<kcfg xmlns="http://www.kde.org/standards/kcfg/1.0"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xsi:schemaLocation="http://www.kde.org/standards/kcfg/1.0
+                          http://www.kde.org/standards/kcfg/1.0/kcfg.xsd" >
+    <kcfgfile name=""/>
+    <group name="">
+        <entry name="Duration" type="UInt">
+            <default>220</default>
+        </entry>
+        <entry name="ExcludedWindowClasses" type="String">
+            <default>krunner,yakuake,plasmashell,org.kde.plasmashell</default>
+        </entry>
+        <entry name="CrossFade" type="Bool">
+            <default>false</default>
+        </entry>
+        <entry name="PreferHints" type="Bool">
+            <default>true</default>
+        </entry>
+        <entry name="StaggerMs" type="UInt">
+            <default>16</default>
+        </entry>
+    </group>
+</kcfg>

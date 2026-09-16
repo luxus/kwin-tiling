@@ -324,6 +324,31 @@ Hand-rolled compositor borders are out of scope. Use the separate
 effect (`pkgs.kde-rounded-corners`) — a normal plugin, same pattern as this
 patch: small upstream-friendly integration, not a fork.
 
+## Reflow animation (optional desktop effect)
+
+Layout engines only publish **hints**; they do not own duration or easing.
+`WindowTilingReflowRole` is a `QVariantMap` set on the `EffectWindow` immediately
+before a tiling `moveResize` (`tilingreflow.h` / `publishTilingReflowHint`).
+
+JS/QML effects read it as:
+
+```js
+effect.readWindowData(window, Effect.WindowTilingReflowRole)
+```
+
+| Field | Meaning |
+| --- | --- |
+| `reason` | Why this `moveResize` ran (`Reflow`, `Add`, `Remove`, `LayoutSwitch`, …) |
+| `direction` | Dominant travel (`FromLeft`/`FromRight`/`FromAbove`/`FromBelow`/`None`) |
+| `layout` | `LayoutKind` of the engine that reflowed |
+| `groupId` | Generation counter for one reflow batch |
+| `staggerIndex` | Index within that batch (0..n-1) |
+
+If no effect reads the role, tiling behaviour is unchanged. This repo packages a
+geometry_change fork as `kwin-effects-tiling-reflow` that uses the map when
+present and infers motion from the geometry delta when it is absent. Details:
+`pkgs/kwin-effects-tiling-reflow/README.md`.
+
 ## Compared to KineticWE
 
 Early inspiration from

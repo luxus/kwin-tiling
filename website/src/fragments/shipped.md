@@ -13,6 +13,7 @@
 - **Resize axis gating** — split updates only apply to the axis actually dragged
 - **Retile** — `Meta+Shift+R` rebuilds the active screen's layout when tiles and windows drift out of sync
 - **Packaging** — vendored source + small hooks patch over stock KWin (6.8 beta / 6.7.90); ships as a Nix flake module/overlay
+- **Tiling Reflow effect** — optional `kwin-effects-tiling-reflow` plugin; reads `WindowTilingReflowRole` when present
 - **Testable pure core** — column/grid/master-stack math, slotlist, overflow Path A, layout/sizing
   precedence, scrollingmove, viewportmath, move FSM, leaf cancel rules without linking KWin
 - **Session smoke** — `pkgs/kwin-tiling/scripts/session-smoke.md` for post-relogin checks

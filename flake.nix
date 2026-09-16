@@ -21,6 +21,10 @@
       # kdePackages, so this builds without any overlay applied (no recursion).
       packages = forAllSystems (pkgs: rec {
         kwin-tiling = pkgs.callPackage ./pkgs/kwin-tiling { };
+        # Optional JS effect: animate tiled reflow via WindowTilingReflowRole
+        # (falls back to geometry-delta inference). Same plugin pattern as
+        # pkgs.kde-rounded-corners — not a KWin fork.
+        kwin-effects-tiling-reflow = pkgs.callPackage ./pkgs/kwin-effects-tiling-reflow { };
         default = kwin-tiling;
       });
 
@@ -31,6 +35,7 @@
         kdePackages = prev.kdePackages // {
           kwin = import ./pkgs/kwin-tiling { inherit (prev) lib kdePackages fetchurl libcap; };
         };
+        kwin-effects-tiling-reflow = prev.callPackage ./pkgs/kwin-effects-tiling-reflow { };
       };
 
       # Compose onto a host to give it native KWin tiling. Patching kwin rebuilds
@@ -40,6 +45,16 @@
         { ... }:
         {
           nixpkgs.overlays = [ self.overlays.default ];
+        };
+
+      # Installs the effect package onto XDG_DATA_DIRS. Enabling it is still a
+      # kwinrc / System Settings toggle (off by default). Does not patch KWin.
+      nixosModules.kwin-effects-tiling-reflow =
+        { pkgs, ... }:
+        {
+          environment.systemPackages = [
+            (pkgs.callPackage ./pkgs/kwin-effects-tiling-reflow { })
+          ];
         };
 
       # Fast, KWin-free self-check of the pure column arithmetic (the part that is
@@ -187,6 +202,13 @@
               g++ -std=c++20 -O2 -Wall -Wextra -o overflowmath-test \
                 ${./pkgs/kwin-tiling}/tests/overflowmath_test.cpp
               ./overflowmath-test
+              touch $out
+            '';
+        tiling-reflow-js =
+          pkgs.runCommand "kwin-effects-tiling-reflow-test" { nativeBuildInputs = [ pkgs.nodejs ]; }
+            ''
+              cp -r ${./pkgs/kwin-effects-tiling-reflow} tree
+              node tree/tests/reflowanimation_test.js
               touch $out
             '';
         # Single entry that runs the whole pure suite (same as tests/run.sh).
