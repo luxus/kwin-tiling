@@ -101,8 +101,8 @@ Early inspiration came from
 [theblackdon/kineticwe](https://gitlab.com/theblackdon/kineticwe), a fork that
 showed native tiling could live in the compositor. We ported ideas and features,
 not the fork — little of that code remains. Compared to carrying the full fork
-(~3,300 tracked files, 123 diverging `src/` files today), we touch **61** files
-(**43** vendored under `src/` including KCM glue + **18** hooked, +534/−33 lines
+(~3,300 tracked files, 123 diverging `src/` files today), we touch **62** files
+(**44** vendored under `src/` including KCM glue + **18** hooked, +552/−33 lines
 in `hooks.patch`) and skip its
 QPainter backend, hand-rolled borders, install scripts, and binary rename. For
 rounded corners use the separate

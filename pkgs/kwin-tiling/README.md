@@ -300,11 +300,11 @@ the fork; little of that code remains.
 | | KineticWE fork | this package |
 | --- | --- | --- |
 | Compositor | entire KWin tree (~3,300 tracked files) | `kdePackages.kwin.overrideAttrs` |
-| Files touched | 123 `src/` files diverge from upstream KWin | 61 (43 vendored + 18 in `hooks.patch`) |
-| Existing KWin edits | spread across the fork | +534 / −33 lines in 18 files |
+| Files touched | 123 `src/` files diverge from upstream KWin | 62 (44 vendored + 18 in `hooks.patch`) |
+| Existing KWin edits | spread across the fork | +552 / −33 lines in 18 files |
 | Workarounds dropped | QPainter backend (~20 files, ~1.9k LOC), hand-rolled borders (~500 LOC), install scripts (~2k LOC), `kineticwe` binary | stock `kwin_wayland`; effects as plugins |
 
-The 43 vendored files are everything under `pkgs/kwin-tiling/src/` (39 `.cpp`/`.h`/`.qml` plus 4 KCM/CMake glue files). Counts drift as layouts and helpers are added; re-count with `find pkgs/kwin-tiling/src -type f | wc -l` and `grep -c '^diff --git' pkgs/kwin-tiling/hooks.patch`.
+The 44 vendored files are everything under `pkgs/kwin-tiling/src/` (40 `.cpp`/`.h`/`.qml` plus 4 KCM/CMake glue files). Counts drift as layouts and helpers are added; re-count with `find pkgs/kwin-tiling/src -type f | wc -l` and `grep -c '^diff --git' pkgs/kwin-tiling/hooks.patch`.
 
 Most of our 18 hooked files are the same integration points KineticWE changed for
 tiling; the fork also modifies **100+ other** `src/` files (render backends,

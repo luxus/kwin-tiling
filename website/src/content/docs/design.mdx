@@ -13,7 +13,7 @@ We patch stock `kdePackages.kwin`:
 - **New code** lives as normal source files under `pkgs/kwin-tiling/src/` and is
   copied into the KWin tree at build time.
 - **Existing KWin files** are changed through a small `hooks.patch` (~1,000 lines,
-  +534 / −33 net across 18 files) — CMake wiring, input hooks, workspace/window
+  +552 / −33 net across 18 files) — CMake wiring, input hooks, workspace/window
   integration.
 
 That keeps the compositor binary, protocol support, multi-monitor handling, and
@@ -67,8 +67,8 @@ path instead of carrying the fork.
 | | KineticWE fork | kwin-tiling |
 | --- | --- | --- |
 | Compositor to maintain | entire KWin tree (~3,300 tracked files) | stock `kdePackages.kwin` |
-| Integration surface | **123** `src/` files diverge from upstream KWin today | **61** files (**43** new + **18** hooked) |
-| Changes to existing KWin | baked into the fork (hard to isolate) | **+534 / −33** lines in `hooks.patch` |
+| Integration surface | **123** `src/` files diverge from upstream KWin today | **62** files (**44** new + **18** hooked) |
+| Changes to existing KWin | baked into the fork (hard to isolate) | **+552 / −33** lines in `hooks.patch` |
 | Extra workarounds | ~20-file QPainter render path (~1.9k LOC), hand-rolled borders/rounded corners (~500 LOC), distro install scripts (~2k LOC), `kineticwe` binary rename | rounded corners via a separate KWin effect plugin |
 | Plasma bumps | rebase the whole compositor | re-test the patch surface |
 
