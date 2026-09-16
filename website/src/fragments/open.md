@@ -1,1 +1,3 @@
-- **Scrolling polish** — basic horizontal-strip layout works, but consume/expel UX and behavior still need tightening. Analysis and proposed issues: [Scrolling vs niri](scrolling-vs-niri)
+- **Scrolling polish** — horizontal-strip layout, consume/expel, and niri
+  consume-or-expel left/right are in; viewport/column-width UX still needs
+  tightening. Remaining gaps and niri mapping: [Scrolling vs niri](scrolling-vs-niri)

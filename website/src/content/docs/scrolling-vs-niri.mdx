@@ -231,7 +231,8 @@ Legend: **Have** / **Partial** / **Missing**.
 | Center active column | `Meta+Shift+C` → `centerActiveColumn()` |
 | Width presets | `Meta+Shift+V` cycles 1/3, 1/2, 2/3, **1.0** (niri’s default cycle is 1/3, 1/2, 2/3; full width is `maximize-column`) |
 | Default column width | `[Tiling] DefaultColumnWidth` + KCM; per-output override |
-| Consume into left column / expel to the right | `Meta+Shift+[` / `Meta+Shift+]` — **one direction each**, not niri’s consume-or-expel |
+| Consume into left column / expel to the right | `Meta+Shift+[` / `Meta+Shift+]` — one-way consume/expel (unchanged action ids) |
+| Consume-or-expel left / right | `Meta+[` / `Meta+]` — solo merges into the neighbour; stacked expels that side |
 | Vertical stack inside a column, height weights, mouse splitters | `StackColumn` shared with other layouts |
 | Focus left/right/up/down | `Meta+Arrows` → `windowInDirection` |
 | Drag-to-swap onto another tiled window | Implemented (`begin/end/cancelMoveWindow`); was the #4 task 2 gap. Same-column drop still swaps |
@@ -248,7 +249,6 @@ Legend: **Have** / **Partial** / **Missing**.
 
 | niri | kwin-tiling | Gap |
 | --- | --- | --- |
-| Consume/expel | Two one-way actions; no consume-or-expel; no consume-from-next-column | P1 |
 | Move column vs move window | `moveWindow` slides the column (sign of delta). `Meta+Alt+Up/Down` uses `moveWindowInColumn` so stacked windows swap in-column; `Meta+Alt+Left/Right` still slides the column | Landed (#42) |
 | Insert-hint overlay during interactive move | Drop insert (W1-4) is implemented; coloured new-column vs in-column hint is W2-5 | P1 (hint) |
 | Preset widths | Have a cycle; includes 1.0; no reverse; not configurable in KCM | P2 |
@@ -382,7 +382,8 @@ feel like “i3 but sideways.”
    `ScrollingLayoutEngine::moveWindow` moved the **column**. `Meta+Alt+Up/Down`
    now calls `moveWindowInColumn` (niri `move-window-up/down`).
    `Meta+Alt+Left/Right` slides the column (niri `move-column-left/right`);
-   consume-or-expel stays `Meta+Shift+[` / `]` until W1-2.
+   consume-or-expel is `Meta+[` / `Meta+]`. `Meta+Shift+[` / `]` stay one-way
+   consume/expel.
 
 2. **consume-or-expel left and right**
    niri `Mod+[/]`: if the window is alone, merge into that neighbour; if stacked,
@@ -657,6 +658,8 @@ test of a new `moveWindowInColumn` helper).
 
 #### W1-2. Scrolling: consume-or-expel left and right (niri Mod+[ ])
 
+**Shipped** (`Meta+[` / `Meta+]`; `Meta+Shift+[` / `]` remain consume/expel).
+
 If the active window is the only tile in its column, merge it into the neighbour
 in that direction. If the column has multiple tiles, expel the active window into
 a new column on that side. Keep today’s `Meta+Shift+[` / `]` or remap to match
@@ -770,7 +773,7 @@ Engine exposes the target rect; drawing is QML/effect (same split as #6).
 | Focus column / window | `Mod+Arrows` | `Meta+Arrows` (same idea) |
 | Move column | `Mod+Ctrl+Left/Right` | `Meta+Shift+Left/Right` **and** `Meta+Alt+Left/Right` (`moveWindow` → column) |
 | Move window in column | `Mod+Ctrl+Up/Down` | `Meta+Alt+Up/Down` (`moveWindowInColumn`) |
-| Consume-or-expel | `Mod+[/]` | `Meta+Shift+[` consume left; `Meta+Shift+]` expel right |
+| Consume-or-expel | `Mod+[/]` | `Meta+[` / `Meta+]` (niri). `Meta+Shift+[` / `]` stay one-way consume/expel |
 | Consume into / expel from | `Mod+,/.` | Missing as distinct actions |
 | Preset width | `Mod+R` | `Meta+Shift+V` |
 | Center column | `Mod+C` | `Meta+Shift+C` |

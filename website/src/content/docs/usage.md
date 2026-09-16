@@ -38,11 +38,26 @@ All shortcuts are registered as KWin actions. Rebind them in *System Settings
 | Scrolling: reverse cycle column width | `Meta+Ctrl+Shift+V` |
 | Scrolling: expand column to available width | `Meta+Ctrl+F` |
 | Scrolling: consume into column / expel from column | `Meta+Shift+[` / `Meta+Shift+]` |
+| Scrolling: consume-or-expel left / right | `Meta+[` / `Meta+]` |
 | Switch to MasterStack / Stacked / Scrolling / Centered / Grid | *(unbound)* |
 
 KGlobalAccel only applies a default when the shortcut is free **and** the
 action is new in your profile. If an action was previously unbound, assign it
 once in Settings (or remove its stale entry from `kglobalshortcutsrc`).
+Consume and expel keep their original action ids (`Meta+Shift+[` / `]`), so
+existing bindings are not silently remapped; consume-or-expel is a new pair
+(`Meta+[` / `Meta+]`).
+
+### Scrolling consume-or-expel (niri `Mod+[` / `Mod+]`)
+
+| | Left (`Meta+[`) | Right (`Meta+]`) |
+| --- | --- | --- |
+| **Solo** window in its column | merge into the left neighbour | merge into the right neighbour |
+| **Stacked** (two or more tiles) | expel into a new column on the left | expel into a new column on the right |
+
+On the first column, left-merge is a no-op; on the last column, right-merge is
+a no-op. Neither crashes. `Meta+Shift+[` / `]` stay **Tiling Consume/Expel**
+(niri consume-into-column / expel-from-column aliases).
 
 In **Scrolling**, `Meta+Alt+Up/Down` reorders the focused window **inside its
 column** (niri `move-window-up/down`) — two stacked windows swap vertical order
@@ -133,6 +148,7 @@ Per-app output pinning lives under `[TilingRules]` as `AssignOutput` (e.g.
   (`Meta+Shift+V`, reverse `Meta+Ctrl+Shift+V`). `Meta+Shift+[` pulls the first
   window of the next column into the focused column (niri consume-into-column);
   `Meta+Shift+]` expels the bottom tile into a new column to the right.
+  `Meta+[` / `Meta+]` are niri consume-or-expel (solo merge / stacked expel).
   Existing column widths are left alone. Optional `CenterFocusedColumn`
   (`never` / `always` / `on-overflow`) recenters on focus; `Meta+Shift+C` is
   still a one-shot center. `always` peeks neighbours at full width
