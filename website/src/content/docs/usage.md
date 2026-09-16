@@ -36,7 +36,7 @@ All shortcuts are registered as KWin actions. Rebind them in *System Settings
 | Toggle gaps | `Meta+Shift+G` |
 | Scrolling: center column / cycle column width | `Meta+Shift+C` / `Meta+Shift+V` |
 | Scrolling: reverse cycle column width | `Meta+Ctrl+Shift+V` |
-| Scrolling: consume / expel window | `Meta+Shift+[` / `Meta+Shift+]` |
+| Scrolling: consume into column / expel from column | `Meta+Shift+[` / `Meta+Shift+]` |
 | Switch to MasterStack / Stacked / Scrolling / Centered / Grid | *(unbound)* |
 
 KGlobalAccel only applies a default when the shortcut is free **and** the
@@ -124,9 +124,12 @@ Per-app output pinning lives under `[TilingRules]` as `AssignOutput` (e.g.
 - **Scrolling** — horizontal strip of columns; viewport scrolls to the active one.
   `Meta+Alt+Up/Down` moves the window inside the column; `Meta+Alt+Left/Right`
   slides the column. Cycle column width through KCM-configured presets
-  (`Meta+Shift+V`, reverse `Meta+Ctrl+Shift+V`). Consume/expel is `Meta+Shift+[` / `]`.
-  Optional `CenterFocusedColumn` (`never` / `always` / `on-overflow`) recenters
-  on focus; `Meta+Shift+C` is still a one-shot center. Without overflow tiles
+  (`Meta+Shift+V`, reverse `Meta+Ctrl+Shift+V`). `Meta+Shift+[` pulls the first
+  window of the next column into the focused column (niri consume-into-column);
+  `Meta+Shift+]` expels the bottom tile into a new column to the right.
+  Existing column widths are left alone. Optional `CenterFocusedColumn`
+  (`never` / `always` / `on-overflow`) recenters on focus; `Meta+Shift+C` is
+  still a one-shot center. Without overflow tiles
   ([#40](https://github.com/luxus/kwin-tiling/issues/40) Path A), `always` still
   hides off-screen columns.
 - **Centered** — master window in the centre, others in left/right stacks.

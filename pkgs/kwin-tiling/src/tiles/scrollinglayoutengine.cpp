@@ -8,6 +8,7 @@
 #include "columnwidthpresets.h"
 #include "customtile.h"
 #include "movestate.h"
+#include "scrollingcolumn.h"
 #include "scrollingmove.h"
 #include "viewportmath.h"
 #include "window.h"
@@ -482,45 +483,63 @@ void ScrollingLayoutEngine::cycleColumnWidthBy(int direction)
 
 void ScrollingLayoutEngine::consumeWindow()
 {
-    int c = -1;
-    int l = -1;
-    if (!m_activeWindow || !findWindow(m_activeWindow, &c, &l)) {
-        return;
-    }
-    if (c <= 0) {
-        return; // no column to the left to merge into
-    }
-    StackColumn::Detached detached = m_columns[c].stack.detachWindow(m_activeWindow);
-    if (!detached.isValid()) {
-        return;
-    }
-    const int leftIdx = c - 1; // unaffected by removing the (higher) source column
-    if (m_columns[c].stack.isEmpty()) {
-        m_columns.removeAt(c);
-    }
-    m_columns[leftIdx].stack.attachLeaf(detached); // append to the left column
-    reflow();
+    consumeIntoColumn();
 }
 
 void ScrollingLayoutEngine::expelWindow()
 {
-    int c = -1;
-    int l = -1;
-    if (!m_activeWindow || !findWindow(m_activeWindow, &c, &l)) {
+    expelFromColumn();
+}
+
+void ScrollingLayoutEngine::consumeIntoColumn()
+{
+    // niri consume-window-into-column: first tile of the next column appends
+    // to the focused column. Remaining column widths are not rewritten.
+    const int ac = activeColumnIndex();
+    const auto op = scrollingcolumn::planConsumeIntoColumn(ac, m_columns.count());
+    if (!op.apply) {
         return;
     }
-    if (m_columns[c].stack.count() <= 1) {
-        return; // already alone in its column
+    Window *first = m_columns[op.sourceCol].stack.windowAt(op.sourceLeaf);
+    if (!first) {
+        return;
     }
-    StackColumn::Detached detached = m_columns[c].stack.detachWindow(m_activeWindow);
+    StackColumn::Detached detached = m_columns[op.sourceCol].stack.detachWindow(first);
+    if (!detached.isValid()) {
+        return;
+    }
+    if (m_columns[op.sourceCol].stack.isEmpty()) {
+        m_columns.removeAt(op.sourceCol);
+    }
+    m_columns[op.destCol].stack.attachLeaf(detached);
+    reflow();
+}
+
+void ScrollingLayoutEngine::expelFromColumn()
+{
+    // niri expel-window-from-column: last tile of the focused column becomes a
+    // new column to the right, copying the source width (principle 1).
+    const int ac = activeColumnIndex();
+    if (ac < 0 || ac >= m_columns.count()) {
+        return;
+    }
+    const auto op = scrollingcolumn::planExpelFromColumn(ac, m_columns.count(), m_columns[ac].stack.count());
+    if (!op.apply) {
+        return;
+    }
+    Window *bottom = m_columns[op.sourceCol].stack.windowAt(op.sourceLeaf);
+    if (!bottom) {
+        return;
+    }
+    StackColumn::Detached detached = m_columns[op.sourceCol].stack.detachWindow(bottom);
     if (!detached.isValid()) {
         return;
     }
     Column col;
-    col.width = m_columns[c].width;
+    col.width = m_columns[op.sourceCol].width;
     col.stack.setRoot(m_root);
     col.stack.attachLeaf(detached);
-    m_columns.insert(c + 1, col); // new column immediately to the right
+    m_columns.insert(op.sourceCol + 1, col);
     reflow();
 }
 

@@ -85,10 +85,12 @@ public:
     void centerActiveColumn() override;
     void cycleColumnWidth() override;
     void cycleColumnWidthReverse() override;
-    // niri-style: merge the active window into the column on its left, or split
-    // it out into its own column to the right.
+    // niri consume-into-column / expel-from-column. consumeWindow / expelWindow
+    // alias these so Meta+Shift+[ / ] keep working (KGlobalAccel).
     void consumeWindow() override;
     void expelWindow() override;
+    void consumeIntoColumn() override;
+    void expelFromColumn() override;
 
     void adjustWindowHeight(Window *window, qreal delta) override;
 

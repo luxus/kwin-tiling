@@ -2253,19 +2253,29 @@ void TilingController::toggleZoom()
 
 void TilingController::consumeWindow()
 {
-    Window *window = activeTiledWindow();
-    LayoutEngine *engine = window ? layoutEngineForWindow(window) : activeLayoutEngine();
-    if (engine) {
-        engine->consumeWindow();
-    }
+    consumeIntoColumn();
 }
 
 void TilingController::expelWindow()
 {
+    expelFromColumn();
+}
+
+void TilingController::consumeIntoColumn()
+{
     Window *window = activeTiledWindow();
     LayoutEngine *engine = window ? layoutEngineForWindow(window) : activeLayoutEngine();
     if (engine) {
-        engine->expelWindow();
+        engine->consumeIntoColumn();
+    }
+}
+
+void TilingController::expelFromColumn()
+{
+    Window *window = activeTiledWindow();
+    LayoutEngine *engine = window ? layoutEngineForWindow(window) : activeLayoutEngine();
+    if (engine) {
+        engine->expelFromColumn();
     }
 }
 
