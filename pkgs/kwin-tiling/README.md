@@ -66,7 +66,7 @@ KWin's `Tile`/`TileManager`; engines only set relative geometry.
 - Pure, KWin-free arithmetic (unit-tested): `columnmath`, `masterstackmath`,
   `gridmath`, `directionmath`, `slotlist`, `movestate`, `leafcolumn`, `movefsm`,
   `sizingpolicy`, `suspendpolicy`, `tilingconfig`, `scrollingmove`, `viewportmath`,
-  `engineindex`, `columnwidthpresets`.
+  `engineindex`, `columnwidthpresets`, `scrollingcolumn`.
 - Kind switch **replaces** the engine and re-adds windows; durable layout
   memory is keyed by output/desktop id, not engine pointer.
 - Cross-monitor moves: cancel source leaf, drop on destination — no phantoms.
@@ -98,7 +98,7 @@ in *System Settings → Shortcuts → KWin*.
 | Toggle gaps | `Meta+Shift+G` |
 | Scrolling: center column / cycle column width | `Meta+Shift+C` / `Meta+Shift+V` |
 | Scrolling: reverse cycle column width | `Meta+Ctrl+Shift+V` |
-| Scrolling: consume / expel window into-column | `Meta+Shift+[` / `Meta+Shift+]` |
+| Scrolling: consume into column / expel from column | `Meta+Shift+[` / `Meta+Shift+]` |
 | Switch to MasterStack / Stacked / Scrolling / Centered / Grid | unbound |
 
 In **Scrolling**, `Meta+Alt+Up/Down` reorders the window **inside its column**

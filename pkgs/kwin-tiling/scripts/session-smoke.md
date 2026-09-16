@@ -70,13 +70,14 @@ bash pkgs/kwin-tiling/tests/run.sh
       Off-screen columns stay hidden without [#40](https://github.com/luxus/kwin-tiling/issues/40)
       Path A.
 - [ ] `Meta+Ctrl+Shift+V` reverse-cycles only the configured presets (e.g. `0.25,0.5`)
-- [ ] `Meta+Shift+[` / `Meta+Shift+]` consume / expel (UX may still be rough)
+- [ ] Two single-window columns: `Meta+Shift+[` consume-into-column → one stacked column; remaining widths unchanged
+- [ ] `Meta+Shift+]` expel-from-column pushes the bottom tile out to the right; remaining widths unchanged
 
 ### 6a. Directional move (issue #42)
 
 Three-column fixture: open **three** windows (each in its own column), then
-`Meta+Shift+[` on the middle one so the left column has **two stacked** windows
-and a neighbour column remains.
+focus the **left** column and `Meta+Shift+[` consume-into-column so that
+column has **two stacked** windows and a neighbour column remains.
 
 - [ ] Focus the **upper** window of the stacked pair; `Meta+Alt+Down`
 - [ ] Expected: the two windows **swap vertical order**; the column stays put

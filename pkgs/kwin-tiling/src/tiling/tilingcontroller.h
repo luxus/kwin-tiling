@@ -115,9 +115,12 @@ public:
     void cycleColumnWidth();
     void cycleColumnWidthReverse();
     void toggleZoom();
-    // Scrolling: consume/expel the active window into/out of a column.
+    // Scrolling: niri consume-into-column / expel-from-column. consumeWindow /
+    // expelWindow alias those methods so existing shortcuts keep working.
     void consumeWindow();
     void expelWindow();
+    void consumeIntoColumn();
+    void expelFromColumn();
     // MasterStack: swap the master column side. All layouts: toggle gaps on/off.
     void flipMaster();
     void toggleGaps();
