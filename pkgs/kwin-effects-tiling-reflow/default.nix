@@ -46,4 +46,4 @@ stdenvNoCC.mkDerivation {
     license = lib.licenses.gpl3Only;
     platforms = lib.platforms.linux;
   };
-})
+}
