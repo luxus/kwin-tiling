@@ -966,7 +966,7 @@ index 7e6594d..8618395 100644
  }
  
  LogicalOutput *Window::moveResizeOutput() const
-@@ -3907,6 +3937,62 @@ void Window::setTileCompatibility(Tile *tile)
+@@ -3907,6 +3937,64 @@ void Window::setTileCompatibility(Tile *tile)
      }
  }
  
@@ -994,7 +994,9 @@ index 7e6594d..8618395 100644
 +
 +void Window::tilingMoveResize(const RectF &geom, TileManager *manager)
 +{
-+    if (geom == frameGeometry()) {
++    // #31 / KineticWE 47d3552: never stomp fullscreen geometry. Desktop-change
++    // force-resize and Tile::setRelativeGeometry both come through here.
++    if (isFullScreen() || geom == frameGeometry()) {
 +        return;
 +    }
 +    ReflowContext &ctx = reflowContextForTile(manager);
@@ -1003,7 +1005,7 @@ index 7e6594d..8618395 100644
 +
 +void Window::tilingMoveResize(const RectF &geom, const ReflowHint &hint)
 +{
-+    if (geom == frameGeometry()) {
++    if (isFullScreen() || geom == frameGeometry()) {
 +        return;
 +    }
 +    publishTilingReflowHint(this, hint);

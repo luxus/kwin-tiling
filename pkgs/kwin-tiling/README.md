@@ -313,11 +313,12 @@ actions). Design choices documented here so they survive the next rebase:
 - **`updateWindowVisibilityAndActivateOnDesktopChange`** — keeps the upstream
   `isOnOutput(output)` filter so each per-output desktop switch only walks
   windows on that output. Tiled windows still get an explicit
-  `moveResize(tile->windowGeometry())` when their desktop becomes active, so
+  `tilingMoveResize(tile->windowGeometry())` when their desktop becomes active, so
   background reflows stay correct without widening the loop to every window on
-  every monitor. Fullscreen windows are skipped (`!isFullScreen()`): they keep
-  tile membership so they restore on exit, and force-resizing them on desktop
-  return would destile the fullscreen geometry.
+  every monitor. Fullscreen windows are skipped (`!isFullScreen()` at the call
+  site and inside `Window::tilingMoveResize`): they keep tile membership so they
+  restore on exit, and force-resizing them on desktop return or a sibling reflow
+  would destile the fullscreen geometry.
 - **`Tile::setRelativeGeometry`** — keeps upstream's `isActive()` guard so
   geometry changes on invisible desktops do not push Wayland configure round-trips
   to hidden windows (and quick-tile users are unaffected). The desktop-activation
