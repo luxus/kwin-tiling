@@ -290,7 +290,11 @@ private:
 };
 
 /**
- * Per-(desktop, output) layout override entry, exposed to QML.
+ * Per-(desktop, output) layout and sizing override entry, exposed to QML.
+ *
+ * Layout uses an empty DefaultLayout to inherit. Sizing keys are optional
+ * (hasMasterRatio / hasMasterCount / hasDefaultColumnWidth); missing keys
+ * inherit per-output then global defaults, matching the controller cache.
  */
 class DesktopOutputLayoutOverride : public QObject
 {
@@ -301,11 +305,20 @@ class DesktopOutputLayoutOverride : public QObject
     Q_PROPERTY(QString outputDescription READ outputDescription CONSTANT)
     Q_PROPERTY(int outputIndex READ outputIndex CONSTANT)
     Q_PROPERTY(QString defaultLayout READ defaultLayout WRITE setDefaultLayout NOTIFY defaultLayoutChanged)
+    Q_PROPERTY(bool hasMasterRatio READ hasMasterRatio NOTIFY masterRatioChanged)
+    Q_PROPERTY(qreal masterRatio READ masterRatio WRITE setMasterRatio NOTIFY masterRatioChanged)
+    Q_PROPERTY(bool hasMasterCount READ hasMasterCount NOTIFY masterCountChanged)
+    Q_PROPERTY(int masterCount READ masterCount WRITE setMasterCount NOTIFY masterCountChanged)
+    Q_PROPERTY(bool hasDefaultColumnWidth READ hasDefaultColumnWidth NOTIFY defaultColumnWidthChanged)
+    Q_PROPERTY(qreal defaultColumnWidth READ defaultColumnWidth WRITE setDefaultColumnWidth NOTIFY defaultColumnWidthChanged)
 
 public:
     explicit DesktopOutputLayoutOverride(uint desktopNumber, QString desktopName,
                                          int outputIndex, QString outputName, QString outputDescription,
                                          QString defaultLayout,
+                                         bool hasMasterRatio, qreal masterRatio,
+                                         bool hasMasterCount, int masterCount,
+                                         bool hasDefaultColumnWidth, qreal defaultColumnWidth,
                                          QObject *parent = nullptr);
 
     uint desktopNumber() const { return m_desktopNumber; }
@@ -314,11 +327,27 @@ public:
     QString outputName() const { return m_outputName; }
     QString outputDescription() const { return m_outputDescription; }
     QString defaultLayout() const { return m_defaultLayout; }
+    bool hasMasterRatio() const { return m_hasMasterRatio; }
+    qreal masterRatio() const { return m_masterRatio; }
+    bool hasMasterCount() const { return m_hasMasterCount; }
+    int masterCount() const { return m_masterCount; }
+    bool hasDefaultColumnWidth() const { return m_hasDefaultColumnWidth; }
+    qreal defaultColumnWidth() const { return m_defaultColumnWidth; }
 
     void setDefaultLayout(const QString &value);
+    void setMasterRatio(qreal value);
+    void setMasterCount(int value);
+    void setDefaultColumnWidth(qreal value);
+    Q_INVOKABLE void clearMasterRatio();
+    Q_INVOKABLE void clearMasterCount();
+    Q_INVOKABLE void clearDefaultColumnWidth();
+    Q_INVOKABLE void clearSizing();
 
 Q_SIGNALS:
     void defaultLayoutChanged();
+    void masterRatioChanged();
+    void masterCountChanged();
+    void defaultColumnWidthChanged();
     void modified();
 
 private:
@@ -328,10 +357,16 @@ private:
     QString m_outputName;
     QString m_outputDescription;
     QString m_defaultLayout;
+    bool m_hasMasterRatio = false;
+    qreal m_masterRatio = 0.5;
+    bool m_hasMasterCount = false;
+    int m_masterCount = 1;
+    bool m_hasDefaultColumnWidth = false;
+    qreal m_defaultColumnWidth = 0.5;
 };
 
 /**
- * Model of per-(desktop, output) layout overrides backed by kwinrc.
+ * Model of per-(desktop, output) layout and sizing overrides backed by kwinrc.
  */
 class DesktopOutputLayoutOverridesModel : public QAbstractListModel
 {

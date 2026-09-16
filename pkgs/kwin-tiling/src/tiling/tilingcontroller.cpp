@@ -80,34 +80,26 @@ Workspace::Direction toWorkspaceDirection(LayoutEngine::FocusDirection direction
     return Workspace::DirectionEast;
 }
 
-using OutputSizing = tilingconfig::OutputSizing;
-
-OutputSizing readOutputSizing(const KConfigGroup &tilingGroup, LogicalOutput *output)
+QString desktopOutputCacheKey(VirtualDesktop *desktop, LogicalOutput *output)
 {
-    const tilingconfig::OutputSizing global{
-        tilingGroup.readEntry("MasterRatio", 0.5),
-        tilingGroup.readEntry("MasterCount", 1),
-        tilingGroup.readEntry("DefaultColumnWidth", 0.5),
-    };
-    tilingconfig::OutputSizingOverride over;
-    if (output) {
-        const KConfigGroup outputGroup(&tilingGroup, QStringLiteral("Output %1").arg(output->name()));
-        if (outputGroup.exists()) {
-            over.masterRatio = outputGroup.readEntry("MasterRatio", global.masterRatio);
-            over.masterCount = outputGroup.readEntry("MasterCount", global.masterCount);
-            over.defaultColumnWidth = outputGroup.readEntry("DefaultColumnWidth", global.defaultColumnWidth);
-        }
+    if (!desktop || !output) {
+        return {};
     }
-    return tilingconfig::resolveOutputSizing(global, over);
+    return QStringLiteral("%1:%2").arg(desktop->x11DesktopNumber()).arg(output->name());
 }
 
-KConfigGroup sizingWriteGroup(KConfigGroup &tilingGroup, LogicalOutput *output)
+KConfigGroup sizingWriteGroup(KConfigGroup &tilingGroup, LogicalOutput *output, VirtualDesktop *desktop,
+                                tilingconfig::SizingWriteTarget target)
 {
-    if (output) {
-        KConfigGroup outputGroup(&tilingGroup, QStringLiteral("Output %1").arg(output->name()));
-        if (outputGroup.exists()) {
-            return outputGroup;
-        }
+    switch (target) {
+    case tilingconfig::SizingWriteTarget::DesktopOutput:
+        return KConfigGroup(&tilingGroup, QStringLiteral("DesktopOutput %1:%2")
+                                                 .arg(desktop->x11DesktopNumber())
+                                                 .arg(output->name()));
+    case tilingconfig::SizingWriteTarget::Output:
+        return KConfigGroup(&tilingGroup, QStringLiteral("Output %1").arg(output->name()));
+    case tilingconfig::SizingWriteTarget::Global:
+        break;
     }
     return tilingGroup;
 }
@@ -241,7 +233,7 @@ void TilingController::reconfigure()
             if (TileManager *manager = m_workspace->tileManager(output)) {
                 for (VirtualDesktop *desktop : VirtualDesktopManager::self()->desktops()) {
                     if (LayoutEngine *eng = manager->layoutEngine(desktop)) {
-                        seedEngineSizing(output, eng, eng->layoutKind());
+                        seedEngineSizing(output, desktop, eng, eng->layoutKind());
                     }
                 }
             }
@@ -359,18 +351,17 @@ void TilingController::setupLayoutEngine(LogicalOutput *output, TileManager *man
     auto engine = createLayoutEngine(kind, manager);
     // Seed the configured sizing so new engines (and engines on
     // freshly-connected outputs / desktops) match the persisted layout.
-    seedEngineSizing(output, engine.get(), kind);
+    seedEngineSizing(output, desktop, engine.get(), kind);
     manager->setLayoutEngine(desktop, std::move(engine));
 }
 
-void TilingController::seedEngineSizing(LogicalOutput *output, LayoutEngine *engine, LayoutEngine::LayoutKind kind)
+void TilingController::seedEngineSizing(LogicalOutput *output, VirtualDesktop *desktop, LayoutEngine *engine,
+                                         LayoutEngine::LayoutKind kind)
 {
     if (!engine) {
         return;
     }
-    KSharedConfigPtr config = KSharedConfig::openConfig(KWIN_CONFIG);
-    const KConfigGroup tilingGroup(config, QStringLiteral("Tiling"));
-    const OutputSizing sizing = readOutputSizing(tilingGroup, output);
+    const CachedSizing sizing = resolvedSizing(output, desktop);
     engine->setPrimaryCount(sizing.masterCount);
     // Scrolling sizes new columns from DefaultColumnWidth; MasterStack/Stacked
     // use the master ratio. Routing both through here keeps the two settings
@@ -381,6 +372,103 @@ void TilingController::seedEngineSizing(LogicalOutput *output, LayoutEngine *eng
     } else {
         engine->setPrimarySplit(sizing.masterRatio);
     }
+}
+
+TilingController::CachedSizing TilingController::resolvedSizing(LogicalOutput *output, VirtualDesktop *desktop) const
+{
+    const tilingconfig::OutputSizing global{m_masterRatio, m_masterCount, m_defaultColumnWidth};
+    tilingconfig::OutputSizingOverride outputLayer;
+    tilingconfig::OutputSizingOverride desktopLayer;
+    if (output) {
+        const auto it = m_outputSizing.constFind(output->name());
+        if (it != m_outputSizing.cend()) {
+            if (it->hasMasterRatio) {
+                outputLayer.masterRatio = it->masterRatio;
+            }
+            if (it->hasMasterCount) {
+                outputLayer.masterCount = it->masterCount;
+            }
+            if (it->hasDefaultColumnWidth) {
+                outputLayer.defaultColumnWidth = it->defaultColumnWidth;
+            }
+        }
+    }
+    if (output && desktop) {
+        const auto it = m_desktopOutputSizing.constFind(desktopOutputCacheKey(desktop, output));
+        if (it != m_desktopOutputSizing.cend()) {
+            if (it->hasMasterRatio) {
+                desktopLayer.masterRatio = it->masterRatio;
+            }
+            if (it->hasMasterCount) {
+                desktopLayer.masterCount = it->masterCount;
+            }
+            if (it->hasDefaultColumnWidth) {
+                desktopLayer.defaultColumnWidth = it->defaultColumnWidth;
+            }
+        }
+    }
+    const tilingconfig::OutputSizing resolved = tilingconfig::resolveSizing(global, outputLayer, desktopLayer);
+    return {resolved.masterRatio, resolved.masterCount, resolved.defaultColumnWidth};
+}
+
+void TilingController::persistMasterRatio(LogicalOutput *output, VirtualDesktop *desktop, qreal ratio)
+{
+    ratio = tilingconfig::clampMasterRatio(ratio);
+    KSharedConfigPtr config = KSharedConfig::openConfig(KWIN_CONFIG);
+    KConfigGroup tilingGroup(config, QStringLiteral("Tiling"));
+    const bool hasOutput = output != nullptr;
+    const bool outputExists = hasOutput && m_outputGaps.contains(output->name());
+    const bool hasDesktop = desktop != nullptr;
+    const auto target = tilingconfig::sizingWriteTarget(hasOutput, outputExists, hasDesktop);
+    sizingWriteGroup(tilingGroup, output, desktop, target).writeEntry("MasterRatio", ratio);
+    switch (target) {
+    case tilingconfig::SizingWriteTarget::DesktopOutput: {
+        CachedSizingOverride &layer = m_desktopOutputSizing[desktopOutputCacheKey(desktop, output)];
+        layer.hasMasterRatio = true;
+        layer.masterRatio = ratio;
+        break;
+    }
+    case tilingconfig::SizingWriteTarget::Output: {
+        CachedSizingOverride &layer = m_outputSizing[output->name()];
+        layer.hasMasterRatio = true;
+        layer.masterRatio = ratio;
+        break;
+    }
+    case tilingconfig::SizingWriteTarget::Global:
+        m_masterRatio = ratio;
+        break;
+    }
+    schedulePersist();
+}
+
+void TilingController::persistMasterCount(LogicalOutput *output, VirtualDesktop *desktop, int count)
+{
+    count = tilingconfig::clampMasterCount(count);
+    KSharedConfigPtr config = KSharedConfig::openConfig(KWIN_CONFIG);
+    KConfigGroup tilingGroup(config, QStringLiteral("Tiling"));
+    const bool hasOutput = output != nullptr;
+    const bool outputExists = hasOutput && m_outputGaps.contains(output->name());
+    const bool hasDesktop = desktop != nullptr;
+    const auto target = tilingconfig::sizingWriteTarget(hasOutput, outputExists, hasDesktop);
+    sizingWriteGroup(tilingGroup, output, desktop, target).writeEntry("MasterCount", count);
+    switch (target) {
+    case tilingconfig::SizingWriteTarget::DesktopOutput: {
+        CachedSizingOverride &layer = m_desktopOutputSizing[desktopOutputCacheKey(desktop, output)];
+        layer.hasMasterCount = true;
+        layer.masterCount = count;
+        break;
+    }
+    case tilingconfig::SizingWriteTarget::Output: {
+        CachedSizingOverride &layer = m_outputSizing[output->name()];
+        layer.hasMasterCount = true;
+        layer.masterCount = count;
+        break;
+    }
+    case tilingconfig::SizingWriteTarget::Global:
+        m_masterCount = count;
+        break;
+    }
+    schedulePersist();
 }
 
 LayoutEngine::LayoutKind TilingController::globalDefaultLayoutKind() const
@@ -417,6 +505,25 @@ void TilingController::loadConfigCache(const KConfigGroup &tilingGroup)
     m_outputDefaultLayouts.clear();
     m_desktopOutputLayouts.clear();
     m_desktopLayoutMemory.clear();
+    m_outputSizing.clear();
+    m_desktopOutputSizing.clear();
+
+    auto readSizingOverride = [](const KConfigGroup &group) {
+        CachedSizingOverride o;
+        if (group.hasKey(QStringLiteral("MasterRatio"))) {
+            o.hasMasterRatio = true;
+            o.masterRatio = tilingconfig::clampMasterRatio(group.readEntry("MasterRatio", 0.5));
+        }
+        if (group.hasKey(QStringLiteral("MasterCount"))) {
+            o.hasMasterCount = true;
+            o.masterCount = tilingconfig::clampMasterCount(group.readEntry("MasterCount", 1));
+        }
+        if (group.hasKey(QStringLiteral("DefaultColumnWidth"))) {
+            o.hasDefaultColumnWidth = true;
+            o.defaultColumnWidth = tilingconfig::clampColumnWidth(group.readEntry("DefaultColumnWidth", 0.5));
+        }
+        return o;
+    };
 
     const QString outputPrefix = QStringLiteral("Output ");
     const QString desktopOutputPrefix = QStringLiteral("DesktopOutput ");
@@ -438,11 +545,20 @@ void TilingController::loadConfigCache(const KConfigGroup &tilingGroup)
                 m_outputDefaultLayouts.insert(outputName,
                     LayoutEngine::layoutKindFromString(outputGroup.readEntry("DefaultLayout", QString())));
             }
+            const CachedSizingOverride sizing = readSizingOverride(outputGroup);
+            if (sizing.hasMasterRatio || sizing.hasMasterCount || sizing.hasDefaultColumnWidth) {
+                m_outputSizing.insert(outputName, sizing);
+            }
         } else if (sub.startsWith(desktopOutputPrefix)) {
             const KConfigGroup combinedGroup = tilingGroup.group(sub);
+            const QString key = sub.mid(desktopOutputPrefix.size());
             if (combinedGroup.hasKey("DefaultLayout")) {
-                m_desktopOutputLayouts.insert(sub.mid(desktopOutputPrefix.size()),
+                m_desktopOutputLayouts.insert(key,
                     LayoutEngine::layoutKindFromString(combinedGroup.readEntry("DefaultLayout", QString())));
+            }
+            const CachedSizingOverride sizing = readSizingOverride(combinedGroup);
+            if (sizing.hasMasterRatio || sizing.hasMasterCount || sizing.hasDefaultColumnWidth) {
+                m_desktopOutputSizing.insert(key, sizing);
             }
         }
     }
@@ -1128,18 +1244,20 @@ void TilingController::onWindowResizeFinished(Window *window, const RectF &start
     if (!sizingpolicy::shouldWriteMasterRatio(kind, ratio)) {
         return;
     }
-    LogicalOutput *output = window->output() ? window->output() : m_workspace->activeOutput();
-    KSharedConfigPtr config = KSharedConfig::openConfig(KWIN_CONFIG);
-    KConfigGroup tilingGroup(config, QStringLiteral("Tiling"));
-    const OutputSizing sizing = readOutputSizing(tilingGroup, output);
+    LogicalOutput *output = nullptr;
+    VirtualDesktop *desktop = nullptr;
+    layoutEngineForWindow(window, &output, &desktop);
+    if (!output) {
+        output = window->output() ? window->output() : m_workspace->activeOutput();
+    }
+    if (!desktop && output) {
+        desktop = VirtualDesktopManager::self()->currentDesktop(output);
+    }
+    const CachedSizing sizing = resolvedSizing(output, desktop);
     if (qFuzzyCompare(ratio, sizing.masterRatio)) {
         return;
     }
-    sizingWriteGroup(tilingGroup, output).writeEntry("MasterRatio", ratio);
-    if (!output || !tilingGroup.group(QStringLiteral("Output %1").arg(output->name())).exists()) {
-        m_masterRatio = ratio;
-    }
-    schedulePersist();
+    persistMasterRatio(output, desktop, ratio);
 }
 
 void TilingController::onWindowMoveFinished(Window *window)
@@ -1568,7 +1686,7 @@ void TilingController::setLayoutOn(LogicalOutput *output, VirtualDesktop *deskto
     }
 
     auto engine = createLayoutEngine(kind, manager);
-    seedEngineSizing(output, engine.get(), kind);
+    seedEngineSizing(output, desktop, engine.get(), kind);
     manager->setLayoutEngine(desktop, std::move(engine));
 
     LayoutEngine *fresh = manager->layoutEngine(desktop);
@@ -1729,20 +1847,15 @@ void TilingController::resizePrimary(qreal delta)
     if (!sizingpolicy::canResizePrimary(split)) {
         return;
     }
-    KSharedConfigPtr config = KSharedConfig::openConfig(KWIN_CONFIG);
-    KConfigGroup tilingGroup(config, QStringLiteral("Tiling"));
-    OutputSizing sizing = readOutputSizing(tilingGroup, output);
+    VirtualDesktop *desktop = VirtualDesktopManager::self()->currentDesktop(output);
+    CachedSizing sizing = resolvedSizing(output, desktop);
     sizing.masterRatio = tilingconfig::clampMasterRatio(sizing.masterRatio + delta);
     engine->setPrimarySplit(sizing.masterRatio);
 
     // Persist MasterRatio only for master-style layouts (policy unit-tested).
     const auto kind = static_cast<sizingpolicy::LayoutKind>(engine->layoutKind());
     if (sizingpolicy::shouldWriteMasterRatio(kind, engine->primarySplit())) {
-        sizingWriteGroup(tilingGroup, output).writeEntry("MasterRatio", sizing.masterRatio);
-        if (!tilingGroup.group(QStringLiteral("Output %1").arg(output->name())).exists()) {
-            m_masterRatio = sizing.masterRatio;
-        }
-        schedulePersist();
+        persistMasterRatio(output, desktop, sizing.masterRatio);
     }
 }
 
@@ -1756,17 +1869,12 @@ void TilingController::adjustMasterCount(int delta)
     if (!engine || !output) {
         return;
     }
-    KSharedConfigPtr config = KSharedConfig::openConfig(KWIN_CONFIG);
-    KConfigGroup tilingGroup(config, QStringLiteral("Tiling"));
-    OutputSizing sizing = readOutputSizing(tilingGroup, output);
+    VirtualDesktop *desktop = VirtualDesktopManager::self()->currentDesktop(output);
+    CachedSizing sizing = resolvedSizing(output, desktop);
     sizing.masterCount = tilingconfig::clampMasterCount(sizing.masterCount + delta);
     engine->setPrimaryCount(sizing.masterCount);
 
-    sizingWriteGroup(tilingGroup, output).writeEntry("MasterCount", sizing.masterCount);
-    if (!tilingGroup.group(QStringLiteral("Output %1").arg(output->name())).exists()) {
-        m_masterCount = sizing.masterCount;
-    }
-    schedulePersist();
+    persistMasterCount(output, desktop, sizing.masterCount);
 }
 
 void TilingController::resizeActiveWindowHeight(qreal delta)
@@ -1797,14 +1905,9 @@ void TilingController::resetSizes()
         return;
     }
     LogicalOutput *output = m_workspace->activeOutput();
-    KSharedConfigPtr config = KSharedConfig::openConfig(KWIN_CONFIG);
-    KConfigGroup tilingGroup(config, QStringLiteral("Tiling"));
+    VirtualDesktop *desktop = output ? VirtualDesktopManager::self()->currentDesktop(output) : nullptr;
     constexpr qreal kResetRatio = 0.5;
-    sizingWriteGroup(tilingGroup, output).writeEntry("MasterRatio", kResetRatio);
-    if (!output || !tilingGroup.group(QStringLiteral("Output %1").arg(output->name())).exists()) {
-        m_masterRatio = kResetRatio;
-    }
-    schedulePersist();
+    persistMasterRatio(output, desktop, kResetRatio);
 }
 
 void TilingController::centerColumn()
@@ -1960,7 +2063,7 @@ void TilingController::retile()
         kind = existing->layoutKind();
     }
     auto engine = createLayoutEngine(kind, manager);
-    seedEngineSizing(output, engine.get(), kind);
+    seedEngineSizing(output, desktop, engine.get(), kind);
     manager->setLayoutEngine(desktop, std::move(engine));
 
     LayoutEngine *fresh = manager->layoutEngine(desktop);

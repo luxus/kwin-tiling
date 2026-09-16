@@ -635,6 +635,9 @@ void TilingRulesModel::setModified(bool modified)
 DesktopOutputLayoutOverride::DesktopOutputLayoutOverride(uint desktopNumber, QString desktopName,
                                                          int outputIndex, QString outputName, QString outputDescription,
                                                          QString defaultLayout,
+                                                         bool hasMasterRatio, qreal masterRatio,
+                                                         bool hasMasterCount, int masterCount,
+                                                         bool hasDefaultColumnWidth, qreal defaultColumnWidth,
                                                          QObject *parent)
     : QObject(parent)
     , m_desktopNumber(desktopNumber)
@@ -643,6 +646,12 @@ DesktopOutputLayoutOverride::DesktopOutputLayoutOverride(uint desktopNumber, QSt
     , m_outputName(std::move(outputName))
     , m_outputDescription(std::move(outputDescription))
     , m_defaultLayout(std::move(defaultLayout))
+    , m_hasMasterRatio(hasMasterRatio)
+    , m_masterRatio(masterRatio)
+    , m_hasMasterCount(hasMasterCount)
+    , m_masterCount(masterCount)
+    , m_hasDefaultColumnWidth(hasDefaultColumnWidth)
+    , m_defaultColumnWidth(defaultColumnWidth)
 {
 }
 
@@ -651,6 +660,79 @@ void DesktopOutputLayoutOverride::setDefaultLayout(const QString &value)
     m_defaultLayout = value;
     Q_EMIT defaultLayoutChanged();
     Q_EMIT modified();
+}
+
+void DesktopOutputLayoutOverride::setMasterRatio(qreal value)
+{
+    const bool wasSet = m_hasMasterRatio;
+    m_hasMasterRatio = true;
+    if (wasSet && qFuzzyCompare(m_masterRatio, value)) {
+        return;
+    }
+    m_masterRatio = value;
+    Q_EMIT masterRatioChanged();
+    Q_EMIT modified();
+}
+
+void DesktopOutputLayoutOverride::setMasterCount(int value)
+{
+    const bool wasSet = m_hasMasterCount;
+    m_hasMasterCount = true;
+    if (wasSet && m_masterCount == value) {
+        return;
+    }
+    m_masterCount = value;
+    Q_EMIT masterCountChanged();
+    Q_EMIT modified();
+}
+
+void DesktopOutputLayoutOverride::setDefaultColumnWidth(qreal value)
+{
+    const bool wasSet = m_hasDefaultColumnWidth;
+    m_hasDefaultColumnWidth = true;
+    if (wasSet && qFuzzyCompare(m_defaultColumnWidth, value)) {
+        return;
+    }
+    m_defaultColumnWidth = value;
+    Q_EMIT defaultColumnWidthChanged();
+    Q_EMIT modified();
+}
+
+void DesktopOutputLayoutOverride::clearMasterRatio()
+{
+    if (!m_hasMasterRatio) {
+        return;
+    }
+    m_hasMasterRatio = false;
+    Q_EMIT masterRatioChanged();
+    Q_EMIT modified();
+}
+
+void DesktopOutputLayoutOverride::clearMasterCount()
+{
+    if (!m_hasMasterCount) {
+        return;
+    }
+    m_hasMasterCount = false;
+    Q_EMIT masterCountChanged();
+    Q_EMIT modified();
+}
+
+void DesktopOutputLayoutOverride::clearDefaultColumnWidth()
+{
+    if (!m_hasDefaultColumnWidth) {
+        return;
+    }
+    m_hasDefaultColumnWidth = false;
+    Q_EMIT defaultColumnWidthChanged();
+    Q_EMIT modified();
+}
+
+void DesktopOutputLayoutOverride::clearSizing()
+{
+    clearMasterRatio();
+    clearMasterCount();
+    clearDefaultColumnWidth();
 }
 
 DesktopOutputLayoutOverridesModel::DesktopOutputLayoutOverridesModel(QObject *parent)
@@ -790,13 +872,34 @@ void DesktopOutputLayoutOverridesModel::rebuildModel(const TilingSettings *setti
             const QString &oName = m_outputNames[oi];
             const QString &oDesc = m_outputDescriptions[oi];
             QString entryLayout;
+            bool hasMasterRatio = false;
+            qreal masterRatio = 0.5;
+            bool hasMasterCount = false;
+            int masterCount = 1;
+            bool hasDefaultColumnWidth = false;
+            qreal defaultColumnWidth = 0.5;
             if (tilingGroup) {
                 KConfigGroup perPairGroup(tilingGroup, QStringLiteral("DesktopOutput %1:%2").arg(num).arg(oName));
                 if (perPairGroup.hasKey("DefaultLayout")) {
                     entryLayout = perPairGroup.readEntry("DefaultLayout", QString());
                 }
+                if (perPairGroup.hasKey("MasterRatio")) {
+                    hasMasterRatio = true;
+                    masterRatio = perPairGroup.readEntry("MasterRatio", 0.5);
+                }
+                if (perPairGroup.hasKey("MasterCount")) {
+                    hasMasterCount = true;
+                    masterCount = perPairGroup.readEntry("MasterCount", 1);
+                }
+                if (perPairGroup.hasKey("DefaultColumnWidth")) {
+                    hasDefaultColumnWidth = true;
+                    defaultColumnWidth = perPairGroup.readEntry("DefaultColumnWidth", 0.5);
+                }
             }
-            auto *entry = new DesktopOutputLayoutOverride(num, dName, oi, oName, oDesc, entryLayout, this);
+            auto *entry = new DesktopOutputLayoutOverride(num, dName, oi, oName, oDesc, entryLayout,
+                                                         hasMasterRatio, masterRatio,
+                                                         hasMasterCount, masterCount,
+                                                         hasDefaultColumnWidth, defaultColumnWidth, this);
             connect(entry, &DesktopOutputLayoutOverride::modified, this, [this]() {
                 if (!m_modified) {
                     setModified(true);
@@ -839,12 +942,25 @@ void DesktopOutputLayoutOverridesModel::save(KConfigGroup &tilingGroup, const Ti
 
     for (DesktopOutputLayoutOverride *entry : std::as_const(m_entries)) {
         const QString layout = entry->defaultLayout();
-        if (layout.isEmpty() || layout == defaultLayout) {
+        const bool writeLayout = !layout.isEmpty() && layout != defaultLayout;
+        const bool writeSizing = entry->hasMasterRatio() || entry->hasMasterCount() || entry->hasDefaultColumnWidth();
+        if (!writeLayout && !writeSizing) {
             continue;
         }
         KConfigGroup perPairGroup(&tilingGroup,
                                   QStringLiteral("DesktopOutput %1:%2").arg(entry->desktopNumber()).arg(entry->outputName()));
-        perPairGroup.writeEntry("DefaultLayout", layout);
+        if (writeLayout) {
+            perPairGroup.writeEntry("DefaultLayout", layout);
+        }
+        if (entry->hasMasterRatio()) {
+            perPairGroup.writeEntry("MasterRatio", entry->masterRatio());
+        }
+        if (entry->hasMasterCount()) {
+            perPairGroup.writeEntry("MasterCount", entry->masterCount());
+        }
+        if (entry->hasDefaultColumnWidth()) {
+            perPairGroup.writeEntry("DefaultColumnWidth", entry->defaultColumnWidth());
+        }
     }
 
     setModified(false);
@@ -856,6 +972,7 @@ void DesktopOutputLayoutOverridesModel::defaults(const TilingSettings *settings)
     beginResetModel();
     for (DesktopOutputLayoutOverride *entry : std::as_const(m_entries)) {
         entry->setDefaultLayout(QString());
+        entry->clearSizing();
     }
     endResetModel();
     setModified(false);
@@ -865,7 +982,10 @@ bool DesktopOutputLayoutOverridesModel::isDefaults(const TilingSettings *setting
 {
     Q_UNUSED(settings)
     for (DesktopOutputLayoutOverride *entry : m_entries) {
-        if (!entry->defaultLayout().isEmpty()) {
+        if (!entry->defaultLayout().isEmpty()
+            || entry->hasMasterRatio()
+            || entry->hasMasterCount()
+            || entry->hasDefaultColumnWidth()) {
             return false;
         }
     }

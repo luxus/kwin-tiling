@@ -80,6 +80,9 @@ bash pkgs/kwin-tiling/tests/run.sh
 - [ ] `Meta+Shift+R` retile recovers a weird layout without crash
 - [ ] KCM opens and shows current options (after Nix rebuild: if stale, wipe
       `~/.cache/systemsettings/qmlcache` and `~/.cache/kcmshell6/qmlcache`)
+- [ ] Per-Desktop tab: set a master ratio on desktop 1, switch to desktop 2,
+      confirm desktop 2 still uses the default; `Meta+Ctrl+L` on desktop 1
+      does not change desktop 2
 
 ## KWin + Noctalia extras (way 2 only)
 
