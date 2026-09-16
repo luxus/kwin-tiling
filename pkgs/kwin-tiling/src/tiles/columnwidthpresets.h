@@ -7,9 +7,11 @@
 #pragma once
 
 #include <algorithm>
+#include <charconv>
 #include <cmath>
 #include <string>
 #include <string_view>
+#include <system_error>
 #include <vector>
 
 // Pure column-width preset parsing and cycling for the Scrolling layout.
@@ -53,24 +55,23 @@ inline bool parseNumber(std::string_view s, double *out)
     if (s.empty() || !out) {
         return false;
     }
-    const std::string tmp(s);
-    try {
-        std::size_t idx = 0;
-        const double v = std::stod(tmp, &idx);
-        if (idx == 0) {
-            return false;
-        }
-        while (idx < tmp.size() && (tmp[idx] == ' ' || tmp[idx] == '\t')) {
-            ++idx;
-        }
-        if (idx != tmp.size()) {
-            return false;
-        }
-        *out = v;
-        return true;
-    } catch (...) {
+    // from_chars: no exceptions (KWin is built with -fno-exceptions).
+    double v = 0.0;
+    const char *const begin = s.data();
+    const char *const end = s.data() + s.size();
+    const std::from_chars_result r = std::from_chars(begin, end, v);
+    if (r.ec != std::errc{}) {
         return false;
     }
+    const char *p = r.ptr;
+    while (p < end && (*p == ' ' || *p == '\t')) {
+        ++p;
+    }
+    if (p != end) {
+        return false;
+    }
+    *out = v;
+    return true;
 }
 
 // One token: "0.5", "1/3", "50%", or "50" (values > 1 treated as percents).
