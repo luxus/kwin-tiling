@@ -74,8 +74,9 @@ public:
      * Positive delta moves forward in the order.
      *
      * StackColumn-based engines pairwise-swap (swapByDelta) so directional
-     * Meta+Alt moves trade places with the neighbour. For a rotate that
-     * shifts the windows in between, use reorderWindow().
+     * Meta+Alt moves trade places with the neighbour. Scrolling's moveWindow
+     * slides the column (Left/Right); Up/Down uses moveWindowInColumn().
+     * For a rotate that shifts the windows in between, use reorderWindow().
      */
     virtual void moveWindow(Window *window, int delta) = 0;
 
@@ -90,6 +91,16 @@ public:
      * StackColumn::moveByDelta.
      */
     virtual void reorderWindow(Window *window, int delta)
+    {
+        moveWindow(window, delta);
+    }
+
+    /**
+     * Reorder @p window inside its column by @p delta (positive = down).
+     * Default forwards to moveWindow() (single-column / layout-order engines).
+     * Scrolling overrides so Meta+Alt+Up/Down does not slide the column.
+     */
+    virtual void moveWindowInColumn(Window *window, int delta)
     {
         moveWindow(window, delta);
     }

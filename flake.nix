@@ -141,6 +141,14 @@
               ./slotlist-test
               touch $out
             '';
+        scrollingmove =
+          pkgs.runCommand "kwin-tiling-scrollingmove-test" { nativeBuildInputs = [ pkgs.gcc ]; }
+            ''
+              g++ -std=c++20 -O2 -Wall -Wextra -o scrollingmove-test \
+                ${./pkgs/kwin-tiling}/tests/scrollingmove_test.cpp
+              ./scrollingmove-test
+              touch $out
+            '';
         # Single entry that runs the whole pure suite (same as tests/run.sh).
         pure-suite =
           pkgs.runCommand "kwin-tiling-pure-suite" { nativeBuildInputs = [ pkgs.gcc pkgs.bash ]; }

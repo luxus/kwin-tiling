@@ -7,6 +7,7 @@
 #include "scrollinglayoutengine.h"
 #include "customtile.h"
 #include "movestate.h"
+#include "scrollingmove.h"
 #include "window.h"
 
 #include <algorithm>
@@ -216,17 +217,35 @@ void ScrollingLayoutEngine::cancelMoveWindow(Window *window)
 
 void ScrollingLayoutEngine::moveWindow(Window *window, int delta)
 {
-    // Move the window's whole column one step along the strip.
+    // Meta+Alt Left/Right and Meta+Shift Left/Right: slide the whole column
+    // (niri move-column-left/right). Consume/expel is a different action.
     int c = -1;
     int l = -1;
     if (!findWindow(window, &c, &l) || delta == 0) {
         return;
     }
-    const int target = std::clamp(c + (delta > 0 ? 1 : -1), 0, int(m_columns.count()) - 1);
+    const int target = scrollingmove::stepIndex(c, delta, m_columns.count());
     if (target == c) {
         return;
     }
     m_columns.move(c, target);
+    reflow();
+}
+
+void ScrollingLayoutEngine::moveWindowInColumn(Window *window, int delta)
+{
+    // Meta+Alt Up/Down: swap with the vertical neighbour (niri move-window-up/down).
+    // Column index is unchanged.
+    int c = -1;
+    int l = -1;
+    if (!findWindow(window, &c, &l) || delta == 0) {
+        return;
+    }
+    const int target = scrollingmove::stepIndex(l, delta, m_columns[c].stack.count());
+    if (target == l) {
+        return;
+    }
+    m_columns[c].stack.swapByDelta(window, target - l);
     reflow();
 }
 
