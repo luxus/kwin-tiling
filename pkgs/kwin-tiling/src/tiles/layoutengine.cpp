@@ -23,6 +23,11 @@ LayoutEngine::LayoutEngine(QObject *parent)
 
 LayoutEngine::~LayoutEngine() = default;
 
+bool LayoutEngine::contains(Window *window) const
+{
+    return window && windows().contains(window);
+}
+
 bool LayoutEngine::endResizeWindow(Window *window, const RectF &area, const RectF &startGeometry)
 {
     if (!window || (area.width() <= 0 && area.height() <= 0)) {

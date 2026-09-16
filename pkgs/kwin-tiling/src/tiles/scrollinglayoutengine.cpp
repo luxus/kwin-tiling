@@ -330,6 +330,11 @@ QList<Window *> ScrollingLayoutEngine::windows() const
     return result;
 }
 
+bool ScrollingLayoutEngine::contains(Window *window) const
+{
+    return findWindow(window, nullptr, nullptr);
+}
+
 Window *ScrollingLayoutEngine::windowInDirection(Window *from, FocusDirection direction) const
 {
     if (m_columns.isEmpty()) {

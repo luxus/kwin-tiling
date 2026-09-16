@@ -134,6 +134,11 @@ QList<Window *> GridLayoutEngine::windows() const
     return m_column.windows();
 }
 
+bool GridLayoutEngine::contains(Window *window) const
+{
+    return m_column.contains(window);
+}
+
 Window *GridLayoutEngine::windowInDirection(Window *from, FocusDirection direction) const
 {
     QList<QPair<Window *, RectF>> entries;

@@ -62,6 +62,7 @@ public:
     bool ownsGhostLeaf(Window *window) const override;
 
     QList<Window *> windows() const override;
+    bool contains(Window *window) const override;
     Window *windowInDirection(Window *from, FocusDirection direction) const override;
     void setActiveWindow(Window *window) override;
 

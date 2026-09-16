@@ -171,17 +171,25 @@ public:
 
     /**
      * Whether removeWindow should run on this engine: the window is still in
-     * windows(), or this engine owns that window's drag ghost leaf.
+     * a leaf (contains()), or this engine owns that window's drag ghost leaf.
+     * Uses contains() rather than windows().contains() so the hot path does
+     * not allocate; ghost leaves are not in windows() after KWin untile-for-drag.
      */
     bool shouldHandleRemove(Window *window) const
     {
-        return window && (windows().contains(window) || ownsGhostLeaf(window));
+        return window && (contains(window) || ownsGhostLeaf(window));
     }
 
     /**
      * Returns all tiled windows managed by this engine in layout order.
      */
     virtual QList<Window *> windows() const = 0;
+
+    /**
+     * True when @p window is in a leaf of this engine. Non-allocating; prefer
+     * this over windows().contains() on hot paths (focus, drop hit-test).
+     */
+    virtual bool contains(Window *window) const;
 
     /**
      * Returns the primary/master window for this layout, or nullptr if empty.

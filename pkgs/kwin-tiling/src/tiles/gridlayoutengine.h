@@ -43,6 +43,7 @@ public:
     bool ownsGhostLeaf(Window *window) const override { return m_column.ownsGhostLeaf(window); }
 
     QList<Window *> windows() const override;
+    bool contains(Window *window) const override;
     Window *windowInDirection(Window *from, FocusDirection direction) const override;
 
 private:

@@ -316,6 +316,7 @@ void TilingController::onOutputRemoved(LogicalOutput *output)
     // Drop the per-output reflow-context stack so a future LogicalOutput that
     // reuses this heap address cannot inherit a stale context in the hot path.
     m_reflowContextStacks.remove(output);
+    unbindOutputWindows(output);
 
     // Master pins are keyed by "<output name>/<desktop id>"; drop the ones for
     // this output so we never try to reassert a pin onto a disconnected monitor.
@@ -739,6 +740,7 @@ void TilingController::onWindowAdded(Window *window)
         m_activeMoves.remove(window);
         m_activeResizes.remove(window);
         m_preTileGeometry.remove(window);
+        m_engineByWindow.remove(window);
     });
 
     // Don't touch already-managed windows (e.g. on-all-desktops already handled).
@@ -862,11 +864,12 @@ void TilingController::addWindowToLayout(Window *window, LogicalOutput *output, 
     // If the window did not end up managed, surface it in logs but do NOT flip
     // the mode to Floating: the caller owns the mode, and the next
     // desktop/output change re-evaluates and snaps the tile correctly.
-    if (!layoutEngineForWindow(window)) {
+    if (!engine->contains(window)) {
         qWarning() << "TilingController: window" << window->caption()
                    << "was not managed by any layout engine after addWindow; leaving mode untouched";
         return;
     }
+    bindWindowToEngine(window, engine, output, desktop);
     forceNoBorder(window);
     reassertMasterPin(output, desktop);
 }
@@ -877,9 +880,7 @@ void TilingController::migrateWindow(Window *window, LogicalOutput *newOutput, V
         return;
     }
 
-    // Find whichever engine currently owns this window, if any. The lookup is
-    // O(outputs * desktops), acceptable because migrations happen on single
-    // keypresses / drag releases, not in a hot path.
+    // Find whichever engine currently owns this window, if any (O(1) reverse index).
     LogicalOutput *oldOutput = nullptr;
     VirtualDesktop *oldDesktop = nullptr;
     LayoutEngine *oldEngine = layoutEngineForWindow(window, &oldOutput, &oldDesktop);
@@ -904,6 +905,7 @@ void TilingController::migrateWindow(Window *window, LogicalOutput *newOutput, V
     if (oldEngine && oldOutput) {
         const ReflowScope removeScope(this, oldOutput, ReflowContext::Reason::Remove, oldEngine->layoutKind());
         oldEngine->removeWindow(window);
+        unbindWindowFromEngine(window);
     }
     // Smart-gaps on the source desktop even when the output did not change
     // (desktop-only migrate). Previously applyGapSettingsToOutput(newOutput)
@@ -928,6 +930,50 @@ void TilingController::migrateWindow(Window *window, LogicalOutput *newOutput, V
     reassertMasterPin(newOutput, newDesktop);
 }
 
+void TilingController::bindWindowToEngine(Window *window, LayoutEngine *engine, LogicalOutput *output, VirtualDesktop *desktop)
+{
+    if (!window || !engine) {
+        return;
+    }
+    m_engineByWindow.insert(window, {engine, output, desktop});
+}
+
+void TilingController::unbindWindowFromEngine(Window *window)
+{
+    if (!window) {
+        return;
+    }
+    m_engineByWindow.remove(window);
+}
+
+void TilingController::unbindEngineWindows(LayoutEngine *engine)
+{
+    if (!engine) {
+        return;
+    }
+    for (auto it = m_engineByWindow.begin(); it != m_engineByWindow.end();) {
+        if (it->engine == engine) {
+            it = m_engineByWindow.erase(it);
+        } else {
+            ++it;
+        }
+    }
+}
+
+void TilingController::unbindOutputWindows(LogicalOutput *output)
+{
+    if (!output) {
+        return;
+    }
+    for (auto it = m_engineByWindow.begin(); it != m_engineByWindow.end();) {
+        if (it->output == output) {
+            it = m_engineByWindow.erase(it);
+        } else {
+            ++it;
+        }
+    }
+}
+
 void TilingController::removeWindowFromLayouts(Window *window)
 {
     if (!m_workspace) {
@@ -936,8 +982,33 @@ void TilingController::removeWindowFromLayouts(Window *window)
 
     restoreBorder(window);
 
-    for (LogicalOutput *output : m_workspace->outputs()) {
-        TileManager *manager = m_workspace->tileManager(output);
+    LayoutEngine *engine = nullptr;
+    LogicalOutput *output = nullptr;
+    const auto it = m_engineByWindow.find(window);
+    if (it != m_engineByWindow.end()) {
+        engine = it->engine;
+        output = it->output;
+        m_engineByWindow.erase(it);
+    }
+    if (engine) {
+        // Reverse-index hit includes ghost leaves (index stays bound through
+        // interactive move). shouldHandleRemove still gates reflow so a stale
+        // index cannot reflow an engine that already dropped the window.
+        if (engine->shouldHandleRemove(window)) {
+            const ReflowScope scope(this, output, ReflowContext::Reason::Remove,
+                                    reflowScopeLayoutKind(output));
+            engine->removeWindow(window);
+            // Maximize forget() (and similar) can leave an empty leaf that
+            // removeWindow cannot see. pruneEmpty on this owning engine only.
+            engine->pruneEmpty();
+        }
+        return;
+    }
+
+    // Index miss (shouldn't happen): scan with the ownership gate so a
+    // desynced window still leaves the owning engine without reflowing others.
+    for (LogicalOutput *out : m_workspace->outputs()) {
+        TileManager *manager = m_workspace->tileManager(out);
         if (!manager) {
             continue;
         }
@@ -946,23 +1017,23 @@ void TilingController::removeWindowFromLayouts(Window *window)
         // leaf should remove + reflow; others stay untouched (#11).
         QList<LayoutEngine *> engines;
         for (VirtualDesktop *desktop : VirtualDesktopManager::self()->desktops()) {
-            if (LayoutEngine *engine = manager->layoutEngine(desktop)) {
-                if (engine->shouldHandleRemove(window)) {
-                    engines.append(engine);
+            if (LayoutEngine *eng = manager->layoutEngine(desktop)) {
+                if (eng->shouldHandleRemove(window)) {
+                    engines.append(eng);
                 }
             }
         }
         if (engines.isEmpty()) {
             continue;
         }
-        const ReflowScope scope(this, output, ReflowContext::Reason::Remove,
-                                reflowScopeLayoutKind(output));
-        for (LayoutEngine *engine : engines) {
-            engine->removeWindow(window);
+        const ReflowScope scope(this, out, ReflowContext::Reason::Remove,
+                                reflowScopeLayoutKind(out));
+        for (LayoutEngine *eng : engines) {
+            eng->removeWindow(window);
             // Maximize forget() (and similar) can leave an empty leaf that
             // removeWindow cannot see. pruneEmpty on this owning engine only
             // — not on foreign engines (#11 + #30).
-            engine->pruneEmpty();
+            eng->pruneEmpty();
         }
     }
 }
@@ -1006,10 +1077,28 @@ LogicalOutput *TilingController::outputByName(const QString &name) const
 
 LayoutEngine *TilingController::layoutEngineForWindow(Window *window, LogicalOutput **output, VirtualDesktop **desktop) const
 {
-    if (!m_workspace || !window) {
+    if (!window) {
         return nullptr;
     }
 
+    const auto it = m_engineByWindow.constFind(window);
+    if (it != m_engineByWindow.cend()) {
+        if (LayoutEngine *engine = it->engine) {
+            if (output) {
+                *output = it->output;
+            }
+            if (desktop) {
+                *desktop = it->desktop;
+            }
+            return engine;
+        }
+    }
+
+    if (!m_workspace) {
+        return nullptr;
+    }
+
+    // Index miss or destroyed engine: fall back to a contains() scan (no QList).
     for (LogicalOutput *out : m_workspace->outputs()) {
         TileManager *manager = m_workspace->tileManager(out);
         if (!manager) {
@@ -1017,7 +1106,7 @@ LayoutEngine *TilingController::layoutEngineForWindow(Window *window, LogicalOut
         }
         for (VirtualDesktop *desk : VirtualDesktopManager::self()->desktops()) {
             if (LayoutEngine *engine = manager->layoutEngine(desk)) {
-                if (engine->windows().contains(window)) {
+                if (engine->contains(window)) {
                     if (output) {
                         *output = out;
                     }
@@ -1340,6 +1429,7 @@ void TilingController::onWindowMoveFinished(Window *window)
         if (finish == movefsm::FinishKind::CrossOutputDrop && context.engine) {
             // Left original output: destroy empty source leaf, drop on destination
             // at cursor (not always append).
+            unbindWindowFromEngine(window);
             context.engine->cancelMoveWindow(window);
             VirtualDesktop *desktop = window->desktops().isEmpty()
                 ? VirtualDesktopManager::self()->currentDesktop(currentOutput)
@@ -1353,6 +1443,9 @@ void TilingController::onWindowMoveFinished(Window *window)
                     }
                     destEngine->dropWindow(window, target, cursorPos, area);
                     destEngine->pruneEmpty();
+                    if (destEngine->contains(window)) {
+                        bindWindowToEngine(window, destEngine, currentOutput, desktop);
+                    }
                 }
             }
             // If manage() rejected the drop, still place the window.
@@ -1381,6 +1474,12 @@ void TilingController::onWindowMoveFinished(Window *window)
                 context.engine->cancelMoveWindow(window);
                 context.engine->dropWindow(window, nullptr, cursorPos, area);
                 context.engine->pruneEmpty();
+                if (context.engine->contains(window)) {
+                    VirtualDesktop *desktop = window->desktops().isEmpty()
+                        ? VirtualDesktopManager::self()->currentDesktop(currentOutput)
+                        : window->desktops().constFirst();
+                    bindWindowToEngine(window, context.engine, currentOutput, desktop);
+                }
                 window->setGeometryRestore(context.originalGeometryRestore);
                 return;
             }
@@ -1388,9 +1487,13 @@ void TilingController::onWindowMoveFinished(Window *window)
         // Engine could not finish the move; fall through to snap-back.
     }
 
-    // NotOurs, or engine fallthrough: re-tile only if unmanaged but still Tiled.
-    if (layoutEngineForWindow(window)) {
-        return;
+    // NotOurs, or engine fallthrough: re-tile only if not actually in a leaf.
+    // The reverse index stays bound through interactive-move ghost leaves, so
+    // membership here is contains() (in a leaf), not merely "owned by an engine".
+    if (LayoutEngine *eng = layoutEngineForWindow(window)) {
+        if (eng->contains(window)) {
+            return;
+        }
     }
     LogicalOutput *output = window->output() ? window->output() : m_workspace->activeOutput();
     VirtualDesktop *desktop = window->desktops().isEmpty()
@@ -1609,7 +1712,7 @@ Window *TilingController::windowUnderCursorInEngine(LayoutEngine *engine) const
             || window->isMinimized() || window->isHidden() || window->isHiddenByShowDesktop()) {
             continue;
         }
-        if (window->hitTest(pos) && engine->windows().contains(window)) {
+        if (window->hitTest(pos) && engine->contains(window)) {
             return window;
         }
     }
@@ -1675,7 +1778,7 @@ void TilingController::reassertMasterPin(LogicalOutput *output, VirtualDesktop *
         return;
     }
     LayoutEngine *engine = manager->layoutEngine(desktop);
-    if (!engine || !engine->windows().contains(pinned)) {
+    if (!engine || !engine->contains(pinned)) {
         return;
     }
     if (engine->primaryWindow() == pinned) {
@@ -1853,6 +1956,7 @@ void TilingController::setLayoutOn(LogicalOutput *output, VirtualDesktop *deskto
 
     auto engine = createLayoutEngine(kind, manager);
     seedEngineSizing(output, desktop, engine.get(), kind);
+    unbindEngineWindows(existing);
     manager->setLayoutEngine(desktop, std::move(engine));
 
     LayoutEngine *fresh = manager->layoutEngine(desktop);
@@ -1866,6 +1970,9 @@ void TilingController::setLayoutOn(LogicalOutput *output, VirtualDesktop *deskto
             continue;
         }
         fresh->addWindow(w);
+        if (fresh->contains(w)) {
+            bindWindowToEngine(w, fresh, output, desktop);
+        }
     }
 }
 
@@ -2151,13 +2258,24 @@ void TilingController::onWindowOutputChanged(Window *window, LogicalOutput *oldO
     if (!m_workspace || !window || !oldOutput || oldOutput == window->output()) {
         return;
     }
-    // The window left oldOutput: drop it from engines that still hold it or
-    // its drag ghost so the source layout reflows. shouldHandleRemove is true
-    // for the owning engine even after KWin untiles the window for a drag;
-    // a contains() guard would skip that cleanup and leak a phantom tile.
-    TileManager *manager = m_workspace->tileManager(oldOutput);
-    if (manager) {
-        VirtualDesktop *oldDesktop = nullptr;
+    // The window left oldOutput: drop it from the engine that owns it (or
+    // every engine on that output if the index missed) so the source layout
+    // reflows. shouldHandleRemove is true for the owning engine even after
+    // KWin untiles the window for a drag; a contains() guard would skip that
+    // cleanup and leak a phantom tile.
+    VirtualDesktop *oldDesktop = nullptr;
+    const auto bound = m_engineByWindow.find(window);
+    if (bound != m_engineByWindow.end() && bound->output == oldOutput) {
+        oldDesktop = bound->desktop;
+        if (LayoutEngine *engine = bound->engine) {
+            if (engine->shouldHandleRemove(window)) {
+                engine->removeWindow(window); // window in a leaf or its ghost
+            }
+            engine->pruneEmpty();
+        }
+        m_engineByWindow.erase(bound);
+        applyGapSettingsToOutput(oldOutput, oldDesktop);
+    } else if (TileManager *manager = m_workspace->tileManager(oldOutput)) {
         if (!window->isOnAllDesktops() && window->desktops().size() == 1) {
             oldDesktop = window->desktops().constFirst();
         }
@@ -2227,6 +2345,7 @@ void TilingController::retile()
     LayoutEngine::LayoutKind kind = resolveLayoutKind(output, desktop);
     if (LayoutEngine *existing = manager->layoutEngine(desktop)) {
         kind = existing->layoutKind();
+        unbindEngineWindows(existing);
     }
     auto engine = createLayoutEngine(kind, manager);
     seedEngineSizing(output, desktop, engine.get(), kind);
@@ -2254,6 +2373,9 @@ void TilingController::retile()
             continue;
         }
         fresh->addWindow(w);
+        if (fresh->contains(w)) {
+            bindWindowToEngine(w, fresh, output, desktop);
+        }
     }
 }
 

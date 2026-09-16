@@ -57,9 +57,16 @@ Do **not** fork vertical leaf lifecycle into each engine. Cross-layout quirks
 MasterStack/Stacked/Grid. Absolute geometry, gaps, and quick-tile stay on
 KWin's `Tile`/`TileManager`; engines only set relative geometry.
 
+- **Tile association (#14):** `StackColumn` calls `requestTile(leaf)` when a leaf
+  takes a window, and `requestTileAssociation` on inactive desktops (no configure).
+  Scripting `window.tile` reads `requestedTile`.
+- **Reverse index (#15):** `TilingController` maps `Window*` → engine so
+  `layoutEngineForWindow` is O(1). `LayoutEngine::contains()` is the non-allocating
+  membership check.
 - Pure, KWin-free arithmetic (unit-tested): `columnmath`, `masterstackmath`,
   `gridmath`, `directionmath`, `slotlist`, `movestate`, `leafcolumn`, `movefsm`,
-  `sizingpolicy`, `suspendpolicy`, `tilingconfig`, `scrollingmove`, `viewportmath`.
+  `sizingpolicy`, `suspendpolicy`, `tilingconfig`, `scrollingmove`, `viewportmath`,
+  `engineindex`.
 - Kind switch **replaces** the engine and re-adds windows; durable layout
   memory is keyed by output/desktop id, not engine pointer.
 - Cross-monitor moves: cancel source leaf, drop on destination — no phantoms.
@@ -198,8 +205,9 @@ pkgs/kwin-tiling/tests/run.sh    # all *_test.cpp via g++
 Covers geometry (`columnmath`, `gridmath`, `masterstackmath`, `directionmath`),
 StackColumn order/weight (`slotlist`), layout + sizing precedence (`tilingconfig`),
 Scrolling viewport modes (`viewportmath`), in-column move (`scrollingmove`),
-move cancel (`movestate`, `leafcolumn`), and controller policy (`movefsm`,
-`sizingpolicy`, `suspendpolicy`, `classmatch`). No compositor link.
+Window→engine reverse index (`engineindex`), move cancel (`movestate`,
+`leafcolumn`), and controller policy (`movefsm`, `sizingpolicy`, `suspendpolicy`,
+`classmatch`). No compositor link.
 
 ### KWin integration (Part B, follow-up)
 

@@ -49,6 +49,7 @@ public:
     void adjustWindowHeight(Window *window, qreal delta) override;
 
     QList<Window *> windows() const override;
+    bool contains(Window *window) const override;
     Window *windowInDirection(Window *from, FocusDirection direction) const override;
 
 private:
