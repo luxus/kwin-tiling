@@ -62,13 +62,16 @@ bash pkgs/kwin-tiling/tests/run.sh
 ## 6. Scrolling (if exercised)
 
 - [ ] Switch to Scrolling; open several windows
-- [ ] Focus moves columns without permanently losing windows (off-viewport hide OK)
+- [ ] Focus moves columns without permanently losing windows (off-viewport hide
+      still OK until #41). Peeking neighbour (~40% past the output edge) keeps
+      full column width and must **not** appear on the adjacent monitor or
+      change `output()` (Path A / #40).
 - [ ] `Meta+Shift+C` / `Meta+Shift+V` center / cycle column width
 - [ ] KCM `Center focused column`: `never` (default fit), `always` recenters on
       every focus (wide columns left-aligned), `on-overflow` centers only when
       the focused column and its neighbour do not both fit. Apply round-trips.
-      Off-screen columns stay hidden without [#40](https://github.com/luxus/kwin-tiling/issues/40)
-      Path A.
+      Peeking neighbours keep full width (Path A / #40). Fully off-viewport
+      columns stay hidden until #41.
 - [ ] `Meta+Ctrl+Shift+V` reverse-cycles only the configured presets (e.g. `0.25,0.5`)
 - [ ] Two single-window columns: `Meta+Shift+[` consume-into-column → one stacked column; remaining widths unchanged
 - [ ] `Meta+Shift+]` expel-from-column pushes the bottom tile out to the right; remaining widths unchanged

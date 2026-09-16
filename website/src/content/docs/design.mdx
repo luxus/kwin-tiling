@@ -23,7 +23,11 @@ entire fork.
 
 Layout engines set relative geometry on KWin's `CustomTile` tree. KWin's own
 `Tile` / `TileManager` machinery handles gaps, window geometry, and rendering —
-we add layout logic on top of infrastructure that already exists.
+we add layout logic on top of infrastructure that already exists. Scrolling Path A
+(`Tile::m_allowOverflow`) is a small, layout-gated exception: peeking columns may
+sit past the output edge, stay pinned to that output, and not paint on the
+neighbour. Instant jump-scroll; no `scrollOffset` interpolation and no render-backend
+fork.
 
 ### Shared layout foundation (not a mega-engine)
 
@@ -34,7 +38,7 @@ Layouts are **thin arrangement engines** over one vertical primitive:
 - **Pure math / policy headers** — `columnmath`, `masterstackmath`, `gridmath`,
   `directionmath`, `slotlist`, `movestate`, `leafcolumn`, `movefsm`,
   `sizingpolicy`, `tilingconfig`, `scrollingmove`, `viewportmath`,
-  `columnwidthpresets`, `scrollingcolumn`, `engineindex` — tested without linking
+  `columnwidthpresets`, `scrollingcolumn`, `engineindex`, `overflowmath` — tested without linking
   KWin (`nix flake check` / `tests/run.sh`).
 - **`LayoutEngine` base** — zoom/monocle reflow, resize gate, no-op knobs for
   layout-specific actions.

@@ -66,7 +66,7 @@ KWin's `Tile`/`TileManager`; engines only set relative geometry.
 - Pure, KWin-free arithmetic (unit-tested): `columnmath`, `masterstackmath`,
   `gridmath`, `directionmath`, `slotlist`, `movestate`, `leafcolumn`, `movefsm`,
   `sizingpolicy`, `suspendpolicy`, `tilingconfig`, `scrollingmove`, `viewportmath`,
-  `engineindex`, `columnwidthpresets`, `scrollingcolumn`.
+  `engineindex`, `columnwidthpresets`, `scrollingcolumn`, `overflowmath`.
 - Kind switch **replaces** the engine and re-adds windows; durable layout
   memory is keyed by output/desktop id, not engine pointer.
 - Cross-monitor moves: cancel source leaf, drop on destination — no phantoms.
@@ -134,7 +134,7 @@ Read by the controller on `reconfigure`; also surfaced in the KCM
 | `MasterRatio` | double | `0.5` | master column width fraction (0.1–0.9) |
 | `MasterCount` | int | `1` | windows in the master area |
 | `DefaultColumnWidth` | double | `0.5` | Scrolling: new column width fraction (0.1–1.0) |
-| `CenterFocusedColumn` | string | `never` | Scrolling: `never` (fit-scroll), `always` (center on focus; wide columns left-align), or `on-overflow` (center when the focused column and its neighbour do not both fit). `Meta+Shift+C` stays a one-shot center. Without [#40](https://github.com/luxus/kwin-tiling/issues/40) Path A overflow tiles, `always` still hides off-screen columns. |
+| `CenterFocusedColumn` | string | `never` | Scrolling: `never` (fit-scroll), `always` (center on focus; wide columns left-align), or `on-overflow` (center when the focused column and its neighbour do not both fit). `Meta+Shift+C` stays a one-shot center. Path A overflow (#40) lets peeking columns keep full width without migrating; fully off-viewport columns stay hidden until #41. |
 | `ColumnWidthPresets` | list | `1/3,1/2,2/3,1` | Scrolling: cycle/reverse-cycle widths (fractions, `1/3`, or percents). Full width is a preset. |
 | `BorderlessWhenTiled` | bool | `false` | hide window decorations on tiled windows |
 | `NewWindowPlacement` | string | `end` | `master` promotes new windows to master (master-style layouts; respects an active master pin); `end` appends them |
@@ -187,9 +187,10 @@ KWin+Noctalia session packaging: [luxusAi](https://github.com/luxus/luxusAi)
 - Live `[Tiling] Enabled=false` detaches tiled windows and restores borders.
 - Directional focus/move continue onto the adjacent monitor at a layout edge.
 - Smart gaps basic (0 when ≤1 window); manual on/off toggle available.
-- Next: scrolling layout polish (consume/expel UX). `center-focused-column`
-  never/always/on-overflow is in kcfg/KCM; without [#40](https://github.com/luxus/kwin-tiling/issues/40)
-  Path A, `always` still hides off-screen columns.
+- Next: scrolling layout polish (consume/expel UX). Path A overflow (#40) is
+  in: peeking columns keep full width without migrating. Hide-for-offscreen
+  remains until #41. `center-focused-column` never/always/on-overflow is in
+  kcfg/KCM.
 - Session smoke checklist: `pkgs/kwin-tiling/scripts/session-smoke.md`
 
 ## Tests
@@ -203,12 +204,12 @@ pkgs/kwin-tiling/tests/run.sh    # all *_test.cpp via g++
 # or: nix flake check
 ```
 
-Covers geometry (`columnmath`, `gridmath`, `masterstackmath`, `directionmath`),
-StackColumn order/weight (`slotlist`), layout + sizing precedence (`tilingconfig`),
-Scrolling viewport modes (`viewportmath`), in-column move (`scrollingmove`),
-Window→engine reverse index (`engineindex`), move cancel (`movestate`,
-`leafcolumn`), and controller policy (`movefsm`, `sizingpolicy`, `suspendpolicy`,
-`classmatch`). No compositor link.
+Covers geometry (`columnmath`, `gridmath`, `masterstackmath`, `directionmath`,
+`overflowmath`), StackColumn order/weight (`slotlist`), layout + sizing precedence
+(`tilingconfig`), Scrolling viewport modes (`viewportmath`), in-column move
+(`scrollingmove`), Window→engine reverse index (`engineindex`), move cancel
+(`movestate`, `leafcolumn`), and controller policy (`movefsm`, `sizingpolicy`,
+`suspendpolicy`, `classmatch`). No compositor link.
 
 ### KWin integration (Part B, follow-up)
 
@@ -255,6 +256,37 @@ actions). Design choices documented here so they survive the next rebase:
   i3/dwm-style "moved window takes focus on the new desktop" behavior runs only
   when native tiling is enabled (`TilingController::isEnabled()`), so users who
   disabled `[Tiling] Enabled` keep stock Plasma focus behavior.
+
+### Path A overflow (Scrolling, issue #40) — GO
+
+Peeking columns can keep full width with ~40% past the output edge **without**
+migrating to the neighbour. Instant jump-scroll stays; `scrollOffset` is not
+interpolated. This is a stock `hooks.patch`, not a render-backend fork.
+
+**Go.** The failing invariants (CustomTile `[0,1]` clamp, `windowGeometry()`
+output intersect, `outputAt(center)` / `outputsIntersecting` migration, neighbour
+paint) are all gated on `Tile::allowOverflow()`, set on the Scrolling root and
+inherited by leaves. Proof: `tests/overflowmath_test.cpp` (1/3 column, 40% past
+a 1920px edge → width stays 640; pin stays home; no paint/input on neighbour).
+
+Hooks sketch (scrolling-gated; files + conditions):
+
+| File | Condition | What |
+| --- | --- | --- |
+| `scrollinglayoutengine.cpp` `attach` | Scrolling root | `root->setAllowOverflow(true)` (inherit to leaves) |
+| `layoutengine.cpp` `takeOwnershipOfRoot` | other layouts | `setAllowOverflow(false)` |
+| `tiles/tile.cpp` `windowGeometry()` | `m_allowOverflow` | skip `intersected(output->geometryF())` |
+| `tiles/customtile.cpp` `setRelativeGeometry` | `allowOverflow()` | skip `[0,1]` intersect, `right/bottom > 1` early return, and Floating parent intersect |
+| `window.cpp` `tilingPinnedOutput()` | tile `allowOverflow()` | return `tile->manager()->output()` |
+| `waylandwindow.cpp` `updateGeometry` | pinned && not interactive move | `m_output = pinned` (no `outputAt(center)`) |
+| `waylandwindow.cpp` `updateClientOutputs` | pinned && not interactive move | `setOutputs({pinned})` (no `outputsIntersecting`) |
+| `window.cpp` `setMoveResizeGeometry` | pinned && not interactive | `setMoveResizeOutput(pinned)` |
+| `window.cpp` `isOnOutput` / `hitTest` | pinned | occupancy and clicks only on the pinned output |
+| `scene/workspacescene.cpp` `createStackingOrder` | pinned && view ≠ pin | skip the window so it does not **paint** on the neighbour |
+
+Not a Hard no: KWin still composites by geometry, but `createStackingOrder`
+plus Wayland surface pin is enough to keep overflow off the neighbour without
+scene-graph work. Fully off-viewport columns remain `setHidden` until #41.
 
 Regenerate `hooks.patch` from a matching KWin tree when rebasing (see
 Maintenance above).

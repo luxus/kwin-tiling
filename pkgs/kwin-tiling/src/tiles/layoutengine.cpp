@@ -52,6 +52,9 @@ void LayoutEngine::takeOwnershipOfRoot(RootTile *root)
     }
     root->setLayoutDirection(Tile::LayoutDirection::Floating);
     root->setRelativeGeometry(RectF(0, 0, 1, 1));
+    // Scrolling sets this true after attach; other engines must clear a leftover
+    // overflow flag so MasterStack/Stacked/Grid never skip the [0,1] clamp.
+    root->setAllowOverflow(false);
 }
 
 bool LayoutEngine::reflowZoomed(const QList<CustomTile *> &allLeaves)
