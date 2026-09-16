@@ -161,6 +161,7 @@ Default binds from `resources/default-config.kdl` (QWERTY, `Mod` = Super).
 | `center-focused-column "never"` (default) | Scroll just enough to fit; if already fully visible, **do not move the camera** | `compute_new_view_offset` |
 | `"always"` | Always center the active column (wide columns left-align) | Layout wiki |
 | `"on-overflow"` | Center only if active + neighbour do not fit together | Layout wiki |
+| `pair-center` (kwin-tiling extra) | When n > 2, always leave room for one default-width neighbour (Karousel / Direktor) | `viewportmath` |
 | `always-center-single-column` | Center when ≤1 column | `is_centering_focused_column()` |
 | `center-column` | One-shot center (`Mod+C`) | default-config |
 | `center-visible-columns` | Center the block of fully visible columns (`Mod+Ctrl+C`) | default-config |
@@ -227,7 +228,7 @@ Legend: **Have** / **Partial** / **Missing**.
 | Per-output isolation (do not spill to the next monitor) | **Have.** Peeking columns overflow on the home output (Path A pin). Fully off-viewport columns stay `setHidden` (`viewportmath::hideForOffscreen`). Isolation is real; camera pans still jump. |
 | Camera pan with peeking columns at constant size | Engine `placeColumns` at `stripX - scrollOffset` with unchanged `Column::width` (#41). Path A overflow + pin keep peeking `frameGeometry` full-size on the home output. Fully off-viewport stay hidden. Instant jump-scroll. |
 | Fit-scroll: don’t move the camera if the active column is already fully visible | `scrollActiveIntoView` — “don’t move unless off-screen” (`never`) |
-| `center-focused-column` never / always / on-overflow | `[Tiling] CenterFocusedColumn` + KCM; default `never`. `Meta+Shift+C` remains one-shot. Path A overflow (#40) + W0-2 (#41): peeking columns keep full width without migrating; fully off-viewport columns stay hidden |
+| `center-focused-column` never / always / on-overflow | `[Tiling] CenterFocusedColumn` + KCM; default `never`. Extra `pair-center` (Karousel / Direktor: always leave room for one default-width neighbour when n > 2). `Meta+Shift+C` remains one-shot. Path A overflow (#40) + W0-2 (#41): peeking columns keep full width without migrating; fully off-viewport columns stay hidden |
 | Center active column | `Meta+Shift+C` → `centerActiveColumn()` |
 | Width presets | `Meta+Shift+V` cycles 1/3, 1/2, 2/3, **1.0** (niri’s default cycle is 1/3, 1/2, 2/3; full width is `maximize-column`) |
 | Default column width | `[Tiling] DefaultColumnWidth` + KCM; per-output override |
@@ -401,7 +402,7 @@ feel like “i3 but sideways.”
    `active+1`.
 
 5. **Viewport modes**
-   Config + KCM: `never` (current fit), `always`, `on-overflow`, plus keep the
+  Config + KCM: `never` (current fit), `always`, `on-overflow`, `pair-center`, plus keep the
    one-shot center action. **Policy shipped** in `scrollActiveIntoView` /
    `viewportmath` ([#46](https://github.com/luxus/kwin-tiling/issues/46)). Without
    W0-1, `always` still hides off-screen columns.
@@ -695,8 +696,10 @@ ghost tiles (`cancelMove` / `pruneEmpty`).
 #### W1-5. Scrolling: `center-focused-column` modes — **shipped** ([#46](https://github.com/luxus/kwin-tiling/issues/46))
 
 Add `never` (current fit), `always`, `on-overflow` to kcfg/KCM, default `never`.
-Keep `Meta+Shift+C` as one-shot center. Without W0-1, `always` will still hide
-off-screen columns — acceptable if documented.
+`pair-center` (Karousel / Direktor always-pair-peek when n > 2) is extra
+([#64](https://github.com/luxus/kwin-tiling/issues/64)). Keep `Meta+Shift+C` as
+one-shot center. Without W0-1, `always` will still hide off-screen columns —
+acceptable if documented.
 
 **Acceptance:** with `always`, focusing any column recenters it (wide columns
 left-aligned). **Proof:** KCM round-trip + session; `nix flake check` for any new

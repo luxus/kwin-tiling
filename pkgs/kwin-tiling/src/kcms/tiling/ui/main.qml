@@ -29,7 +29,8 @@ KCM.SimpleKCM {
     readonly property var centerFocusedColumnOptions: [
         { text: i18n("Never (scroll to fit)"), value: "never" },
         { text: i18n("Always"), value: "always" },
-        { text: i18n("On overflow"), value: "on-overflow" }
+        { text: i18n("On overflow"), value: "on-overflow" },
+        { text: i18n("Pair center (Karousel)"), value: "pair-center" }
     ]
 
     function presetTokenToPercent(token) {
@@ -361,7 +362,7 @@ KCM.SimpleKCM {
 
             QQC2.Label {
                 Kirigami.FormData.label: i18nc("@info", "Note:")
-                text: i18nc("@info", "Always and on-overflow still hide columns scrolled off this monitor. Overflow tiles (Path A) are required to peek neighbours at full width.")
+                text: i18nc("@info", "Always, on-overflow, and pair-center still hide columns scrolled off this monitor. Overflow tiles (Path A) are required to peek neighbours at full width.")
                 wrapMode: Text.WordWrap
                 Layout.fillWidth: true
                 Layout.maximumWidth: Kirigami.Units.gridUnit * 30

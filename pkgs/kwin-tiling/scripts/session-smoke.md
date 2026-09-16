@@ -74,9 +74,10 @@ bash pkgs/kwin-tiling/tests/run.sh
 - [ ] `Meta+Shift+C` / `Meta+Shift+V` center / cycle column width
 - [ ] KCM `Center focused column`: `never` (default fit), `always` recenters on
       every focus (wide columns left-aligned), `on-overflow` centers only when
-      the focused column and its neighbour do not both fit. Apply round-trips.
-      Peeking neighbours keep full width (Path A / #40 + #41). Fully
-      off-viewport columns stay hidden.
+      the focused column and its neighbour do not both fit, `pair-center`
+      (Karousel) always leaves room for one default-width neighbour when more
+      than two columns. Apply round-trips. Peeking neighbours keep full width
+      (Path A / #40 + #41). Fully off-viewport columns stay hidden.
 - [ ] `Meta+Ctrl+Shift+V` reverse-cycles only the configured presets (e.g. `0.25,0.5`)
 - [ ] Two single-window columns: `Meta+Shift+[` consume-into-column → one stacked column; remaining widths unchanged
 - [ ] `Meta+Shift+]` expel-from-column pushes the bottom tile out to the right; remaining widths unchanged

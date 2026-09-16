@@ -34,11 +34,17 @@ int main()
     assert(parseCenterFocusedColumn("on-overflow") == CenterFocusedColumn::OnOverflow);
     assert(parseCenterFocusedColumn("on_overflow") == CenterFocusedColumn::OnOverflow);
     assert(parseCenterFocusedColumn("onOverflow") == CenterFocusedColumn::OnOverflow);
+    assert(parseCenterFocusedColumn("pair-center") == CenterFocusedColumn::PairCenter);
+    assert(parseCenterFocusedColumn("pair_center") == CenterFocusedColumn::PairCenter);
+    assert(parseCenterFocusedColumn("pairCenter") == CenterFocusedColumn::PairCenter);
+    assert(parseCenterFocusedColumn("center-pairs") == CenterFocusedColumn::PairCenter);
+    assert(parseCenterFocusedColumn("karousel") == CenterFocusedColumn::PairCenter);
     assert(parseCenterFocusedColumn("") == CenterFocusedColumn::Never);
     assert(parseCenterFocusedColumn("nope") == CenterFocusedColumn::Never);
     assert(std::string(centerFocusedColumnToString(CenterFocusedColumn::Never)) == "never");
     assert(std::string(centerFocusedColumnToString(CenterFocusedColumn::Always)) == "always");
     assert(std::string(centerFocusedColumnToString(CenterFocusedColumn::OnOverflow)) == "on-overflow");
+    assert(std::string(centerFocusedColumnToString(CenterFocusedColumn::PairCenter)) == "pair-center");
 
     // Four 0.5 columns: strip total 2.0. Column 1 sits at left=0.5.
     const std::vector<double> halfs{0.5, 0.5, 0.5, 0.5};
@@ -129,6 +135,83 @@ int main()
 
     // empty strip
     assert(approx(scrollOffsetForFocus({}, 0, -1, 0.0, CenterFocusedColumn::Always), 0.0));
+    assert(approx(scrollOffsetForFocus({}, 0, -1, 0.0, CenterFocusedColumn::PairCenter), 0.0));
+
+    // pair-center: n ≤ 2 is fit (Never), not pair-peek.
+    {
+        const std::vector<double> pair{0.5, 0.5};
+        assert(approx(scrollOffsetForFocus(pair, 1, 0, 0.0, CenterFocusedColumn::PairCenter), 0.0));
+        const std::vector<double> small{0.4, 0.4}; // total 0.8 → center the strip
+        const double centeredStrip = (0.8 - 1.0) / 2.0;
+        assert(approx(scrollOffsetForFocus(small, 0, -1, 0.0, CenterFocusedColumn::PairCenter),
+                      centeredStrip));
+        assert(approx(scrollOffsetForFocus(small, 0, -1, 0.0, CenterFocusedColumn::Never),
+                      centeredStrip));
+    }
+
+    // pair-center: n > 2 always leaves room for one default-width neighbour,
+    // even when the focused column is already fully visible (not only on overflow).
+    {
+        const std::vector<double> thirds(5, 1.0 / 3.0);
+        const double d = 1.0 / 3.0;
+        // leftover = 1/3 → minX = 1/6, maxX = 1/2
+        assert(approx(pairCenterScrollOffset(0.0, d, 0.0, d), -1.0 / 6.0));
+        assert(approx(scrollOffsetForFocus(thirds, 0, -1, 0.0, CenterFocusedColumn::PairCenter, d),
+                      -1.0 / 6.0));
+        // col 1 at 1/3 is already in [1/6, 1/2] at offset 0 → do not move
+        assert(approx(scrollOffsetForFocus(thirds, 1, 0, 0.0, CenterFocusedColumn::PairCenter, d),
+                      0.0));
+        // col 2 at 2/3 > maxX 1/2 → offset = 2/3 - 1/2 = 1/6
+        assert(approx(scrollOffsetForFocus(thirds, 2, 1, 0.0, CenterFocusedColumn::PairCenter, d),
+                      1.0 / 6.0));
+        // on-overflow would leave offset 0 (1/3+1/3 fit; col 2 already visible)
+        assert(!neighborOverflows(thirds, 2, 1));
+        assert(approx(scrollOffsetForFocus(thirds, 2, 1, 0.0, CenterFocusedColumn::OnOverflow), 0.0));
+        // never would also leave col 2 (fully visible at [2/3, 1])
+        assert(approx(scrollOffsetForFocus(thirds, 2, 1, 0.0, CenterFocusedColumn::Never), 0.0));
+        // always centers col 2: 2/3 - (1 - 1/3)/2 = 2/3 - 1/3 = 1/3
+        assert(approx(scrollOffsetForFocus(thirds, 2, 1, 0.0, CenterFocusedColumn::Always), 1.0 / 3.0));
+    }
+
+    // pair-center: four 0.5 columns, default 0.5 → leftover 0, minX=0, maxX=0.5
+    {
+        // col 2 at 1.0, viewLeft 1.0 > 0.5 → offset = 1.0 - 0.5 = 0.5 (pair-peek left)
+        assert(approx(scrollOffsetForFocus(halfs, 2, 1, 0.0, CenterFocusedColumn::PairCenter, 0.5),
+                      0.5));
+        // col 1 already at maxX → stay
+        assert(approx(scrollOffsetForFocus(halfs, 1, 0, 0.0, CenterFocusedColumn::PairCenter, 0.5),
+                      0.0));
+        // already in the dead zone after scrolling: keep camera
+        assert(approx(scrollOffsetForFocus(halfs, 2, 1, 0.5, CenterFocusedColumn::PairCenter, 0.5),
+                      0.5));
+    }
+
+    // pair-center: pair does not fit (minX < 0) → fit; wide columns left-align.
+    {
+        const std::vector<double> wide{1.2, 0.5, 0.5};
+        assert(approx(pairCenterScrollOffset(0.0, 1.2, 0.0, 0.5), 0.0));
+        assert(approx(scrollOffsetForFocus(wide, 0, -1, 0.0, CenterFocusedColumn::PairCenter, 0.5),
+                      0.0));
+        // 0.6+0.6 default: leftover negative → fit dead-zone, not center
+        const std::vector<double> fat{0.6, 0.6, 0.6};
+        assert(approx(scrollOffsetForFocus(fat, 0, -1, 0.0, CenterFocusedColumn::PairCenter, 0.6),
+                      0.0));
+        // col 1: viewLeft 0.6 > maxX 0.4 → offset 0.2 (fit), not center 0.4
+        assert(approx(scrollOffsetForFocus(fat, 1, 0, 0.0, CenterFocusedColumn::PairCenter, 0.6),
+                      0.2));
+        assert(approx(scrollOffsetForFocus(fat, 1, 0, 0.0, CenterFocusedColumn::OnOverflow), 0.4));
+    }
+
+    // pair-center: defaultWidth is the reserved neighbour, not the actual one.
+    {
+        const std::vector<double> mixed{0.9, 0.2, 0.2, 0.9};
+        const double d = 0.5;
+        // n=4, col 1 width 0.2 at 0.9; leftover = 1-0.2-0.5 = 0.3; minX=0.15; maxX=0.65
+        // viewLeft at offset 0 is 0.9 > 0.65 → offset = 0.9 - 0.65 = 0.25
+        assert(approx(pairCenterScrollOffset(0.9, 0.2, 0.0, d), 0.25));
+        assert(approx(scrollOffsetForFocus(mixed, 1, 0, 0.0, CenterFocusedColumn::PairCenter, d),
+                      0.25));
+    }
 
     // placeColumns is a pure translation: x_i = stripX_i - scrollOffset.
     {
@@ -226,6 +309,31 @@ int main()
 
     // Empty placeColumns.
     assert(placeColumns({}, 0.0).empty());
+
+    // pair-center placement: peeking neighbour keeps stored width (not the
+    // sliver) and is not hidden. Fully off-viewport stay hidden. Path A
+    // overflow/pin is not copied here.
+    {
+        const std::vector<double> widths(5, 1.0 / 3.0);
+        const double d = 1.0 / 3.0;
+        const double offset = scrollOffsetForFocus(widths, 2, 1, 0.0, CenterFocusedColumn::PairCenter, d);
+        assert(approx(offset, 1.0 / 6.0));
+        const auto placed = placeColumns(widths, offset);
+        assert(placed.size() == 5);
+        assert(visibility(placed[2]) == Visibility::FullyVisible);
+        assert(visibility(placed[1]) == Visibility::FullyVisible);
+        assert(visibility(placed[0]) == Visibility::Peeking);
+        assert(approx(placed[0].width, 1.0 / 3.0));
+        assert(!hideForOffscreen(placed[0]));
+        const double sliver = clippedViewportWidth(placed[0]);
+        assert(sliver > 0.0 && sliver < placed[0].width - 1e-9);
+        assert(visibility(placed[4]) == Visibility::Offscreen);
+        assert(approx(placed[4].width, 1.0 / 3.0));
+        assert(hideForOffscreen(placed[4]));
+        for (const ColumnRect &r : placed) {
+            assert(approx(r.width, 1.0 / 3.0));
+        }
+    }
 
     std::puts("viewportmath: all checks passed");
     return 0;

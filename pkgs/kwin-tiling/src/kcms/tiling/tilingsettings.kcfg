@@ -30,7 +30,7 @@
       <max>1.0</max>
     </entry>
     <entry name="centerFocusedColumn" key="CenterFocusedColumn" type="String">
-      <label>When the Scrolling layout recenters the focused column: never (scroll just enough to fit; default), always (center on every focus; columns wider than the view left-align), or on-overflow (center only when the focused column and its neighbour do not both fit). Meta+Shift+C remains a one-shot center. Without Path A overflow tiles (issue #40), always still hides off-screen columns.</label>
+      <label>When the Scrolling layout recenters the focused column: never (scroll just enough to fit; default), always (center on every focus; columns wider than the view left-align), on-overflow (center only when the focused column and its neighbour do not both fit), or pair-center (Karousel / Direktor: when more than two columns, always leave room for one neighbour of default width beside the active column). Meta+Shift+C remains a one-shot center. Without Path A overflow tiles (issue #40), always still hides off-screen columns.</label>
       <default>never</default>
     </entry>
     <entry name="columnWidthPresets" key="ColumnWidthPresets" type="StringList">
