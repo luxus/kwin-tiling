@@ -638,6 +638,14 @@ QList<Window *> MasterStackLayoutEngine::windows() const
     return m_column.windows();
 }
 
+bool MasterStackLayoutEngine::contains(Window *window) const
+{
+    if (isCentered()) {
+        return m_left.contains(window) || m_center.contains(window) || m_right.contains(window);
+    }
+    return m_column.contains(window);
+}
+
 Window *MasterStackLayoutEngine::primaryWindow() const
 {
     if (isCentered()) {

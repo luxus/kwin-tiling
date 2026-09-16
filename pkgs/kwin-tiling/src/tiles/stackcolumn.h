@@ -26,6 +26,44 @@ namespace KWin
 
 class RootTile;
 
+// Authoritative KWin tile association (#14). Tile::manage() only calls
+// requestTile when the leaf's desktop is active; on inactive desktops the
+// association is dropped and KDE APIs (window.tile / quickTileMode) disagree
+// with our layout. requestTile() always moveResize — skip that on inactive
+// desktops so we don't send configures to hidden windows (same gate as
+// Tile::setRelativeGeometry). CustomTile already sets QuickTileFlag::Custom,
+// so a non-null requestedTile makes quickTileMode() != None after commit.
+inline void associateWindowTile(Window *window, Tile *leaf)
+{
+    if (!window || !leaf) {
+        return;
+    }
+    if (window->requestedTile() == leaf) {
+        return;
+    }
+    if (leaf->isActive()) {
+        window->requestTile(leaf);
+        return;
+    }
+    window->requestTileAssociation(leaf);
+}
+
+// Clear association without a restore-geometry configure when the desktop is
+// inactive. On the active desktop Tile::unmanage already requestTile(nullptr).
+inline void disassociateWindowTile(Window *window, Tile *leaf)
+{
+    if (!window || !leaf) {
+        return;
+    }
+    if (window->requestedTile() != leaf) {
+        return;
+    }
+    if (leaf->isActive()) {
+        return;
+    }
+    window->requestTileAssociation(nullptr);
+}
+
 /**
  * One ordered, weighted vertical stack of windows — the unit every tiling
  * layout is built from, factored out so the engines stop re-implementing it.
@@ -165,6 +203,7 @@ public:
             m_root->destroyChild(leaf);
             return nullptr;
         }
+        associateWindowTile(window, leaf);
         const int idx = slotlist::insertIndex(at, m_leaves.count());
         m_leaves.insert(idx, leaf);
         return leaf;
@@ -187,6 +226,7 @@ public:
             m_moveWindow.clear();
         }
         if (leaf) {
+            disassociateWindowTile(window, leaf);
             leaf->unmanage(window);
             if (m_root) {
                 m_root->destroyChild(leaf);
@@ -256,14 +296,23 @@ public:
             const int targetIdx = indexOf(target);
             if (targetIdx >= 0 && m_leaves[targetIdx]) {
                 CustomTile *targetLeaf = m_leaves[targetIdx];
+                disassociateWindowTile(target, targetLeaf);
                 targetLeaf->unmanage(target);
-                targetLeaf->manage(window);
-                sourceLeaf->manage(target);
+                if (targetLeaf->manage(window)) {
+                    associateWindowTile(window, targetLeaf);
+                }
+                if (sourceLeaf->manage(target)) {
+                    associateWindowTile(target, sourceLeaf);
+                }
                 return true;
             }
         }
         if (!sourceLeaf->windows().contains(window)) {
-            sourceLeaf->manage(window);
+            if (sourceLeaf->manage(window)) {
+                associateWindowTile(window, sourceLeaf);
+            }
+        } else {
+            associateWindowTile(window, sourceLeaf);
         }
         return true;
     }
@@ -290,6 +339,7 @@ public:
             return false;
         }
         if (leafHoldsDragged) {
+            disassociateWindowTile(window, sourceLeaf);
             sourceLeaf->unmanage(window);
         }
         m_leaves.removeOne(sourceLeaf);

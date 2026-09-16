@@ -141,6 +141,11 @@ QList<Window *> StackedLayoutEngine::windows() const
     return m_column.windows();
 }
 
+bool StackedLayoutEngine::contains(Window *window) const
+{
+    return m_column.contains(window);
+}
+
 Window *StackedLayoutEngine::windowInDirection(Window *from, FocusDirection direction) const
 {
     QList<QPair<Window *, RectF>> entries;

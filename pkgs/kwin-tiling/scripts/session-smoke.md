@@ -130,6 +130,18 @@ tiles as a black box covering a monitor.
 - [ ] Window stays fullscreen (not force-resized back onto its tile)
 - [ ] Exit fullscreen — window restores to its tile
 
+## 12. Authoritative tile association (#14) + reverse index (#15)
+
+- [ ] Tiled window reports as tiled in KWin scripting: `window.tile` is non-null
+      (Overview / window rules / effects that key off the tile association)
+- [ ] Tile a window, switch to another virtual desktop and back — it still shows
+      as tiled (association is not dropped on the inactive desktop)
+- [ ] `Meta+W` float clears the association; re-tile restores it
+- [ ] `Meta+Shift+T` layout cycle: windows stay tiled, no crash, no lost slots
+- [ ] Directional focus (`Meta+Arrows`) and move still follow the layout after
+      a cycle (index stays in sync with add/remove/switch)
+
+
 ## KWin + Noctalia extras (way 2 only)
 
 - [ ] Noctalia bar appears after session-ready

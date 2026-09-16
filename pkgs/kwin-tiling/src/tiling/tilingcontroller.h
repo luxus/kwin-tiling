@@ -197,6 +197,13 @@ private:
     void forceNoBorder(Window *window);
     void restoreBorder(Window *window);
     void migrateWindow(Window *window, LogicalOutput *newOutput, VirtualDesktop *newDesktop);
+    // Window→engine reverse index (#15). bind after a successful add/drop;
+    // unbind on remove/cancel-to-other-engine/layout-replace/output unplug.
+    // Ghost leaves during interactive move stay bound (see engineindex.h).
+    void bindWindowToEngine(Window *window, LayoutEngine *engine, LogicalOutput *output, VirtualDesktop *desktop);
+    void unbindWindowFromEngine(Window *window);
+    void unbindEngineWindows(LayoutEngine *engine);
+    void unbindOutputWindows(LogicalOutput *output);
     bool promoteToMaster(Window *window);
     QString pinKeyFor(LogicalOutput *output, VirtualDesktop *desktop) const;
     void reassertMasterPin(LogicalOutput *output, VirtualDesktop *desktop);
@@ -314,6 +321,13 @@ private:
     QHash<QString, QPointer<Window>> m_masterPins;
     QHash<LogicalOutput *, QVector<ReflowContext>> m_reflowContextStacks;
     int m_nextReflowGroupId = 1;
+
+    struct WindowEngineBinding {
+        QPointer<LayoutEngine> engine;
+        QPointer<LogicalOutput> output;
+        QPointer<VirtualDesktop> desktop;
+    };
+    QHash<Window *, WindowEngineBinding> m_engineByWindow;
     // Debounces kwinrc sync() on the interactive sizing paths (see schedulePersist).
     QTimer *m_persistTimer = nullptr;
     // Geometry immediately before the engine snapped the window into a tile.

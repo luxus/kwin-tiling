@@ -157,6 +157,14 @@
               ./viewportmath-test
               touch $out
             '';
+        engineindex =
+          pkgs.runCommand "kwin-tiling-engineindex-test" { nativeBuildInputs = [ pkgs.gcc ]; }
+            ''
+              g++ -std=c++20 -O2 -Wall -Wextra -o engineindex-test \
+                ${./pkgs/kwin-tiling}/tests/engineindex_test.cpp
+              ./engineindex-test
+              touch $out
+            '';
         # Single entry that runs the whole pure suite (same as tests/run.sh).
         pure-suite =
           pkgs.runCommand "kwin-tiling-pure-suite" { nativeBuildInputs = [ pkgs.gcc pkgs.bash ]; }
