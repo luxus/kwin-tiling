@@ -113,6 +113,10 @@ kdePackages.kwin.overrideAttrs (old: {
       # That binary lives in plasma-workspace, so kwin-noctalia never unblocks
       # Xwayland listenfds (Steam hangs in connect() to @/tmp/.X11-unix/X0).
       ./patches/xwayland-missing-setup-script.patch
+      # 6.7.90 scripted CrossFade (niri glass-warp, etc.) SIGSEGVs in
+      # OffscreenData::paint: redirect -> maybeRender -> drawWindow re-enters
+      # the same OffscreenData. Upstream Plasma/6.8 !9898; drop on 6.7.91+.
+      ./patches/offscreeneffect-recursion-guard.patch
       ./hooks.patch
     ];
 

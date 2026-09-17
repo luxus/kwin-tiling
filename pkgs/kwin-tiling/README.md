@@ -22,7 +22,7 @@ Plasma version. It is **not** a fork build.
 | `pkgs/kwin-tiling/default.nix` | overrideAttrs: applies `hooks.patch` plus `patches/`, copies `src/` into the kwin tree in `postPatch` |
 | `pkgs/kwin-tiling/src/` | **brand-new** files, mirroring kwin's own `src/` layout (editable as normal source) |
 | `pkgs/kwin-tiling/hooks.patch` | **only** the edits to existing kwin files + CMake wiring (~1,000 lines — the rebase surface) |
-| `pkgs/kwin-tiling/patches/` | stock-kwin mini-patches kept out of `hooks.patch` (NixOS unwrap; Noctalia wallpaper → Desktop) |
+| `pkgs/kwin-tiling/patches/` | stock-kwin mini-patches kept out of `hooks.patch` (NixOS unwrap; Noctalia wallpaper → Desktop; Xwayland missing setup script; OffscreenData recursion guard) |
 | `flake.nix` → `overlays.default` / `nixosModules.kwin-tiling` | `kdePackages.kwin = patched` **and** Plasma `sources` → 6.7.90; composing the module onto a host is the on-switch |
 | `pkgs/kwin-tiling/plasma-6.7.90-sources.json` | sha256 map for the Plasma 6.8 beta tarballs (nixpkgs still ships 6.7.5) |
 

@@ -1,0 +1,46 @@
+diff --git a/src/effect/offscreeneffect.cpp b/src/effect/offscreeneffect.cpp
+--- a/src/effect/offscreeneffect.cpp
++++ b/src/effect/offscreeneffect.cpp
+@@ -41,6 +41,7 @@
+     std::shared_ptr<EglSwapchainSlot> m_slot;
+     std::shared_ptr<SyncReleasePoint> m_releasePoint;
+     bool m_isDirty = true;
++    bool m_recursionGuard = false;
+     GLShader *m_shader = nullptr;
+     RenderGeometry::VertexSnappingMode m_vertexSnappingMode = RenderGeometry::VertexSnappingMode::Round;
+     QMetaObject::Connection m_windowDamagedConnection;
+@@ -159,11 +160,16 @@
+     data.setOpacity(1.0);
+ 
+     const int mask = Effect::PAINT_WINDOW_TRANSFORMED | Effect::PAINT_WINDOW_TRANSLUCENT;
++    // redirect -> maybeRender -> drawWindow can re-enter this OffscreenData
++    // (Plasma/6.8 !9898). Guard until we have a better capture path.
++    m_recursionGuard = true;
+     if (!effects->drawWindow(renderTarget, viewport, window, mask, Region::infinite(), data)) {
+         m_slot.reset();
+         m_swapchain.reset();
++        m_recursionGuard = false;
+         return false;
+     }
++    m_recursionGuard = false;
+ 
+     GLFramebuffer::popFramebuffer();
+     EGLNativeFence fence(m_swapchain->context()->displayObject());
+@@ -268,7 +274,7 @@
+ bool OffscreenEffect::drawWindow(const RenderTarget &renderTarget, const RenderViewport &viewport, EffectWindow *window, int mask, const Region &deviceRegion, WindowPaintData &data)
+ {
+     const auto it = d->windows.find(window);
+-    if (it == d->windows.end()) {
++    if (it == d->windows.end() || it->second->m_recursionGuard) {
+         return effects->drawWindow(renderTarget, viewport, window, mask, deviceRegion, data);
+     }
+     OffscreenData *offscreenData = it->second.get();
+@@ -365,7 +371,7 @@
+         }
+     }
+ 
+-    if (it == d->windows.end()) {
++    if (it == d->windows.end() || it->second->m_recursionGuard) {
+         return true;
+     }
+     CrossFadeWindowData *offscreenData = it->second.get();
