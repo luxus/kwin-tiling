@@ -4,12 +4,12 @@ Run after a fresh `kwin-tiling` build is **active in the running session**
 (not only after `nix build` / `nh os switch` — the compositor process must be
 restarted, usually by **relogin**).
 
-**Current train:** KWin / Plasma **6.8 beta (6.7.90)**.  
+**Current train:** KWin git master (**6.8.80**) on nixpkgs Plasma 6.8.x.  
 **Sessions:** Plasma Wayland **or** KWin + Noctalia (`kwin-noctalia`).
 
 ```sh
 # Quick sanity (on NixOS after switch)
-readlink -f /run/current-system/sw/bin/kwin_wayland   # expect …-kwin-6.7.90…
+readlink -f /run/current-system/sw/bin/kwin_wayland   # expect …-kwin-6.8.80…
 # Pure suite (no session needed)
 bash pkgs/kwin-tiling/tests/run.sh
 # or: nix flake check

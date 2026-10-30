@@ -22,9 +22,8 @@ Plasma version. It is **not** a fork build.
 | `pkgs/kwin-tiling/default.nix` | overrideAttrs: applies `hooks.patch` plus `patches/`, copies `src/` into the kwin tree in `postPatch` |
 | `pkgs/kwin-tiling/src/` | **brand-new** files, mirroring kwin's own `src/` layout (editable as normal source) |
 | `pkgs/kwin-tiling/hooks.patch` | **only** the edits to existing kwin files + CMake wiring (~1,000 lines — the rebase surface) |
-| `pkgs/kwin-tiling/patches/` | stock-kwin mini-patches kept out of `hooks.patch` (NixOS unwrap; Noctalia wallpaper → Desktop; Xwayland missing setup script; OffscreenData recursion guard) |
-| `flake.nix` → `overlays.default` / `nixosModules.kwin-tiling` | `kdePackages.kwin = patched` **and** Plasma `sources` → 6.7.90; composing the module onto a host is the on-switch |
-| `pkgs/kwin-tiling/plasma-6.7.90-sources.json` | sha256 map for the Plasma 6.8 beta tarballs (nixpkgs still ships 6.7.5) |
+| `pkgs/kwin-tiling/patches/` | stock-kwin mini-patches kept out of `hooks.patch` (NixOS unwrap; QPA wrapper; Noctalia wallpaper → Desktop) |
+| `flake.nix` → `overlays.default` / `nixosModules.kwin-tiling` | `kdePackages.kwin` = patched invent master; composing the module onto a host is the on-switch |
 
 The split (new files vendored, hooks as a small patch) keeps the bulk of the
 feature reviewable source and the patch — the part that breaks on a kwin bump —
@@ -230,11 +229,10 @@ git diff <baseline> HEAD -- <modified existing files> > pkgs/kwin-tiling/hooks.p
 applies, fix the rejected hunks (the vendored `src/` files are additive and rarely
 conflict; the hooks into `window/workspace/useractions/input` are the risk).
 
-**Build / verify:** `nix build .#kwin-tiling` (compiles KWin; tracks **KWin 6.8
-beta / 6.7.90**, overriding `kdePackages.kwin` + its Plasma-versioned deps to the
-beta and requiring KDE Frameworks ≥ 6.30 — the flake tracks nixpkgs `master`
-until 6.30 reaches `nixos-unstable`). Consumers pick up the new compositor
-on their next rebuild/switch once they track this flake — then **relogin**.
+**Build / verify:** `nix build .#kwin-tiling` (compiles KWin from invent
+`plasma/kwin` master, Plasma 6.8.80, against nixpkgs Plasma 6.8.x; needs KDE
+Frameworks ≥ 6.30). Consumers pick up the new compositor on their next
+rebuild/switch once they track this flake — then **relogin**.
 `nix flake check` / `tests/run.sh` run the pure suite (see Tests below) without
 building KWin. Session regression: `scripts/session-smoke.md`. Production
 KWin+Noctalia session packaging: [luxusAi](https://github.com/luxus/luxusAi)

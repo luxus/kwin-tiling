@@ -1,9 +1,9 @@
 {
   description = "Native dynamic tiling patched into KWin — package, overlay, and NixOS module";
 
-  # Temporarily tracks nixpkgs master for KDE Frameworks >= 6.30, which KWin 6.8
-  # beta (6.7.90) requires and which nixos-unstable has not yet promoted. Revert
-  # to nixos-unstable once it ships Frameworks 6.30 (imminent in the 6.8 cycle).
+  # Standalone `nix build` uses nixpkgs master (Plasma 6.8.x / KF ≥ 6.30).
+  # Hosts that follow their own nixpkgs ignore this pin: the overlay's `prev`
+  # is the host's package set. KWin itself is invent plasma/kwin master.
   inputs.nixpkgs.url = "github:NixOS/nixpkgs/master";
 
   outputs =
@@ -28,164 +28,25 @@
         default = kwin-tiling;
       });
 
-      # Drop-in replacement of kdePackages.kwin with the patched build, and bump
-      # the rest of the Plasma set to the matching 6.7.90 beta. nixpkgs still
-      # ships Plasma 6.7.5; KWin 6.8 talks to kglobalacceld / libkscreen /
-      # xdg-desktop-portal-kde / plasma-workspace over D-Bus against the stable
-      # daemons. Xwayland listenfds are a separate Nix path issue (kwin waits on
-      # ${LIBEXEC_DIR}/plasma-setup-xwayland, which is not in kwin's store).
-      # mkKdeDerivation reads src from kdePackages.sources.<pname>, so overlaying
-      # that map rebuilds every Plasma package in the host closure. Gear/KF stay
-      # on nixpkgs. kwin is still the tiling overrideAttrs, fed kprev.kwin so
-      # the import cannot recurse through kfinal.kwin.
-      overlays.default =
-        _final: prev:
-        let
-          inherit (prev) lib fetchurl;
-          plasmaVersion = "6.7.90";
-          plasmaHashes = lib.importJSON ./pkgs/kwin-tiling/plasma-6.7.90-sources.json;
-          plasmaSources = lib.mapAttrs (
-            name: hash:
-            (fetchurl {
-              url = "mirror://kde/unstable/plasma/${plasmaVersion}/${name}-${plasmaVersion}.tar.xz";
-              inherit hash;
-            })
-            // {
-              version = plasmaVersion;
-            }
-          ) plasmaHashes;
-          # 6.8 CMakeLists grew KF6 REQUIRED components nixpkgs' 6.7.5
-          # dependencies.json does not list. Append so find_package succeeds.
-          extraKf = {
-            aurorae = [ "kcolorscheme" ];
-            bluedevil = [ "ksvg" ];
-            kscreen = [ "kcrash" ];
-            kscreenlocker = [
-              "kio"
-              "solid"
-            ];
-            ksshaskpass = [ "kconfig" ];
-            milou = [ "ksvg" ];
-            plasma-activities-stats = [
-              "kconfig"
-              "kcoreaddons"
-            ];
-            plasma-pa = [ "kdbusaddons" ];
-            plasma-workspace = [
-              "karchive"
-              "kidletime"
-              "ksvg"
-              "kdoctools"
-              "union"
-            ];
-            systemsettings = [ "kjobwidgets" ];
-            union = [
-              "kconfig"
-              "kguiaddons"
-            ];
-          };
-        in
-        {
-          kdePackages = prev.kdePackages.overrideScope (
-            kfinal: kprev:
-            {
-              sources = kprev.sources // plasmaSources;
-              # Spectacle 6.7.90 requires KQuickImageEditor 0.7; nixpkgs still ships 0.6.1.
-              kquickimageedit = kprev.kquickimageedit.overrideAttrs (old: {
-                version = "0.7.0";
-                src = prev.fetchFromGitLab {
-                  domain = "invent.kde.org";
-                  owner = "libraries";
-                  repo = "kquickimageeditor";
-                  rev = "v0.7.0";
-                  hash = "sha256-LIpEJt4s5H77YeQ/XjoIqh4Dc7XRM/YCv3hzEfnhmXI=";
-                };
-                buildInputs = (old.buildInputs or [ ]) ++ [ prev.libhwy ];
-              });
-              kquickimageeditor = kfinal.kquickimageedit;
-              # Union 6.7.90 requires cxx-rust-cssparser 1.1.0; nixpkgs still ships 1.0.0.
-              cxx-rust-cssparser = kprev.cxx-rust-cssparser.overrideAttrs (old: rec {
-                version = "1.1.0";
-                src = prev.fetchFromGitLab {
-                  domain = "invent.kde.org";
-                  owner = "libraries";
-                  repo = "cxx-rust-cssparser";
-                  tag = "v${version}";
-                  hash = "sha256-0GO299lTzKh6YwNytuDHu+JlBT+d9E4R1VDWrXueVlM=";
-                };
-                cargoDeps = prev.rustPlatform.fetchCargoVendor {
-                  inherit src;
-                  pname = old.pname;
-                  inherit version;
-                  cargoRoot = "rust";
-                  hash = "sha256-Ukb/LbMMHfeazHiTpwKKAZV2nx5tXZZxJYbLGe9RaVM=";
-                };
-              });
-              krdp = kprev.krdp.overrideAttrs (old: {
-                buildInputs = (old.buildInputs or [ ]) ++ [
-                  kfinal.ki18n
-                  kfinal.kcoreaddons
-                  kfinal.kguiaddons
-                  prev.libei
-                ];
-              });
-              # 6.8 portal: pkg_check_modules(libpipewire-0.3>=1.0.9) + xkbcommon;
-              # KPipeWire is optional but present in the 6.8 tree.
-              xdg-desktop-portal-kde = kprev.xdg-desktop-portal-kde.overrideAttrs (old: {
-                buildInputs = (old.buildInputs or [ ]) ++ [
-                  prev.pipewire
-                  prev.libxkbcommon
-                  kfinal.kpipewire
-                ];
-              });
-              plasma-wayland-protocols = kprev.plasma-wayland-protocols.overrideAttrs (_: {
-                version = "1.22.0";
-                src = fetchurl {
-                  url = "mirror://kde/stable/plasma-wayland-protocols/plasma-wayland-protocols-1.22.0.tar.xz";
-                  hash = "sha256-9ihYXEwtXjqfRHpidOL1nXgRJy2lV+dTQeNpSKo/nUM=";
-                };
-              });
-              # nixpkgs' plasma-workspace patches target 6.7.5 paths (krdb.cpp,
-              # fontinit.cpp, kcminit unit) that 6.8 beta moved or dropped.
-              plasma-workspace = kprev.plasma-workspace.overrideAttrs (old: {
-                patches =
-                  (builtins.filter (
-                    p:
-                    let
-                      n = baseNameOf (toString p);
-                    in
-                    # store basename is <hash>-dependency-paths.patch
-                    !(lib.hasInfix "dependency-paths.patch" n) && !(lib.hasInfix "fontconfig.patch" n)
-                  ) (old.patches or [ ]))
-                  ++ [
-                    (prev.replaceVars ./pkgs/kwin-tiling/patches/plasma-workspace-6.8-dependency-paths.patch {
-                      fcMatch = lib.getExe' prev.fontconfig "fc-match";
-                      lsof = lib.getExe prev.lsof;
-                      qdbus = lib.getExe' prev.kdePackages.qttools "qdbus";
-                      xmessage = lib.getExe prev.xmessage;
-                      xrdb = lib.getExe prev.xrdb;
-                      QtBinariesDir = null;
-                    })
-                    ./pkgs/kwin-tiling/patches/plasma-workspace-6.8-fontconfig.patch
-                  ];
-                buildInputs = (old.buildInputs or [ ]) ++ map (n: kfinal.${n}) extraKf.plasma-workspace;
-              });
-              kwin = import ./pkgs/kwin-tiling {
-                inherit (prev) lib fetchurl libcap;
-                kdePackages = kfinal // {
-                  kwin = kprev.kwin;
-                };
+      # Drop-in replacement of kdePackages.kwin with the patched build from
+      # invent plasma/kwin master. nixpkgs Plasma 6.8.x satisfies KWin master's
+      # PROJECT_DEP_VERSION (6.7.90), so the rest of Plasma stays on nixpkgs.
+      # ponytail: kwin-only pin. Rebuild plasma-workspace / kglobalacceld from
+      # invent master if a D-Bus mismatch shows up at runtime.
+      # kwin is fed kprev.kwin so the import cannot recurse through kfinal.kwin.
+      overlays.default = _final: prev: {
+        kdePackages = prev.kdePackages.overrideScope (
+          kfinal: kprev: {
+            kwin = import ./pkgs/kwin-tiling {
+              inherit (prev) libcap fetchFromGitLab;
+              kdePackages = kfinal // {
+                kwin = kprev.kwin;
               };
-            }
-            // lib.mapAttrs (
-              name: extras:
-              kprev.${name}.overrideAttrs (old: {
-                buildInputs = (old.buildInputs or [ ]) ++ map (n: kfinal.${n}) extras;
-              })
-            ) (builtins.removeAttrs extraKf [ "plasma-workspace" ])
-          );
-          kwin-effects-tiling-reflow = prev.callPackage ./pkgs/kwin-effects-tiling-reflow { };
-        };
+            };
+          }
+        );
+        kwin-effects-tiling-reflow = prev.callPackage ./pkgs/kwin-effects-tiling-reflow { };
+      };
 
       # Compose onto a host to give it native KWin tiling. Patching kwin rebuilds
       # the compositor and its reverse-deps, so apply it only where you want it

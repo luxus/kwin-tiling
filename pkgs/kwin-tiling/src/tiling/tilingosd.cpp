@@ -21,14 +21,19 @@ namespace KWin
 namespace
 {
 
-QObject *tilingOsdDialog()
+QObject *tilingOsdDialog(Workspace *workspace)
 {
     static QObject *s_dialog = nullptr;
     if (s_dialog) {
         return s_dialog;
     }
 
-    QQmlEngine *engine = Scripting::self()->qmlEngine();
+    // KWin master dropped Scripting::self(); the engine lives on Workspace.
+    Scripting *scripting = workspace->scripting();
+    if (!scripting) {
+        return nullptr;
+    }
+    QQmlEngine *engine = scripting->qmlEngine();
     if (!engine) {
         return nullptr;
     }
@@ -61,7 +66,7 @@ void TilingOsd::show(Workspace *workspace, const QString &text, const QString &i
         return;
     }
 
-    QObject *dialog = tilingOsdDialog();
+    QObject *dialog = tilingOsdDialog(workspace);
     if (!dialog) {
         return;
     }

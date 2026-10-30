@@ -20,10 +20,10 @@ run with it, how Noctalia attaches as the shell, and how logout and shortcuts
 behave. Shortcuts and the tiling KCM are the same as way 1 — see
 [Usage & Shortcuts](usage).
 
-**Tested against:** Plasma / KWin **6.8 beta (6.7.90)** (this flake overlays
-nixpkgs' stable 6.7.x Plasma `sources` plus patched `kdePackages.kwin`). After
-a host switch that rebuilds KWin, **relogin** (or restart the compositor
-session) so the running process picks up the new binary.
+**Tested against:** KWin git master (**6.8.80**) on nixpkgs Plasma 6.8.x (this
+flake replaces `kdePackages.kwin` only). After a host switch that rebuilds
+KWin, **relogin** (or restart the compositor session) so the running process
+picks up the new binary.
 
 ## Production reference (recommended)
 
@@ -299,7 +299,7 @@ Point greetd at the same `Exec=` path, or use a greeter that lists
 
 1. Confirm generation: `readlink /run/current-system`
 2. Confirm binary: `readlink -f /run/current-system/sw/bin/kwin_wayland` (expect
-   `…-kwin-6.7.90…` with your pin)
+   `…-kwin-6.8.80…` with your pin)
 3. **Relogin** into KWin+Noctalia (or Plasma)
 4. Run [session-smoke.md](https://github.com/luxus/kwin-tiling/blob/main/pkgs/kwin-tiling/scripts/session-smoke.md)
 

@@ -12,7 +12,7 @@
 - **Borderless when tiled** — optional setting to hide window decorations while tiled
 - **Resize axis gating** — split updates only apply to the axis actually dragged
 - **Retile** — `Meta+Shift+R` rebuilds the active screen's layout when tiles and windows drift out of sync
-- **Packaging** — vendored source + small hooks patch over stock KWin (6.8 beta / 6.7.90); ships as a Nix flake module/overlay
+- **Packaging** — vendored source + small hooks patch over KWin git master (6.8.80); ships as a Nix flake module/overlay
 - **Tiling Reflow effect** — optional `kwin-effects-tiling-reflow` plugin; reads `WindowTilingReflowRole` when present
 - **Testable pure core** — column/grid/master-stack/scrolling math, slotlist, overflow Path A, layout/sizing
   precedence, scrolling drop-insert, scrollingmove, viewportmath, engineindex,
